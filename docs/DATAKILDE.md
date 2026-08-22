@@ -47,6 +47,17 @@ Preview kaller Google direkte (ikke `/gas-api`). Du skal se data fra arket, ikke
 
 `GEMINI_API_KEY` og `APP_URL` brukes ikke av datalaget mot Sheets.
 
+## Nye ark-faner (Programmal)
+
+`Malaktiviteter`, `Programaktiviteter` og `Programinstanser` opprettes automatisk av Apps Script (`ensureSchema_`) ved `load`/`save`. Etter kodeendring i `apps-script/Kode.gs` må backend publiseres på nytt:
+
+```bash
+npm run apps-script:push
+npm run apps-script:deploy
+```
+
+Før deploy finnes ikke fanene i menighetsarket. Frontend tåler tomme lister.
+
 ## Hvordan verifisere produksjonsflyten før deployment
 
 1. Localhost + mock: `npm run dev` uten flagg — mock-personer (f.eks. Magnar Totland P001).

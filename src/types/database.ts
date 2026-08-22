@@ -192,3 +192,42 @@ export interface RollebeskrivelseImport {
   FullBeskrivelse: string;
   SjekklisteGammel?: string;
 }
+
+/** Standard kjøreplan (én mal). Personer lagres ikke — vises fra Tildelinger på gudstjenesten. */
+export interface MalAktivitet {
+  MalAktivitetID: string; // e.g. "MA001"
+  Rekkefolge: number;
+  Tittel: string;
+  VarighetMin: number;
+  RolleID?: string;
+  ForStart: boolean;
+  Merknad?: string;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+/** Kopi av malen tilpasset én gudstjeneste. Klokkeslett beregnes, lagres ikke. */
+export interface ProgramAktivitet {
+  ProgramAktivitetID: string; // e.g. "PA001"
+  GudstjenesteID: string;
+  Rekkefolge: number;
+  Tittel: string;
+  VarighetMin: number;
+  RolleID?: string;
+  ForStart: boolean;
+  Merknad?: string;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+export type ProgramStatus = "Utkast" | "Publisert";
+
+/** Én rad per gudstjeneste som har program. Uten rad er programmet ikke synlig. */
+export interface Programinstans {
+  GudstjenesteID: string;
+  Status: ProgramStatus;
+  PublisertDato?: string;
+  PublisertAv?: string;
+  OpprettetDato: string;
+  SistEndret: string;
+}

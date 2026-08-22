@@ -16,6 +16,8 @@ import {
   tildelEksternPerson,
   erEksternPersonId,
   sikreGruppemedlemskap,
+  kanRedigereProgram,
+  visProgramIkon,
   AppView,
 } from "../services/dataService";
 import { Person, Rolle, Tjenestebehov } from "../types/database";
@@ -25,6 +27,7 @@ import {
   GudstjenesteRolleOversikt,
   RolleOversiktNavn,
 } from "./GudstjenesteRolleOversikt";
+import { ProgramLeserModal } from "./ProgramLeserModal";
 import {
   GroupLeaderGuide,
 } from "./GroupLeaderGuide";
@@ -45,6 +48,8 @@ import {
   CircleHelp,
   ChevronDown,
   ChevronRight,
+  Pencil,
+  ScrollText,
 } from "lucide-react";
 
 interface GroupLeaderViewProps {
@@ -158,6 +163,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [guideOpen, setGuideOpen] = useState(false);
   const [apneGudstjenester, setApneGudstjenester] = useState<string[]>([]);
   const [visTidligere, setVisTidligere] = useState(false);
+  const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
 
   const lukkVeiledning = () => {
     setGuideOpen(false);
@@ -516,11 +522,12 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           visAlleTall && komplett ? "opacity-80" : ""
         }`}
       >
+        <div className="flex items-stretch">
         <button
           type="button"
           onClick={() => vekselApne(gudstjeneste.GudstjenesteID)}
           aria-expanded={erApen}
-          className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50/80 cursor-pointer"
+          className="flex-1 min-w-0 text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50/80 cursor-pointer"
         >
           {erApen ? (
             <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
@@ -562,6 +569,28 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             )}
           </div>
         </button>
+        {visProgramIkon(db, selectedPersonId, gudstjeneste.GudstjenesteID) && (
+          <div className="flex items-center pr-3">
+            <IkonHandling
+              label={
+                kanRedigereProgram(db, selectedPersonId, gudstjeneste.GudstjenesteID)
+                  ? "Rediger gudstjenesteprogram"
+                  : "Åpne gudstjenesteprogram"
+              }
+              Icon={
+                kanRedigereProgram(db, selectedPersonId, gudstjeneste.GudstjenesteID)
+                  ? Pencil
+                  : ScrollText
+              }
+              variant="sky"
+              onClick={(e) => {
+                e.stopPropagation();
+                setLeserGudstjenesteId(gudstjeneste.GudstjenesteID);
+              }}
+            />
+          </div>
+        )}
+        </div>
 
         {erApen && (
           <div className="border-t border-slate-100 px-4 pb-2.5 pt-1">
@@ -1202,6 +1231,23 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           onClose={() => setSelectedRolleForModal(null)}
         />
       )}
+
+      {leserGudstjenesteId &&
+        (() => {
+          const gud = db.gudstjenester.find((g) => g.GudstjenesteID === leserGudstjenesteId);
+          if (!gud) return null;
+          return (
+            <ProgramLeserModal
+              db={db}
+              gudstjeneste={gud}
+              uthevPersonId={selectedPersonId}
+              selectedPersonId={selectedPersonId}
+              redigerbar={kanRedigereProgram(db, selectedPersonId, gud.GudstjenesteID)}
+              onClose={() => setLeserGudstjenesteId(null)}
+              onUpdateDb={onUpdateDb}
+            />
+          );
+        })()}
 
       <GroupLeaderGuide open={guideOpen} onClose={lukkVeiledning} />
     </div>

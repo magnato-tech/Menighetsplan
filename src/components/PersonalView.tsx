@@ -5,18 +5,23 @@ import {
   hentSvarStatus,
   svarPaaTildeling,
   velgDatoForPerson,
+  kanRedigereProgram,
+  visProgramIkon,
 } from "../services/dataService";
 import { Rolle } from "../types/database";
 import { RoleDescriptionModal } from "./RoleDescriptionModal";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { GudstjenesteRolleOversikt } from "./GudstjenesteRolleOversikt";
+import { ProgramLeserModal } from "./ProgramLeserModal";
 import {
   Clock3,
   Check,
   X,
   Plus,
   Info,
+  Pencil,
+  ScrollText,
 } from "lucide-react";
 
 interface PersonalViewProps {
@@ -91,6 +96,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   const [showDatePickerForRolle, setShowDatePickerForRolle] = useState<Rolle | null>(null);
   const [datePickerFilter, setDatePickerFilter] = useState<"ledige" | "mine" | "alle">("alle");
   const [visAlleFor, setVisAlleFor] = useState<Record<string, boolean>>({});
+  const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
 
   const openDatePicker = (rolle: Rolle) => {
     setDatePickerFilter("alle");
@@ -270,8 +276,8 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                   key={gudstjeneste.GudstjenesteID}
                   className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
                 >
-                  <div className="px-4 sm:px-5 pt-2.5 pb-1.5">
-                    <p className="text-xs sm:text-sm text-slate-700 truncate">
+                  <div className="px-4 sm:px-5 pt-2.5 pb-1.5 flex items-start justify-between gap-2">
+                    <p className="text-xs sm:text-sm text-slate-700 truncate min-w-0">
                       <span className="font-semibold text-[#2d5a3f]">
                         {formatDato(gudstjeneste.Dato)}
                         {gudstjeneste.Tid ? ` · kl. ${gudstjeneste.Tid}` : ""}
@@ -284,6 +290,22 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                         <span className="text-slate-500"> · {gudstjeneste.Sted}</span>
                       ) : null}
                     </p>
+                    {visProgramIkon(db, person.PersonID, gudstjeneste.GudstjenesteID) && (
+                      <IkonHandling
+                        label={
+                          kanRedigereProgram(db, person.PersonID, gudstjeneste.GudstjenesteID)
+                            ? "Rediger gudstjenesteprogram"
+                            : "Åpne gudstjenesteprogram"
+                        }
+                        Icon={
+                          kanRedigereProgram(db, person.PersonID, gudstjeneste.GudstjenesteID)
+                            ? Pencil
+                            : ScrollText
+                        }
+                        variant="sky"
+                        onClick={() => setLeserGudstjenesteId(gudstjeneste.GudstjenesteID)}
+                      />
+                    )}
                   </div>
 
                   {mine.length > 0 && (
@@ -581,6 +603,23 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           onClose={() => setSelectedRolleForModal(null)}
         />
       )}
+
+      {leserGudstjenesteId &&
+        (() => {
+          const gud = db.gudstjenester.find((g) => g.GudstjenesteID === leserGudstjenesteId);
+          if (!gud) return null;
+          return (
+            <ProgramLeserModal
+              db={db}
+              gudstjeneste={gud}
+              uthevPersonId={person.PersonID}
+              selectedPersonId={person.PersonID}
+              redigerbar={kanRedigereProgram(db, person.PersonID, gud.GudstjenesteID)}
+              onClose={() => setLeserGudstjenesteId(null)}
+              onUpdateDb={onUpdateDb}
+            />
+          );
+        })()}
     </div>
   );
 };

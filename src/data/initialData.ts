@@ -21,6 +21,7 @@ import {
   PersonerImport,
   GudstjenesterImport,
   RollebeskrivelseImport,
+  MalAktivitet,
 } from "../types/database";
 
 export const initialGruppetyper: Gruppetype[] = [
@@ -804,3 +805,49 @@ export const initialRollebeskrivelseImport: RollebeskrivelseImport[] = [
   { RolleID: "R001", Rollenavn: "Møteleder", FullBeskrivelse: "Møteleder har hovedansvar for helheten i gudstjenesten.", SjekklisteGammel: "Møt 45 min før; Sjekk kjøreplan; Ønsk velkommen; Be for møtet; Avslutt med velsignelsen" },
   { RolleID: "R005", Rollenavn: "Lovsang", FullBeskrivelse: "Lovsangsteamet leder menighetens sang og tilbedelse.", SjekklisteGammel: "Lydprøve kl 09:30; 4-6 sanger; Samarbeid med møteleder" },
 ];
+
+const MAL_DATO = "2026-01-10";
+
+function mal(
+  id: string,
+  rekkefolge: number,
+  tittel: string,
+  varighet: number,
+  rolleId: string,
+  forStart = false
+): MalAktivitet {
+  return {
+    MalAktivitetID: id,
+    Rekkefolge: rekkefolge,
+    Tittel: tittel,
+    VarighetMin: varighet,
+    RolleID: rolleId,
+    ForStart: forStart,
+    Merknad: "",
+    OpprettetDato: MAL_DATO,
+    SistEndret: MAL_DATO,
+  };
+}
+
+/** Standard kjøreplan (18 brikker) — personer fylles fra tildelinger per gudstjeneste. */
+export const initialMalaktiviteter: MalAktivitet[] = [
+  mal("MA001", 1, "Velkommen ved inngang", 15, "R008", true),
+  mal("MA002", 2, "Lovsang x2", 7, "R005"),
+  mal("MA003", 3, "Velkommen. Åpningsord", 3, "R001"),
+  mal("MA004", 4, "Bønn", 2, "R001"),
+  mal("MA005", 5, "Kunngjøringer", 3, "R001"),
+  mal("MA006", 6, "Lovsang x3", 10, "R005"),
+  mal("MA007", 7, "Barnekirke", 2, "R004"),
+  mal("MA008", 8, "Kaffe / te-påfyll", 8, "R008"),
+  mal("MA009", 9, "Bønn før tale", 2, "R001"),
+  mal("MA010", 10, "Tale / undervisning", 20, "R002"),
+  mal("MA011", 11, "Lovsang", 5, "R005"),
+  mal("MA012", 12, "Nattverd og presentasjon av bønnestasjoner (3stk)", 8, ""),
+  mal("MA013", 13, "Forbønn", 7, "R003"),
+  mal("MA014", 14, "Kollekt", 2, "R001"),
+  mal("MA015", 15, "Lovsang x2", 7, "R005"),
+  mal("MA016", 16, "Velsignelsen", 1, "R001"),
+  mal("MA017", 17, "Lovsang (avslutningssang)", 2, "R005"),
+  mal("MA018", 18, "Kirkekaffe", 0, "R008"),
+];
+

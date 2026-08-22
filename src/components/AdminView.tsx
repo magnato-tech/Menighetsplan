@@ -36,6 +36,8 @@ import { NewGroupModal } from "./NewGroupModal";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { BelastningView } from "./BelastningView";
+import { ProgrammalAdminView } from "./ProgrammalAdminView";
+import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
 import {
   Calendar,
   Users,
@@ -70,6 +72,7 @@ interface AdminViewProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   onSelectPerson: (personId: string, view?: AppView) => void;
+  selectedPersonId?: string;
   dataSource?: "mock" | "remote";
   onSwitchDataSource?: (source: "mock" | "remote") => void;
 }
@@ -232,11 +235,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
   db,
   onUpdateDb,
   onSelectPerson,
+  selectedPersonId,
   dataSource = "mock",
   onSwitchDataSource,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    "services" | "belastning" | "people" | "groups" | "roles" | "sync"
+    "services" | "belastning" | "people" | "groups" | "roles" | "programmal" | "sync"
   >("services");
   const [groupTypeFilter, setGroupTypeFilter] = useState("tjenestegruppe");
   const [detailGruppeId, setDetailGruppeId] = useState<string | null>(null);
@@ -289,6 +293,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [visTidligere, setVisTidligere] = useState(false);
   const [folgOppLederId, setFolgOppLederId] = useState<string | null>(null);
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
+  const [gudstjenesteKortFane, setGudstjenesteKortFane] = useState<
+    Record<string, "bemanning" | "kjoreplan">
+  >({});
 
   const ukjenteImportnavn = finnUkjenteImportnavn(db);
 
@@ -985,6 +992,46 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
         {erApen && (
           <div className="border-t border-slate-100">
+            <div className="flex border-b border-slate-100 px-2">
+              {(
+                [
+                  ["bemanning", "Bemanning"],
+                  ["kjoreplan", "Kjøreplan"],
+                ] as const
+              ).map(([id, label]) => {
+                const aktiv = (gudstjenesteKortFane[gudstjeneste.GudstjenesteID] || "bemanning") === id;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setGudstjenesteKortFane((prev) => ({
+                        ...prev,
+                        [gudstjeneste.GudstjenesteID]: id,
+                      }));
+                    }}
+                    className={`px-3 py-2 text-xs font-semibold cursor-pointer ${
+                      aktiv
+                        ? "text-[#2d5a3f] border-b-2 border-[#2d5a3f]"
+                        : "text-slate-500 hover:text-slate-800"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+            {(gudstjenesteKortFane[gudstjeneste.GudstjenesteID] || "bemanning") === "kjoreplan" ? (
+              <GudstjenesteProgramView
+                db={db}
+                gudstjeneste={gudstjeneste}
+                redigerbar
+                selectedPersonId={selectedPersonId}
+                onUpdateDb={onUpdateDb}
+              />
+            ) : (
+              <>
             {(gudstjeneste.Bibeltekst || gudstjeneste.Kollekt) && (
               <div className="px-4 py-2 text-xs text-slate-600 flex flex-wrap gap-3 bg-slate-50/50">
                 {gudstjeneste.Bibeltekst && (
@@ -1074,6 +1121,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 <p className="px-4 py-4 text-sm text-slate-500">Ingen roller med behov denne dagen.</p>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -1182,6 +1231,18 @@ export const AdminView: React.FC<AdminViewProps> = ({
         >
           <Layers className="w-4 h-4" />
           <span>Roller ({db.roller.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab("programmal")}
+          className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 cursor-pointer transition ${
+            activeTab === "programmal"
+              ? "border-[#2d5a3f] text-[#2d5a3f]"
+              : "border-transparent text-slate-600 hover:text-slate-900"
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>Programmal ({db.malaktiviteter.length})</span>
         </button>
 
         <button
@@ -1886,6 +1947,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
             })}
           </div>
         </div>
+      )}
+
+      {activeTab === "programmal" && (
+        <ProgrammalAdminView db={db} onUpdateDb={onUpdateDb} />
       )}
 
       {/* FANE 5: GOOGLE SHEETS & SYNKKONTROLL */}

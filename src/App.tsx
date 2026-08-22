@@ -313,6 +313,7 @@ export default function App() {
             db={db}
             onUpdateDb={handleUpdateDb}
             onSelectPerson={handleAdminSimulatePerson}
+            selectedPersonId={selectedPersonId}
             onSwitchDataSource={handleSwitchDataSource}
             dataSource={dataSource}
           />

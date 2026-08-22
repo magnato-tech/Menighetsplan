@@ -293,6 +293,14 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           <div className="text-xs text-slate-500 font-medium">Tildelinger & Svar</div>
           <div className="text-xl font-bold text-slate-900 mt-1">{db.tildelinger.length}</div>
         </div>
+        <div className="bg-white border border-slate-200 p-4 rounded-xl">
+          <div className="text-xs text-slate-500 font-medium">Malaktiviteter</div>
+          <div className="text-xl font-bold text-slate-900 mt-1">{db.malaktiviteter.length}</div>
+        </div>
+        <div className="bg-white border border-slate-200 p-4 rounded-xl">
+          <div className="text-xs text-slate-500 font-medium">Programaktiviteter</div>
+          <div className="text-xl font-bold text-slate-900 mt-1">{db.programaktiviteter.length}</div>
+        </div>
       </div>
     </div>
   );

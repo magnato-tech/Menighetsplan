@@ -86,6 +86,33 @@ var MASTER_SHEETS = {
     name: "Svar",
     columns: ["SvarID", "TildelingID", "PersonID", "Svar", "Kommentar", "SvartDato"],
   },
+  malaktiviteter: {
+    name: "Malaktiviteter",
+    columns: [
+      "MalAktivitetID", "Rekkefolge", "Tittel", "VarighetMin", "RolleID",
+      "ForStart", "Merknad", "OpprettetDato", "SistEndret",
+    ],
+    booleans: ["ForStart"],
+    falseBooleans: ["ForStart"],
+    numbers: ["Rekkefolge", "VarighetMin"],
+  },
+  programaktiviteter: {
+    name: "Programaktiviteter",
+    columns: [
+      "ProgramAktivitetID", "GudstjenesteID", "Rekkefolge", "Tittel", "VarighetMin",
+      "RolleID", "ForStart", "Merknad", "OpprettetDato", "SistEndret",
+    ],
+    booleans: ["ForStart"],
+    falseBooleans: ["ForStart"],
+    numbers: ["Rekkefolge", "VarighetMin"],
+  },
+  programinstanser: {
+    name: "Programinstanser",
+    columns: [
+      "GudstjenesteID", "Status", "PublisertDato", "PublisertAv",
+      "OpprettetDato", "SistEndret",
+    ],
+  },
 };
 
 /** Kolonner F–Q i Gudstjenester_import → Roller.RolleID */
@@ -366,11 +393,14 @@ function coerce_(col, val, spec) {
   if (val === null || val === undefined) return "";
   var text = String(val).trim();
   var booleans = spec.booleans || [];
+  var falseBooleans = spec.falseBooleans || [];
   var numbers = spec.numbers || [];
 
   if (booleans.indexOf(col) >= 0) {
     // Tom Aktiv-celle i arket betyr «ikke satt» — da er raden aktiv.
-    return asBool_(text, true);
+    // ForStart og liknende flagg skal være false når cellen er tom.
+    var emptyDefault = falseBooleans.indexOf(col) >= 0 ? false : true;
+    return asBool_(text, emptyDefault);
   }
   if (numbers.indexOf(col) >= 0) {
     if (text === "") return col === "Fødselsår" ? "" : 0;

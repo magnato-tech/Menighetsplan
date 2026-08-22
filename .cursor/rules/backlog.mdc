@@ -5,12 +5,18 @@ alwaysApply: true
 
 # Backlog
 
-## Program Mal (utsatt)
+## Programmal og kjøreplan (v2)
 
-Ikke bygg Admin-fanen «Program Mal» ennå.
+Første versjon er inne: admin-fanen **Programmal**, per-gudstjeneste **Programaktiviteter**, **Programinstanser** (utkast/publisert), ikon for deltakere og A4-PDF via utskrift. Tildelt møteleder (ikke avvist) kan opprette fra mal, redigere og publisere **sin** søndag; standardmalen er fortsatt kun admin.
 
-- Ingen tabell for liturgi/kjøreplan i arket i dag.
-- Malen skal senere vise deltakere når de er inne i programmet. Det henger sammen med visning mot Tildelinger, ikke med bemanning alene.
-- Per-gudstjeneste-tilpasning er bevisst ute.
+Ikke i v1:
 
-Når det tas: én standardmal, ny fane **Malaktiviteter** (MalAktivitetID, Rekkefolge, Tittel, VarighetMin, RolleID, Merknad). Flyttbare brikker. Kun Roller på linjene, ikke faste personer. Ikke flere maltyper, serieplanlegging eller kopi per gudstjeneste i første versjon.
+- Flere maltyper eller serieplanlegging
+- Endringslogg
+- Tilgang til admin-fanen Programmal for møteleder
+- Ny app-visning «Møteleder»
+- Gruppeleder for G001 uten tildeling den søndagen
+- Frysing av navn ved publisering
+- PersonID på mal-linjer
+- Parallelle spor (f.eks. barnekirke under talen)
+- Én-klikks PDF-fil uten nettleserens utskriftsdialog
