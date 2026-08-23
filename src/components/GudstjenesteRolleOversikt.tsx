@@ -115,7 +115,7 @@ export const GudstjenesteRolleOversikt: React.FC<GudstjenesteRolleOversiktProps>
           return null;
         }
         if (gjelderFilter && filter === "ledige") {
-          const behov = getEffektivtBehov(gudstjenesteId, rolle, db.tjenestebehov);
+          const behov = getEffektivtBehov(db, gudstjenesteId, rolle);
           const bekreftet = allePersoner.filter((p) => p.status === "Bekreftet").length;
           if (ledigePlasserForRolle(behov, bekreftet) <= 0) return null;
         }

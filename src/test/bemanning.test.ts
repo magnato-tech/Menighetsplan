@@ -17,6 +17,7 @@ import {
   tomtBemanningstall,
   belastningForSemester,
   situasjonRollerForGudstjeneste,
+  getEffektivtBehov,
 } from "../services/dataService";
 import { personerIRolle } from "../components/GudstjenesteRolleOversikt";
 import { Rolle, Person, Tildeling, Svar } from "../types/database";
@@ -134,6 +135,26 @@ function test(name: string, _hypothesisId: string, fn: () => void) {
 }
 
 const rolle = () => tomDb().roller[0];
+
+test("getEffektivtBehov: rolle.Behov uten overstyring, Antall med aktiv overstyring", "A", () => {
+  let db = tomDb();
+  assert.equal(getEffektivtBehov(db, "GUD001", rolle()), 2);
+  db = {
+    ...db,
+    tjenestebehov: [
+      {
+        TjenestebehovID: "TB1",
+        GudstjenesteID: "GUD001",
+        RolleID: "R009",
+        Antall: 4,
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+  };
+  assert.equal(getEffektivtBehov(db, "GUD001", rolle()), 4);
+});
 
 test("A: venter fyller ikke grønt / ledige = behov − bekreftet", "A", () => {
   let db = tomDb();

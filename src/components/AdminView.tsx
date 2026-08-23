@@ -753,7 +753,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   };
 
   const renderRolleRad = (gudstjenesteId: string, rolle: Rolle) => {
-    const effektivtBehov = getEffektivtBehov(gudstjenesteId, rolle, db.tjenestebehov);
+    const effektivtBehov = getEffektivtBehov(db, gudstjenesteId, rolle);
     const isOverridden = db.tjenestebehov.some(
       (tb) =>
         tb.GudstjenesteID === gudstjenesteId && tb.RolleID === rolle.RolleID && tb.Aktiv

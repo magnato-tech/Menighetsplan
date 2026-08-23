@@ -101,7 +101,7 @@ function rolleRaderForSondag(
 ): RolleRad[] {
   return gruppensRoller
     .map((rolle) => {
-      const minBehov = getEffektivtBehov(gudstjenesteId, rolle, db.tjenestebehov);
+      const minBehov = getEffektivtBehov(db, gudstjenesteId, rolle);
       const tildelinger = db.tildelinger.filter(
         (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID
       );

@@ -70,7 +70,7 @@ function byggPåmeldingsrader(
         })
         .filter((x): x is { personId: string; navn: string; status: "Bekreftet" | "Venter" } => x !== null);
 
-      const behov = getEffektivtBehov(g.GudstjenesteID, rolle, db.tjenestebehov);
+      const behov = getEffektivtBehov(db, g.GudstjenesteID, rolle);
       const bekreftetAntall = personerPå.filter((p) => p.status === "Bekreftet").length;
       const ledige = Math.max(0, behov - bekreftetAntall);
       const min = personerPå.find((p) => p.personId === personId);

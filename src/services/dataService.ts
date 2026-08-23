@@ -866,52 +866,17 @@ export async function resetDatabase(): Promise<DatabaseState> {
  * Hvis ikke, brukes Roller.Behov.
  */
 export function getEffektivtBehov(
-  arg1: string | DatabaseState,
-  arg2: Rolle | string,
-  arg3?: Tjenestebehov[] | string | DatabaseState | Rolle
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolle: Rolle
 ): number {
-  // Case 1: getEffektivtBehov(db, gudstjenesteID, rolleID)
-  if (typeof arg1 === "object" && arg1 !== null && "tjenestebehov" in arg1) {
-    const db = arg1 as DatabaseState;
-    const gudstjenesteID = String(arg2 || "");
-    let rolleID = "";
-    if (typeof arg3 === "string") {
-      rolleID = arg3;
-    } else if (arg3 && typeof arg3 === "object" && "RolleID" in arg3) {
-      rolleID = (arg3 as Rolle).RolleID;
-    }
-    const rolle = db.roller.find((r) => r.RolleID === rolleID);
-    const overstyring = (db.tjenestebehov || []).find(
-      (tb) =>
-        tb.GudstjenesteID === gudstjenesteID &&
-        tb.RolleID === rolleID &&
-        tb.Aktiv
-    );
-    return overstyring !== undefined ? overstyring.Antall : (rolle?.Behov ?? 1);
-  }
-
-  // Case 2: getEffektivtBehov(gudstjenesteID, rolle, tjenestebehovListe)
-  const gudstjenesteID = String(arg1 || "");
-  const rolleObj = typeof arg2 === "object" && arg2 !== null ? (arg2 as Rolle) : null;
-  const rolleID = rolleObj ? rolleObj.RolleID : String(arg2 || "");
-
-  let tjenestebehovListe: Tjenestebehov[] = [];
-  if (Array.isArray(arg3)) {
-    tjenestebehovListe = arg3;
-  } else if (arg3 && typeof arg3 === "object" && "tjenestebehov" in arg3) {
-    tjenestebehovListe = (arg3 as DatabaseState).tjenestebehov || [];
-  }
-
-  const overstyring = tjenestebehovListe.find(
+  const overstyring = (db.tjenestebehov || []).find(
     (tb) =>
-      tb.GudstjenesteID === gudstjenesteID &&
-      tb.RolleID === rolleID &&
+      tb.GudstjenesteID === gudstjenesteId &&
+      tb.RolleID === rolle.RolleID &&
       tb.Aktiv
   );
-  if (overstyring !== undefined) {
-    return overstyring.Antall;
-  }
-  return rolleObj ? rolleObj.Behov : 1;
+  return overstyring !== undefined ? overstyring.Antall : rolle.Behov;
 }
 
 export function hentSvarStatus(db: DatabaseState, tildelingId: string): SvarStatus {
@@ -1051,7 +1016,7 @@ export function situasjonRollerForGudstjeneste(
           navn: tildelingVisningsnavn(db, t),
           status: hentSvarStatus(db, t.TildelingID),
         }));
-      const behov = getEffektivtBehov(gudstjenesteId, rolle, db.tjenestebehov);
+      const behov = getEffektivtBehov(db, gudstjenesteId, rolle);
       return { rolle, personer, vis: behov > 0 || personer.length > 0 };
     })
     .filter((r) => r.vis);
@@ -1277,7 +1242,7 @@ export function summerBemanning(
 ): Bemanningstall {
   const totalt = tomtBemanningstall();
   for (const rolle of roller) {
-    const behov = getEffektivtBehov(gudstjenesteId, rolle, db.tjenestebehov);
+    const behov = getEffektivtBehov(db, gudstjenesteId, rolle);
     totalt.behov += behov;
     const tildelinger = db.tildelinger.filter(
       (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID
@@ -1422,7 +1387,7 @@ export function beregnLedigeOppgaver(
 
   for (const g of gudstjenester) {
     for (const r of aktiveRoller) {
-      const effektivtBehov = getEffektivtBehov(g.GudstjenesteID, r, db.tjenestebehov);
+      const effektivtBehov = getEffektivtBehov(db, g.GudstjenesteID, r);
 
       // Finn tildelinger for denne gudstjenesten og rollen
       const tildelingerForRolle = db.tildelinger.filter(

@@ -34,7 +34,7 @@ import { Startside } from "./components/Startside";
 import { PersonalView } from "./components/PersonalView";
 import { GroupLeaderView } from "./components/GroupLeaderView";
 import { AdminView } from "./components/AdminView";
-import { Shield, ArrowLeft, Lock } from "lucide-react";
+import { Shield, ArrowLeft } from "lucide-react";
 
 export default function App() {
   const [dataSource, setDataSource] = useState<DevDataSource>(() => getDevDataSource());
@@ -52,12 +52,6 @@ export default function App() {
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
   const [adminSimulatingPersonId, setAdminSimulatingPersonId] = useState<string | null>(null);
 
-  // Arkitektur for fremtidig PIN-sikring av administrator (deaktivert i test/dev-periode)
-  const [adminPinRequired, setAdminPinRequired] = useState<boolean>(false);
-  const [adminPinVerified, setAdminPinVerified] = useState<boolean>(false);
-  const [showPinModal, setShowPinModal] = useState<boolean>(false);
-  const [pinInput, setPinInput] = useState<string>("");
-  const [pinError, setPinError] = useState<string | null>(null);
   const harValgtStartvisning = useRef(false);
   const [viserStartside, setViserStartside] = useState(() => {
     const remote = import.meta.env.PROD || getDevDataSource() === "remote";
@@ -267,25 +261,7 @@ export default function App() {
   const handleNavigateView = (view: AppView) => {
     if (!db) return;
     if (!visningErTillatt(hentTilgang(db, selectedPersonId), view)) return;
-    if (view === "admin" && adminPinRequired && !adminPinVerified) {
-      setShowPinModal(true);
-      return;
-    }
     setActiveView(view);
-  };
-
-  const handleVerifyPin = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Standard test-PIN hvis aktivert er 1234 eller menighetskode
-    if (pinInput === "1234" || pinInput === "2026") {
-      setAdminPinVerified(true);
-      setShowPinModal(false);
-      setPinError(null);
-      setPinInput("");
-      setActiveView("admin");
-    } else {
-      setPinError("Feil PIN-kode. Prøv igjen.");
-    }
   };
 
   const handleUpdateDb = (updatedDb: DatabaseState) => {
@@ -475,62 +451,6 @@ export default function App() {
           />
         )}
       </main>
-
-      {/* Forberedt PIN-kode dialog (aktiveres ved behov) */}
-      {showPinModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto mb-4 border border-amber-200">
-              <Lock className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 text-center mb-1">
-              Administrator-adgang
-            </h3>
-            <p className="text-xs text-slate-500 text-center mb-4">
-              Tast inn administrator-PIN for å åpne planleggingspanelet.
-            </p>
-            <form onSubmit={handleVerifyPin} className="space-y-4">
-              <div>
-                <input
-                  type="password"
-                  autoFocus
-                  placeholder="PIN-kode (f.eks. 1234)"
-                  value={pinInput}
-                  onChange={(e) => {
-                    setPinInput(e.target.value);
-                    setPinError(null);
-                  }}
-                  className="w-full text-center tracking-widest text-lg font-mono px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f] focus:border-transparent"
-                />
-                {pinError && (
-                  <p className="text-xs text-rose-600 font-medium mt-1.5 text-center">
-                    {pinError}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPinModal(false);
-                    setPinInput("");
-                    setPinError(null);
-                  }}
-                  className="flex-1 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 cursor-pointer"
-                >
-                  Avbryt
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-4 py-2 rounded-xl bg-[#2d5a3f] hover:bg-[#234731] text-white font-semibold text-xs transition cursor-pointer shadow-sm"
-                >
-                  Lås opp
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* Enkel, ren bunntekst */}
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
