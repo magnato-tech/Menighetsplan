@@ -12,6 +12,7 @@ import {
   finnAdministratorMedEpost,
   switchDevDataSource,
   getDevDataSource,
+  setDevDataSource,
   type DevDataSource,
 } from "./services/dataService";
 import {
@@ -98,6 +99,9 @@ export default function App() {
     }
     if (!harApiIdentitet()) {
       setIsLoadingRemote(false);
+      setStartFeil(
+        "Ekte data krever din personlige admin-lenke. Lim den inn under, eller åpne lenken du har fått."
+      );
       setViserStartside(true);
       harValgtStartvisning.current = true;
       return;
@@ -122,6 +126,19 @@ export default function App() {
 
   const handleSwitchDataSource = (source: DevDataSource) => {
     if (import.meta.env.PROD) return;
+    if (source === "remote" && !harApiIdentitet()) {
+      setDevDataSource("remote");
+      setDataSource("remote");
+      setDb(null);
+      setIsLoadingRemote(false);
+      setLoadError(null);
+      setStartFeil(
+        "Ekte data krever din personlige admin-lenke. Lim den inn under, eller åpne lenken du har fått."
+      );
+      setViserStartside(true);
+      harValgtStartvisning.current = true;
+      return;
+    }
     if (source === "remote") {
       setDb(null);
       setIsLoadingRemote(true);

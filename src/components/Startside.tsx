@@ -103,8 +103,8 @@ export const Startside: React.FC<StartsideProps> = ({
           </div>
 
           <p className="text-sm text-slate-600">
-            Du trenger din personlige lenke for å se dine oppgaver. Administrator logger inn med
-            Google.
+            Du trenger din personlige lenke for å se dine oppgaver og for å hente ekte data fra
+            arket. Administrator logger inn med Google når det er satt opp.
           </p>
 
           {feilmelding && (
@@ -158,7 +158,7 @@ export const Startside: React.FC<StartsideProps> = ({
                 onClick={onFortsettLokalt}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-sm font-semibold cursor-pointer"
               >
-                Åpne lokalt som administrator (mock)
+                Tilbake til mock-data (uten Google-ark)
               </button>
             )}
           </div>

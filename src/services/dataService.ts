@@ -703,8 +703,58 @@ export async function uploadToGoogleSheets(state: DatabaseState, customUrl?: str
     } else {
       return { success: false, error: payload?.error || "Google Sheets svarte ikke med OK." };
     }
-  } catch (e) {
+    } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Engangsimport: overskriv master fra fanen Gudstjenester_import. */
+export async function overskrivFraGudstjenesterImport(): Promise<{
+  success: boolean;
+  report?: Record<string, unknown>;
+  error?: string;
+}> {
+  if (!shouldWriteToRemote()) {
+    return {
+      success: false,
+      error: "Mock-modus skriver ikke til arket. Velg «Ekte data» først.",
+    };
+  }
+  const base = getApiBase();
+  if (!base) {
+    return { success: false, error: "Mangler Apps Script-URL." };
+  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  try {
+    const response = await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "migrateImport",
+        overwrite: true,
+        dryRun: false,
+        ...requireRemoteAuth(),
+      }),
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    if (!text.trim()) {
+      return { success: false, error: "Tomt svar fra Google Sheets." };
+    }
+    const payload = JSON.parse(text);
+    if (payload?.ok) {
+      return { success: true, report: payload.report };
+    }
+    return { success: false, error: payload?.error || "Importen ble avvist." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { success: false, error: "Tidsavbrudd under import (90 s). Prøv igjen." };
+    }
+    return { success: false, error: msg };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

@@ -1031,8 +1031,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
               />
             ) : (
               <>
-            {(gudstjeneste.Bibeltekst || gudstjeneste.Kollekt) && (
-              <div className="px-4 py-2 text-xs text-slate-600 flex flex-wrap gap-3 bg-slate-50/50">
+            {(gudstjeneste.Bibeltekst || gudstjeneste.Kollekt || gudstjeneste.Merknad) && (
+              <div className="px-4 py-2 text-xs text-slate-600 flex flex-col gap-1 bg-slate-50/50">
+                <div className="flex flex-wrap gap-3">
                 {gudstjeneste.Bibeltekst && (
                   <span>
                     Bibeltekst:{" "}
@@ -1043,6 +1044,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <span>
                     Kollekt:{" "}
                     <span className="font-medium text-[#2d5a3f]">{gudstjeneste.Kollekt}</span>
+                  </span>
+                )}
+                </div>
+                {gudstjeneste.Merknad && (
+                  <span>
+                    Merknad:{" "}
+                    <span className="font-medium text-slate-800">{gudstjeneste.Merknad}</span>
                   </span>
                 )}
               </div>
@@ -2393,7 +2401,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         );
       })()}
 
-      {/* MODAL: Kildedata & Migrering */}
+      {/* MODAL: Import fra Excel-faner */}
       {showImportModal && (
         <ImportMigrationModal
           db={db}

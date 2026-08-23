@@ -138,7 +138,9 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-3">
           <h3 className="text-sm font-bold text-slate-800">Datakilde (utvikling)</h3>
           <p className="text-xs text-slate-600">
-            Mock-data fyller appen med testdata og leser/skriver aldri Google Sheets. Ekte data henter og lagrer mot menighetsarket.
+            Mock-data fyller appen med testdata og leser/skriver aldri Google Sheets. Ekte data
+            henter menighetsarket — da må du være innlogget med personlig admin-lenke (eller
+            Google). Uten lenke kommer innloggingsskjermen.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             <button
@@ -166,7 +168,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             >
               <div className="text-sm font-bold text-slate-900">Ekte data</div>
               <div className="text-xs text-slate-600 mt-1">
-                Leser og skriver Google Sheets via Apps Script.
+                Leser Google Sheets. Krever personlig admin-lenke.
               </div>
             </button>
           </div>
@@ -184,11 +186,11 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             <FileSpreadsheet className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">
-              Google Sheets Integrasjon & Synkronisering
-            </h2>
+            <h2 className="text-lg font-bold text-slate-900">Google Sheets — masterdata</h2>
             <p className="text-xs text-slate-500">
-              Her kan du hente ferske data direkte fra Google Regnearket eller overstyre tilkoblingslenken.
+              Appen leser og skriver masterfanene Personer, Gudstjenester, Tildelinger m.m.
+              «Last masterdata på nytt» er samme lesing som auto-synk — ikke import fra
+              Excel-fanene. Bruk «Import fra Excel-faner» når Gudstjenester_import skal skrive over planen.
             </p>
           </div>
         </div>
@@ -201,7 +203,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
               className="px-3.5 py-2.5 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer"
             >
               <Database className="w-4 h-4" />
-              <span>Kildedata</span>
+              <span>Import fra Excel-faner</span>
             </button>
           )}
           <button
@@ -211,7 +213,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             className="px-4 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-            <span>{isLoading ? "Henter..." : "Hent fra Sheets"}</span>
+            <span>{isLoading ? "Henter..." : "Last masterdata på nytt"}</span>
           </button>
         </div>
       </div>
@@ -281,7 +283,9 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
 
         <div className="text-[11px] text-slate-500 space-y-1">
           <p>
-            <strong>Tips:</strong> Denne lenken knytter appen direkte til Google Regnearket. Når du åpner appen fra et nytt domene eller en ny enhet, trykker du bare på <strong>«Hent / Synk fra Google Sheets nå»</strong> for å laste inn alle menighetens data.
+            <strong>Tips:</strong> Denne lenken knytter appen til Google-arket. Trykk{" "}
+            <strong>«Last masterdata på nytt»</strong> for å hente det som allerede ligger i
+            masterfanene. Excel-importfanene leses bare via <strong>«Import fra Excel-faner»</strong>.
           </p>
         </div>
       </div>
