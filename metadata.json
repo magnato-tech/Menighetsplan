@@ -2,5 +2,5 @@
   "name": "Menighetsaktivitet",
   "description": "Mobilvennlig planleggingssystem for gudstjenestebemanning, tildelinger og frivillig påmelding.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

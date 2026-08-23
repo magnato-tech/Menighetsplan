@@ -10,6 +10,7 @@ import {
   Church,
 } from "lucide-react";
 import { IkonHandling } from "./IkonHandling";
+import { TemaBryter } from "./TemaBryter";
 
 interface HeaderProps {
   db: DatabaseState;
@@ -156,6 +157,7 @@ export const Header: React.FC<HeaderProps> = ({
               )
             )}
 
+            <TemaBryter kompakt />
             <IkonHandling
               label="Kopier min lenke"
               Icon={Share2}

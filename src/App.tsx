@@ -157,13 +157,14 @@ export default function App() {
       };
 
       if (raattToken && !erMagiskLenkeToken(raattToken)) {
-        setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
-        setViserStartside(true);
-        harValgtStartvisning.current = true;
-        return;
-      }
-
-      if (tokenParam) {
+        slettMagiskToken();
+        if (import.meta.env.PROD || tvingStartside) {
+          setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
+          setViserStartside(true);
+          harValgtStartvisning.current = true;
+          return;
+        }
+      } else if (tokenParam) {
         const found = finnPersonMedMagiskToken(db, tokenParam);
         if (found) {
           setSelectedPersonId(found.PersonID);
@@ -174,10 +175,13 @@ export default function App() {
           harValgtStartvisning.current = true;
           return;
         }
-        setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
-        setViserStartside(true);
-        harValgtStartvisning.current = true;
-        return;
+        slettMagiskToken();
+        if (import.meta.env.PROD || tvingStartside) {
+          setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
+          setViserStartside(true);
+          harValgtStartvisning.current = true;
+          return;
+        }
       }
 
       const sesjonEpost = hentAdminSesjonEpost();
@@ -277,6 +281,22 @@ export default function App() {
       .catch((e) => setLoadError(e instanceof Error ? e.message : String(e)));
   };
 
+  const handleFortsettLokalt = () => {
+    if (import.meta.env.PROD) return;
+    slettMagiskToken();
+    slettAdminSesjon();
+    setStartFeil(null);
+    harValgtStartvisning.current = false;
+    window.history.replaceState({}, "", window.location.pathname);
+    void switchDevDataSource("mock").then((mock) => {
+      setDataSource("mock");
+      setLoadError(null);
+      setIsLoadingRemote(false);
+      setDb(mock);
+      setViserStartside(false);
+    });
+  };
+
   const handleLimInnLenke = (raw: string) => {
     const neste = tolkInnlimtLenke(raw, window.location.pathname);
     if (!neste) {
@@ -321,6 +341,7 @@ export default function App() {
         feilmelding={startFeil}
         onLimInnLenke={handleLimInnLenke}
         onGoogleCredential={handleGoogleCredential}
+        onFortsettLokalt={import.meta.env.DEV ? handleFortsettLokalt : undefined}
       />
     );
   }

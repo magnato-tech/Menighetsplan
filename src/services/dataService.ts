@@ -53,7 +53,7 @@ export const DEFAULT_REMOTE_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw/exec";
 
 /** Timeout mot Google Apps Script (dev+remote og produksjon). */
-export const REMOTE_FETCH_TIMEOUT_MS = 15_000;
+export const REMOTE_FETCH_TIMEOUT_MS = 45_000;
 
 export type DevDataSource = "mock" | "remote";
 

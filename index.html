@@ -4,6 +4,14 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Menighetsaktivitet</title>
+    <script>
+      try {
+        if (localStorage.getItem("gudstjenesteplanlegger_tema") === "mork") {
+          document.documentElement.classList.add("dark");
+          document.documentElement.style.colorScheme = "dark";
+        }
+      } catch (e) {}
+    </script>
     <meta name="description" content="Menighetsaktivitet - Planleggingssystem for gudstjenester og oppgaver." />
     <meta property="og:title" content="Menighetsaktivitet" />
     <meta property="og:description" content="Menighetsaktivitet - Planleggingssystem for gudstjenester og oppgaver." />

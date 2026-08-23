@@ -376,7 +376,6 @@ function doPost(e) {
 }
 
 function loadDatabase() {
-  ensureSchema_();
   var ss = getSpreadsheet_();
   var state = {};
   var key;
@@ -385,12 +384,19 @@ function loadDatabase() {
     state[key] = readSheet_(ss, MASTER_SHEETS[key]);
   }
   for (key in IMPORT_SHEETS) {
-    state[key] = readSheet_(ss, IMPORT_SHEETS[key]);
-  }
-  if (ensurePersonTokens_(state.personer)) {
-    writeSheet_(ss, MASTER_SHEETS.personer, state.personer);
+    state[key] = [];
   }
   return state;
+}
+
+/** Kjør denne én gang fra Apps Script (Kjør): lager kolonne SikkerhetsToken og fyller mk_-verdier. */
+function fyllSikkerhetsTokens() {
+  ensureSchema_();
+  var ss = getSpreadsheet_();
+  var personer = readSheet_(ss, MASTER_SHEETS.personer);
+  ensurePersonTokens_(personer);
+  writeSheet_(ss, MASTER_SHEETS.personer, personer);
+  return personer.length;
 }
 
 function saveDatabase(state) {
