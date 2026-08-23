@@ -53,7 +53,7 @@ import {
   Star,
   Sliders,
   AlertTriangle,
-  FileSpreadsheet,
+  Settings,
   Clock,
   Eye,
   LayoutGrid,
@@ -1252,8 +1252,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
               : "border-transparent text-slate-600 hover:text-slate-900"
           }`}
         >
-          <FileSpreadsheet className="w-4 h-4" />
-          <span>Google Sheets & Data</span>
+          <Settings className="w-4 h-4" />
+          <span>Innstillinger</span>
         </button>
       </div>
 
@@ -1946,6 +1946,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <GoogleSheetsSync
           db={db}
           onUpdateDb={onUpdateDb}
+          selectedPersonId={selectedPersonId}
           dataSource={dataSource}
           onSwitchDataSource={onSwitchDataSource}
           onOpenImport={() => setShowImportModal(true)}

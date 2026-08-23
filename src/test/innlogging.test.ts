@@ -6,6 +6,7 @@ import {
   finnPersonMedMagiskToken,
   genererTilfeldigSikkerhetsToken,
   startvisningForTilgang,
+  fornySikkerhetsToken,
   hentTilgang,
   visningErTillatt,
   loadLocalDatabase,
@@ -104,5 +105,13 @@ if (medlem) {
   assert.deepEqual(medlemTilgang.views, ["personal"]);
   assert.equal(visningErTillatt(medlemTilgang, "leader"), false);
 }
+
+const gammelToken = admin!.SikkerhetsToken;
+const fornyet = fornySikkerhetsToken(db, admin!.PersonID);
+const nyAdmin = fornyet.personer.find((p) => p.PersonID === admin!.PersonID);
+assert.ok(nyAdmin?.SikkerhetsToken);
+assert.notEqual(nyAdmin!.SikkerhetsToken, gammelToken);
+assert.equal(finnPersonMedMagiskToken(fornyet, gammelToken!), undefined);
+assert.equal(finnPersonMedMagiskToken(fornyet, nyAdmin!.SikkerhetsToken!)?.PersonID, admin!.PersonID);
 
 console.log("innlogging.test.ts: alle tester ok");

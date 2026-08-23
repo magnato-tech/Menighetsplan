@@ -217,6 +217,18 @@ export function sikreSikkerhetsTokens(personer: Person[]): Person[] {
   });
 }
 
+/** Ny tilfeldig personlenke. Den gamle slutter å virke. */
+export function fornySikkerhetsToken(db: DatabaseState, personId: string): DatabaseState {
+  return {
+    ...db,
+    personer: db.personer.map((p) =>
+      p.PersonID === personId
+        ? { ...p, SikkerhetsToken: genererTilfeldigSikkerhetsToken() }
+        : p
+    ),
+  };
+}
+
 /**
  * Finner person via magisk lenke-token (mk_…). PersonID og gamle hash-lenker er ikke innlogging.
  */
@@ -617,7 +629,7 @@ export async function forceSyncFromGoogleSheets(customUrl?: string): Promise<{ s
       success: false,
       error: sessionMockOverride
         ? "Økten bruker mock-data. Last siden på nytt og hent fra Google Sheets."
-        : "Mock-modus er aktiv. Velg «Ekte data» under Admin → Google Sheets & Data.",
+        : "Mock-modus er aktiv. Velg «Ekte data» under Admin → Innstillinger.",
     };
   }
 

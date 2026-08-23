@@ -10,6 +10,7 @@ import {
   useRemoteData,
   isSessionMockOverride,
 } from "../services/dataService";
+import { PersonlenkeInnstillinger } from "./PersonlenkeInnstillinger";
 import {
   RefreshCw,
   UploadCloud,
@@ -26,6 +27,7 @@ import {
 interface GoogleSheetsSyncProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
+  selectedPersonId?: string;
   dataSource?: "mock" | "remote";
   onSwitchDataSource?: (source: "mock" | "remote") => void;
   onOpenImport?: () => void;
@@ -34,6 +36,7 @@ interface GoogleSheetsSyncProps {
 export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   db,
   onUpdateDb,
+  selectedPersonId,
   dataSource = "mock",
   onSwitchDataSource,
   onOpenImport,
@@ -122,7 +125,15 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   const mockLocked = !useRemoteData() || isSessionMockOverride();
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
+    <div className="space-y-6">
+      {selectedPersonId && (
+        <PersonlenkeInnstillinger
+          db={db}
+          personId={selectedPersonId}
+          onUpdateDb={onUpdateDb}
+        />
+      )}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
       {import.meta.env.DEV && onSwitchDataSource && (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-3">
           <h3 className="text-sm font-bold text-slate-800">Datakilde (utvikling)</h3>
@@ -302,6 +313,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           <div className="text-xl font-bold text-slate-900 mt-1">{db.programaktiviteter.length}</div>
         </div>
       </div>
+    </div>
     </div>
   );
 };
