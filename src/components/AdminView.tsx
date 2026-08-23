@@ -307,11 +307,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setNewPersonModal(true);
   };
 
-  const handleCopyLink = (personId: string, view?: AppView) => {
-    const link = genererPersonligLenke(personId, view, db);
+  const handleCopyLink = (personId: string) => {
+    const link = genererPersonligLenke(personId, db);
     navigator.clipboard.writeText(link).then(() => {
-      const key = view ? `${personId}-${view}` : personId;
-      setCopiedPersonId(key);
+      setCopiedPersonId(personId);
       setTimeout(() => setCopiedPersonId(null), 2500);
     });
   };
@@ -1086,13 +1085,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         {rad.lederId && (
                           <>
                             <IkonHandling
-                              label="Kopier leder-lenke"
+                              label="Kopier personlenke"
                               Icon={Share2}
                               variant="sky"
-                              copied={copiedPersonId === `${rad.lederId}-leader`}
+                              copied={copiedPersonId === rad.lederId}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleCopyLink(rad.lederId!, "leader");
+                                handleCopyLink(rad.lederId!);
                               }}
                             />
                             <IkonHandling
@@ -1384,11 +1383,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       <span className="text-slate-500 font-medium"> ({leder.sondager.size})</span>
                     </button>
                     <IkonHandling
-                      label={`Kopier leder-lenke til ${leder.navn}`}
+                      label={`Kopier personlenke til ${leder.navn}`}
                       Icon={Share2}
                       variant="sky"
-                      copied={copiedPersonId === `${leder.personId}-leader`}
-                      onClick={() => handleCopyLink(leder.personId, "leader")}
+                      copied={copiedPersonId === leder.personId}
+                      onClick={() => handleCopyLink(leder.personId)}
                     />
                   </span>
                   );
@@ -1512,15 +1511,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <th className="p-3">Tilgang & Lederansvar</th>
                   <th className="p-3">Personroller (Godkjente)</th>
                   <th className="p-3">Tjenestegrupper</th>
-                  <th className="p-3 text-right">Direktelenker</th>
+                  <th className="p-3 text-right">Personlenke</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
                 {filteredPersoner.map((person) => {
                   const personTilgang = hentTilgang(db, person.PersonID);
-                  const isCopiedGeneral = copiedPersonId === person.PersonID;
-                  const isCopiedLeader = copiedPersonId === `${person.PersonID}-leader`;
-                  const isCopiedPersonal = copiedPersonId === `${person.PersonID}-personal`;
+                  const isCopied = copiedPersonId === person.PersonID;
 
                   const personensRolleIds = db.personroller
                     .filter((pr) => pr.PersonID === person.PersonID && pr.Aktiv)
@@ -1595,19 +1592,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </td>
                       <td className="p-3 text-right">
                         <div className="inline-flex items-center justify-end gap-1">
-                          {personTilgang.isLeader && (
-                            <IkonHandling
-                              label="Kopier leder-lenke"
-                              Icon={Share2}
-                              variant="sky"
-                              copied={isCopiedLeader}
-                              onClick={() => handleCopyLink(person.PersonID, "leader")}
-                            />
-                          )}
                           <IkonHandling
-                            label="Kopier Min side-lenke"
+                            label="Kopier personlenke"
                             Icon={Share2}
-                            copied={isCopiedGeneral || isCopiedPersonal}
+                            copied={isCopied}
                             onClick={() => handleCopyLink(person.PersonID)}
                           />
                         </div>
@@ -1633,7 +1621,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <span>Tjenestegrupper</span>
                 </h4>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Klikk på en gruppe for detaljer. Del leder-lenken med ikonet.
+                  Klikk på en gruppe for detaljer. Del personlenken med ikonet.
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
@@ -1726,8 +1714,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   const nestleder = db.personer.find((p) => p.PersonID === gruppe.NestlederID);
                   const medlemstall = antallMedlemmerIGruppe(db, gruppe);
                   const ikonNavn = ikonNavnForGruppe(db, gruppe);
-                  const isCopiedLeder = leder && copiedPersonId === `${leder.PersonID}-leader`;
-                  const isCopiedNestleder = nestleder && copiedPersonId === `${nestleder.PersonID}-leader`;
+                  const isCopiedLeder = leder && copiedPersonId === leder.PersonID;
+                  const isCopiedNestleder = nestleder && copiedPersonId === nestleder.PersonID;
 
                   if (groupOverviewView === "list") {
                     return (
@@ -1764,13 +1752,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                         {leder && (
                           <div className="flex items-center gap-1 ml-auto">
                           <IkonHandling
-                            label="Kopier leder-lenke"
+                            label="Kopier personlenke"
                             Icon={Share2}
                             variant="sky"
                             copied={Boolean(isCopiedLeder)}
                             onClick={(e) => {
                               e.stopPropagation();
-                              handleCopyLink(leder.PersonID, "leader");
+                              handleCopyLink(leder.PersonID);
                             }}
                           />
                           <IkonHandling
@@ -1832,13 +1820,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <IkonHandling
-                                  label="Kopier leder-lenke"
+                                  label="Kopier personlenke"
                                   Icon={Share2}
                                   variant="sky"
                                   copied={Boolean(isCopiedLeder)}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleCopyLink(leder.PersonID, "leader");
+                                    handleCopyLink(leder.PersonID);
                                   }}
                                 />
                                 <IkonHandling
@@ -1872,12 +1860,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                 <IkonHandling
-                                  label="Kopier leder-lenke"
+                                  label="Kopier personlenke"
                                   Icon={Share2}
                                   copied={Boolean(isCopiedNestleder)}
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleCopyLink(nestleder.PersonID, "leader");
+                                    handleCopyLink(nestleder.PersonID);
                                   }}
                                 />
                                 <IkonHandling

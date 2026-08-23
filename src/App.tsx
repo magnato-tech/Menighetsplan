@@ -6,6 +6,7 @@ import {
   DatabaseState,
   hentTilgang,
   visningErTillatt,
+  startvisningForTilgang,
   AppView,
   finnPersonMedMagiskToken,
   finnAdministratorMedEpost,
@@ -150,16 +151,9 @@ export default function App() {
       const tvingStartside = params.get("startside") === "1";
       const raattToken = (params.get("t") || params.get("token") || "").trim();
       const tokenParam = erMagiskLenkeToken(raattToken) ? raattToken : hentMagiskToken();
-      const viewParam = params.get("view");
 
-      const velgVisning = (personId: string, defaultView: AppView) => {
-        const tilgang = hentTilgang(db, personId);
-        const requested = viewParam as AppView;
-        if (requested === "admin" || requested === "leader" || requested === "personal") {
-          setActiveView(visningErTillatt(tilgang, requested) ? requested : defaultView);
-        } else {
-          setActiveView(defaultView);
-        }
+      const velgStartvisning = (personId: string) => {
+        setActiveView(startvisningForTilgang(hentTilgang(db, personId)));
       };
 
       if (raattToken && !erMagiskLenkeToken(raattToken)) {
@@ -175,7 +169,7 @@ export default function App() {
           setSelectedPersonId(found.PersonID);
           setIsMagicLinkUser(true);
           setInnloggetViaGoogle(false);
-          velgVisning(found.PersonID, "personal");
+          velgStartvisning(found.PersonID);
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
@@ -193,7 +187,7 @@ export default function App() {
           setSelectedPersonId(googleAdmin.PersonID);
           setIsMagicLinkUser(false);
           setInnloggetViaGoogle(true);
-          velgVisning(googleAdmin.PersonID, "admin");
+          velgStartvisning(googleAdmin.PersonID);
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
@@ -206,7 +200,7 @@ export default function App() {
         if (forsteAdmin) {
           setSelectedPersonId(forsteAdmin.PersonID);
           setIsMagicLinkUser(false);
-          velgVisning(forsteAdmin.PersonID, "admin");
+          velgStartvisning(forsteAdmin.PersonID);
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
@@ -250,6 +244,8 @@ export default function App() {
   };
 
   const handleNavigateView = (view: AppView) => {
+    if (!db) return;
+    if (!visningErTillatt(hentTilgang(db, selectedPersonId), view)) return;
     if (view === "admin" && adminPinRequired && !adminPinVerified) {
       setShowPinModal(true);
       return;

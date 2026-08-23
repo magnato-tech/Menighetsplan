@@ -124,11 +124,7 @@ export function tolkInnlimtLenke(raw: string, pathname = "/"): string | null {
     const url = new URL(verdi, "https://utfylling.invalid");
     const t = url.searchParams.get("t") || url.searchParams.get("token") || "";
     if (erMagiskLenkeToken(t)) {
-      const view = url.searchParams.get("view");
-      const params = new URLSearchParams();
-      params.set("t", t.trim());
-      if (view) params.set("view", view);
-      return `${pathname}?${params.toString()}`;
+      return `${pathname}?t=${encodeURIComponent(t.trim())}`;
     }
   } catch {
     // ikke URL

@@ -227,7 +227,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   }, [guideOpen, currentGruppe, db]);
 
   const handleCopyLink = (targetPersonId: string) => {
-    const link = genererPersonligLenke(targetPersonId, undefined, db);
+    const link = genererPersonligLenke(targetPersonId, db);
     navigator.clipboard.writeText(link).then(() => {
       setCopiedPersonId(targetPersonId);
       setTimeout(() => setCopiedPersonId(null), 2500);
@@ -1038,7 +1038,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                         onClick={() => onSelectPerson(m.PersonID, "personal")}
                       />
                       <IkonHandling
-                        label="Kopier Min side-lenke"
+                        label="Kopier personlenke"
                         Icon={Share2}
                         copied={copiedPersonId === m.PersonID}
                         onClick={() => handleCopyLink(m.PersonID)}

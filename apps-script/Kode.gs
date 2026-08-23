@@ -169,22 +169,12 @@ function isMagicLinkToken_(token) {
   return /^mk_[0-9a-z]+$/i.test(String(token || "").trim());
 }
 
-function generateStaticSecurityToken_(personId, navn) {
-  var hash1 = 0x811c9dc5;
-  var salt = "LMK_SEC_" + personId + "_" + (navn || "frivillig") + "_SALT2026";
-  var i;
-  for (i = 0; i < salt.length; i++) {
-    hash1 ^= salt.charCodeAt(i);
-    hash1 = Math.imul(hash1, 0x01000193);
-  }
-  var hash2 = 0x5a17c2e3;
-  for (i = salt.length - 1; i >= 0; i--) {
-    hash2 ^= salt.charCodeAt(i);
-    hash2 = Math.imul(hash2, 0x01000193);
-  }
-  var part1 = ("0000000" + (hash1 >>> 0).toString(36)).slice(-7);
-  var part2 = ("0000000" + (hash2 >>> 0).toString(36)).slice(-7);
-  return "mk_" + part1 + part2;
+function isLegacyHashToken_(token) {
+  return /^mk_[0-9a-z]{14}$/i.test(String(token || "").trim());
+}
+
+function isUsableStoredToken_(token) {
+  return isMagicLinkToken_(token) && !isLegacyHashToken_(token);
 }
 
 function normalizeEmail_(epost) {
@@ -227,14 +217,11 @@ function isAdministrator_(state, personId) {
 
 function findPersonByMagicToken_(state, token) {
   var t = String(token || "").trim();
-  if (!isMagicLinkToken_(t)) return null;
+  if (!isUsableStoredToken_(t)) return null;
   var personer = state.personer || [];
   var i;
   for (i = 0; i < personer.length; i++) {
-    var p = personer[i];
-    var stored = String(p.SikkerhetsToken || "").trim();
-    if (stored && stored === t) return p;
-    if (generateStaticSecurityToken_(p.PersonID, p.Navn) === t) return p;
+    if (String(personer[i].SikkerhetsToken || "").trim() === t) return personer[i];
   }
   return null;
 }
@@ -245,7 +232,7 @@ function ensurePersonTokens_(personer) {
   var i;
   for (i = 0; i < personer.length; i++) {
     var stored = String(personer[i].SikkerhetsToken || "").trim();
-    if (isMagicLinkToken_(stored)) continue;
+    if (isUsableStoredToken_(stored)) continue;
     personer[i].SikkerhetsToken = generateRandomMagicToken_();
     changed = true;
   }
@@ -429,9 +416,9 @@ function mergePersonTokens_(incoming, existing) {
     byId[existing[i].PersonID] = existing[i].SikkerhetsToken;
   }
   for (i = 0; i < (incoming || []).length; i++) {
-    if (isMagicLinkToken_(incoming[i].SikkerhetsToken)) continue;
+    if (isUsableStoredToken_(incoming[i].SikkerhetsToken)) continue;
     var prev = byId[incoming[i].PersonID];
-    if (isMagicLinkToken_(prev)) incoming[i].SikkerhetsToken = prev;
+    if (isUsableStoredToken_(prev)) incoming[i].SikkerhetsToken = prev;
   }
 }
 

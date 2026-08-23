@@ -41,11 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   const canSwitchPerson = isAdminUser || import.meta.env.DEV;
 
   const handleCopyLink = () => {
-    const link = genererPersonligLenke(
-      selectedPersonId,
-      activeView !== "personal" ? activeView : undefined,
-      db
-    );
+    const link = genererPersonligLenke(selectedPersonId, db);
     navigator.clipboard.writeText(link).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);

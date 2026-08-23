@@ -4,9 +4,10 @@ import {
   DatabaseState,
   finnAdministratorMedEpost,
   finnPersonMedMagiskToken,
-  genererStatiskSikkerhetsToken,
   genererTilfeldigSikkerhetsToken,
+  startvisningForTilgang,
   hentTilgang,
+  visningErTillatt,
   loadLocalDatabase,
 } from "../services/dataService";
 import { epostFraGoogleJwt, tolkInnlimtLenke, erMagiskLenkeToken, lesMagiskTokenFraUrl, lagreMagiskToken, slettMagiskToken, hentApiIdentitet } from "../services/innlogging";
@@ -40,7 +41,7 @@ assert.equal(epostFraGoogleJwt(jwtMed({ email: "x@y.z", email_verified: false })
 
 assert.equal(
   tolkInnlimtLenke("https://eksempel.no/app?t=mk_abc123xyz&view=admin", "/"),
-  "/?t=mk_abc123xyz&view=admin"
+  "/?t=mk_abc123xyz"
 );
 assert.equal(tolkInnlimtLenke("mk_tokenverdi", "/plan"), "/plan?t=mk_tokenverdi");
 assert.equal(tolkInnlimtLenke("", "/"), null);
@@ -53,10 +54,11 @@ assert.equal(lesMagiskTokenFraUrl("?t=P001"), null);
 assert.equal(lesMagiskTokenFraUrl("?t=mk_abc123xyz"), "mk_abc123xyz");
 assert.equal(lesMagiskTokenFraUrl("?personId=P001"), null);
 
-const adminToken = genererStatiskSikkerhetsToken(admin!.PersonID, admin!.Navn);
 assert.equal(finnPersonMedMagiskToken(db, "P001"), undefined);
 assert.equal(finnPersonMedMagiskToken(db, admin!.PersonID), undefined);
-assert.equal(finnPersonMedMagiskToken(db, adminToken)?.PersonID, admin!.PersonID);
+assert.equal(finnPersonMedMagiskToken(db, "mk_0ph37tc1uch9a6"), undefined);
+assert.ok(admin!.SikkerhetsToken && !/^mk_[0-9a-z]{14}$/i.test(admin!.SikkerhetsToken));
+assert.equal(finnPersonMedMagiskToken(db, admin!.SikkerhetsToken!)?.PersonID, admin!.PersonID);
 
 const tilfeldigA = genererTilfeldigSikkerhetsToken();
 const tilfeldigB = genererTilfeldigSikkerhetsToken();
@@ -77,5 +79,30 @@ lagreMagiskToken("mk_testhash000");
 assert.equal(hentApiIdentitet().token, "mk_testhash000");
 slettMagiskToken();
 assert.deepEqual(hentApiIdentitet(), {});
+
+const adminTilgang = hentTilgang(db, admin!.PersonID);
+assert.deepEqual(adminTilgang.views, ["personal", "leader", "admin"]);
+assert.equal(startvisningForTilgang(adminTilgang), "admin");
+assert.equal(visningErTillatt(adminTilgang, "admin"), true);
+
+const leder = db.personer.find((p) => {
+  const t = hentTilgang(db, p.PersonID);
+  return t.isLeader && !t.isAdmin;
+});
+assert.ok(leder, "mock-data skal ha en tjenestegruppeleder");
+const lederTilgang = hentTilgang(db, leder!.PersonID);
+assert.deepEqual(lederTilgang.views, ["personal", "leader"]);
+assert.equal(startvisningForTilgang(lederTilgang), "personal");
+assert.equal(visningErTillatt(lederTilgang, "admin"), false);
+
+const medlem = db.personer.find((p) => {
+  const t = hentTilgang(db, p.PersonID);
+  return !t.isLeader && !t.isAdmin;
+});
+if (medlem) {
+  const medlemTilgang = hentTilgang(db, medlem.PersonID);
+  assert.deepEqual(medlemTilgang.views, ["personal"]);
+  assert.equal(visningErTillatt(medlemTilgang, "leader"), false);
+}
 
 console.log("innlogging.test.ts: alle tester ok");

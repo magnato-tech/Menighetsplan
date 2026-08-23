@@ -196,32 +196,20 @@ export function genererTilfeldigSikkerhetsToken(): string {
   return `mk_${hex}`;
 }
 
-/**
- * Eldre, utledet token. Beholdes kun så eksisterende SMS-lenker fortsatt virker.
- */
-export function genererStatiskSikkerhetsToken(personId: string, navn: string): string {
-  let hash1 = 0x811c9dc5;
-  const salt = `LMK_SEC_${personId}_${navn || "frivillig"}_SALT2026`;
-  for (let i = 0; i < salt.length; i++) {
-    hash1 ^= salt.charCodeAt(i);
-    hash1 = Math.imul(hash1, 0x01000193);
-  }
-  let hash2 = 0x5a17c2e3;
-  for (let i = salt.length - 1; i >= 0; i--) {
-    hash2 ^= salt.charCodeAt(i);
-    hash2 = Math.imul(hash2, 0x01000193);
-  }
-  const part1 = (hash1 >>> 0).toString(36).padStart(7, "0");
-  const part2 = (hash2 >>> 0).toString(36).padStart(7, "0");
-  return `mk_${part1}${part2}`;
+/** Gammel hash-lenke (14 tegn etter mk_). Skal ikke brukes som innlogging. */
+export function erGammelHashLenke(token: string): boolean {
+  return /^mk_[0-9a-z]{14}$/i.test(String(token || "").trim());
+}
+
+function harGyldigLagretToken(token: string | undefined): boolean {
+  const t = String(token || "").trim();
+  return erMagiskLenkeToken(t) && !erGammelHashLenke(t);
 }
 
 export function sikreSikkerhetsTokens(personer: Person[]): Person[] {
   if (!Array.isArray(personer)) return [];
   return personer.map((p) => {
-    if (p.SikkerhetsToken && p.SikkerhetsToken.trim().length >= 6) {
-      return p;
-    }
+    if (harGyldigLagretToken(p.SikkerhetsToken)) return p;
     return {
       ...p,
       SikkerhetsToken: genererTilfeldigSikkerhetsToken(),
@@ -230,17 +218,13 @@ export function sikreSikkerhetsTokens(personer: Person[]): Person[] {
 }
 
 /**
- * Finner person via magisk lenke-token (mk_…). PersonID er ikke innlogging.
+ * Finner person via magisk lenke-token (mk_…). PersonID og gamle hash-lenker er ikke innlogging.
  */
 export function finnPersonMedMagiskToken(db: DatabaseState, token: string): Person | undefined {
   if (!token || !db?.personer) return undefined;
   const clean = token.trim();
-  if (!erMagiskLenkeToken(clean)) return undefined;
-  return db.personer.find((p) => {
-    const lagret = String(p.SikkerhetsToken || "").trim();
-    if (lagret && lagret === clean) return true;
-    return genererStatiskSikkerhetsToken(p.PersonID, p.Navn) === clean;
-  });
+  if (!erMagiskLenkeToken(clean) || erGammelHashLenke(clean)) return undefined;
+  return db.personer.find((p) => String(p.SikkerhetsToken || "").trim() === clean);
 }
 
 function emptyState(): DatabaseState {
@@ -479,7 +463,12 @@ async function fetchJson(url: string, init?: RequestInit): Promise<string> {
 }
 
 function applyLoadedState(state: DatabaseState): DatabaseState {
-  let { state: fixed, endret } = korrigerLydBildeTilRigg(state);
+  const personer = sikreSikkerhetsTokens(state.personer);
+  let endret = personer.some((p, i) => p.SikkerhetsToken !== state.personer[i]?.SikkerhetsToken);
+  let fixed: DatabaseState = { ...state, personer };
+  const lydBilde = korrigerLydBildeTilRigg(fixed);
+  fixed = lydBilde.state;
+  if (lydBilde.endret) endret = true;
   const duplikat = fjernDuplikateTildelinger(fixed);
   fixed = duplikat.state;
   if (duplikat.endret) endret = true;
@@ -1870,6 +1859,12 @@ export function visningErTillatt(tilgang: PersonTilgang, view: AppView): boolean
   return tilgang.views.indexOf(view) >= 0;
 }
 
+/** Første visning etter innlogging. Faner ellers styres av tilgang. */
+export function startvisningForTilgang(tilgang: PersonTilgang): AppView {
+  if (tilgang.isAdmin) return "admin";
+  return "personal";
+}
+
 function normaliserEpost(epost: string): string {
   return String(epost || "").trim().toLowerCase();
 }
@@ -1959,7 +1954,6 @@ export function finnMedlemmerIGruppe(
  */
 export function genererPersonligLenke(
   personIDOrObj: string | Person,
-  view?: AppView,
   db?: DatabaseState
 ): string {
   const origin = window.location.origin;
@@ -1972,7 +1966,7 @@ export function genererPersonligLenke(
     if (db) {
       const person = db.personer.find((p) => p.PersonID === personIDOrObj);
       if (person) {
-        if (!person.SikkerhetsToken || !erMagiskLenkeToken(person.SikkerhetsToken)) {
+        if (!harGyldigLagretToken(person.SikkerhetsToken)) {
           person.SikkerhetsToken = genererTilfeldigSikkerhetsToken();
         }
         token = person.SikkerhetsToken;
@@ -1982,7 +1976,7 @@ export function genererPersonligLenke(
       token = genererTilfeldigSikkerhetsToken();
     }
   } else if (personIDOrObj && typeof personIDOrObj === "object") {
-    if (!personIDOrObj.SikkerhetsToken || !erMagiskLenkeToken(personIDOrObj.SikkerhetsToken)) {
+    if (!harGyldigLagretToken(personIDOrObj.SikkerhetsToken)) {
       personIDOrObj.SikkerhetsToken = genererTilfeldigSikkerhetsToken();
     }
     token = personIDOrObj.SikkerhetsToken;
@@ -1990,9 +1984,6 @@ export function genererPersonligLenke(
 
   params.set("t", token);
 
-  if (view && view !== "personal") {
-    params.set("view", view);
-  }
   return `${origin}${path}?${params.toString()}`;
 }
 
