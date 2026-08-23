@@ -122,23 +122,19 @@ export function tolkInnlimtLenke(raw: string, pathname = "/"): string | null {
   if (!verdi) return null;
   try {
     const url = new URL(verdi, "https://utfylling.invalid");
-    const t =
-      url.searchParams.get("t") ||
-      url.searchParams.get("token") ||
-      url.searchParams.get("personId") ||
-      url.searchParams.get("p");
-    if (t) {
+    const t = url.searchParams.get("t") || url.searchParams.get("token") || "";
+    if (erMagiskLenkeToken(t)) {
       const view = url.searchParams.get("view");
       const params = new URLSearchParams();
-      params.set("t", t);
+      params.set("t", t.trim());
       if (view) params.set("view", view);
       return `${pathname}?${params.toString()}`;
     }
   } catch {
     // ikke URL
   }
-  if (/^[\w-]+$/.test(verdi)) {
-    return `${pathname}?t=${encodeURIComponent(verdi)}`;
+  if (erMagiskLenkeToken(verdi)) {
+    return `${pathname}?t=${encodeURIComponent(verdi.trim())}`;
   }
   return null;
 }

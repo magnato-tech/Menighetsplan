@@ -42,7 +42,7 @@ import {
   initialRollebeskrivelseImport,
   initialMalaktiviteter,
 } from "../data/initialData";
-import { hentApiIdentitet } from "./innlogging";
+import { erMagiskLenkeToken, hentApiIdentitet } from "./innlogging";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
 const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
@@ -216,17 +216,16 @@ export function sikreSikkerhetsTokens(personer: Person[]): Person[] {
 }
 
 /**
- * Finner person i databasen via enten ugjettelig sikkerhetstoken eller personID
+ * Finner person via magisk lenke-token (mk_…). PersonID er ikke innlogging.
  */
-export function finnPersonMedTokenEllerId(db: DatabaseState, tokenOrId: string): Person | undefined {
-  if (!tokenOrId || !db?.personer) return undefined;
-  const clean = tokenOrId.trim();
-  // 1. Sjekk om det matcher en persons hemmelige / unike SikkerhetsToken
-  const byToken = db.personer.find((p) => p.SikkerhetsToken === clean);
-  if (byToken) return byToken;
-  // 2. Bakoverkompatibilitet: Sjekk om det matcher PersonID (f.eks. P001, P011)
-  const byId = db.personer.find((p) => p.PersonID.toUpperCase() === clean.toUpperCase());
-  return byId;
+export function finnPersonMedMagiskToken(db: DatabaseState, token: string): Person | undefined {
+  if (!token || !db?.personer) return undefined;
+  const clean = token.trim();
+  if (!erMagiskLenkeToken(clean)) return undefined;
+  return db.personer.find((p) => {
+    const lagret = p.SikkerhetsToken || genererStatiskSikkerhetsToken(p.PersonID, p.Navn);
+    return lagret === clean;
+  });
 }
 
 function emptyState(): DatabaseState {
@@ -1953,10 +1952,8 @@ export function genererPersonligLenke(
   const params = new URLSearchParams();
 
   let token = "";
-  let personId = "";
 
   if (typeof personIDOrObj === "string") {
-    personId = personIDOrObj;
     if (db) {
       const person = db.personer.find((p) => p.PersonID === personIDOrObj);
       if (person) {
@@ -1967,16 +1964,10 @@ export function genererPersonligLenke(
       token = genererStatiskSikkerhetsToken(personIDOrObj, "");
     }
   } else if (personIDOrObj && typeof personIDOrObj === "object") {
-    personId = personIDOrObj.PersonID;
     token = personIDOrObj.SikkerhetsToken || genererStatiskSikkerhetsToken(personIDOrObj.PersonID, personIDOrObj.Navn);
   }
 
-  // Bruk ?t= for ugjettelig token, fallback til personId hvis token mangler
-  if (token) {
-    params.set("t", token);
-  } else {
-    params.set("personId", personId);
-  }
+  params.set("t", token);
 
   if (view && view !== "personal") {
     params.set("view", view);

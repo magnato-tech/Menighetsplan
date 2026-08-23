@@ -7,7 +7,7 @@ import {
   hentTilgang,
   visningErTillatt,
   AppView,
-  finnPersonMedTokenEllerId,
+  finnPersonMedMagiskToken,
   finnAdministratorMedEpost,
   switchDevDataSource,
   getDevDataSource,
@@ -22,6 +22,8 @@ import {
   tolkInnlimtLenke,
   lesMagiskTokenFraUrl,
   lagreMagiskToken,
+  hentMagiskToken,
+  erMagiskLenkeToken,
   harApiIdentitet,
   slettMagiskToken,
 } from "./services/innlogging";
@@ -146,7 +148,8 @@ export default function App() {
     try {
       const params = new URLSearchParams(window.location.search);
       const tvingStartside = params.get("startside") === "1";
-      const tokenParam = params.get("t") || params.get("token") || params.get("personId") || params.get("p");
+      const raattToken = (params.get("t") || params.get("token") || "").trim();
+      const tokenParam = erMagiskLenkeToken(raattToken) ? raattToken : hentMagiskToken();
       const viewParam = params.get("view");
 
       const velgVisning = (personId: string, defaultView: AppView) => {
@@ -159,8 +162,15 @@ export default function App() {
         }
       };
 
+      if (raattToken && !erMagiskLenkeToken(raattToken)) {
+        setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
+        setViserStartside(true);
+        harValgtStartvisning.current = true;
+        return;
+      }
+
       if (tokenParam) {
-        const found = finnPersonMedTokenEllerId(db, tokenParam);
+        const found = finnPersonMedMagiskToken(db, tokenParam);
         if (found) {
           setSelectedPersonId(found.PersonID);
           setIsMagicLinkUser(true);

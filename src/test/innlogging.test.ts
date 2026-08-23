@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   DatabaseState,
   finnAdministratorMedEpost,
+  finnPersonMedMagiskToken,
+  genererStatiskSikkerhetsToken,
   hentTilgang,
   loadLocalDatabase,
 } from "../services/dataService";
@@ -36,16 +38,24 @@ assert.equal(epostFraGoogleJwt("ugyldig"), null);
 assert.equal(epostFraGoogleJwt(jwtMed({ email: "x@y.z", email_verified: false })), null);
 
 assert.equal(
-  tolkInnlimtLenke("https://eksempel.no/app?t=abc123&view=admin", "/"),
-  "/?t=abc123&view=admin"
+  tolkInnlimtLenke("https://eksempel.no/app?t=mk_abc123xyz&view=admin", "/"),
+  "/?t=mk_abc123xyz&view=admin"
 );
 assert.equal(tolkInnlimtLenke("mk_tokenverdi", "/plan"), "/plan?t=mk_tokenverdi");
 assert.equal(tolkInnlimtLenke("", "/"), null);
+assert.equal(tolkInnlimtLenke("https://eksempel.no/app?personId=P001", "/"), null);
+assert.equal(tolkInnlimtLenke("P001", "/"), null);
 
 assert.equal(erMagiskLenkeToken("mk_abc123"), true);
 assert.equal(erMagiskLenkeToken("P001"), false);
 assert.equal(lesMagiskTokenFraUrl("?t=P001"), null);
 assert.equal(lesMagiskTokenFraUrl("?t=mk_abc123xyz"), "mk_abc123xyz");
+assert.equal(lesMagiskTokenFraUrl("?personId=P001"), null);
+
+const adminToken = genererStatiskSikkerhetsToken(admin!.PersonID, admin!.Navn);
+assert.equal(finnPersonMedMagiskToken(db, "P001"), undefined);
+assert.equal(finnPersonMedMagiskToken(db, admin!.PersonID), undefined);
+assert.equal(finnPersonMedMagiskToken(db, adminToken)?.PersonID, admin!.PersonID);
 
 lagreMagiskToken("mk_testhash000");
 assert.equal(hentApiIdentitet().token, "mk_testhash000");
