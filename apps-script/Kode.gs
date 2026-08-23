@@ -22,7 +22,7 @@ var MASTER_SHEETS = {
     columns: [
       "PersonID", "Navn", "Fornavn", "Etternavn", "Epost", "Telefon", "BildeURL",
       "Fødselsår", "Fødselsdato", "Kjønn", "Adresse", "Postnummer", "Poststed",
-      "Notat", "Aktiv", "OpprettetDato", "SistEndret",
+      "Notat", "SikkerhetsToken", "Aktiv", "OpprettetDato", "SistEndret",
     ],
     booleans: ["Aktiv"],
     numbers: ["Fødselsår"],
@@ -160,6 +160,15 @@ var IMPORT_SHEETS = {
  * migrateImport krever administrator.
  * Sett Script Properties → GOOGLE_CLIENT_ID (samme som VITE_GOOGLE_CLIENT_ID).
  */
+function generateRandomMagicToken_() {
+  var hex = Utilities.getUuid().replace(/-/g, "") + Utilities.getUuid().replace(/-/g, "");
+  return "mk_" + hex.slice(0, 24).toLowerCase();
+}
+
+function isMagicLinkToken_(token) {
+  return /^mk_[0-9a-z]+$/i.test(String(token || "").trim());
+}
+
 function generateStaticSecurityToken_(personId, navn) {
   var hash1 = 0x811c9dc5;
   var salt = "LMK_SEC_" + personId + "_" + (navn || "frivillig") + "_SALT2026";
@@ -218,14 +227,29 @@ function isAdministrator_(state, personId) {
 
 function findPersonByMagicToken_(state, token) {
   var t = String(token || "").trim();
-  if (t.indexOf("mk_") !== 0) return null;
+  if (!isMagicLinkToken_(t)) return null;
   var personer = state.personer || [];
   var i;
   for (i = 0; i < personer.length; i++) {
     var p = personer[i];
+    var stored = String(p.SikkerhetsToken || "").trim();
+    if (stored && stored === t) return p;
     if (generateStaticSecurityToken_(p.PersonID, p.Navn) === t) return p;
   }
   return null;
+}
+
+function ensurePersonTokens_(personer) {
+  if (!personer || !personer.length) return false;
+  var changed = false;
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    var stored = String(personer[i].SikkerhetsToken || "").trim();
+    if (isMagicLinkToken_(stored)) continue;
+    personer[i].SikkerhetsToken = generateRandomMagicToken_();
+    changed = true;
+  }
+  return changed;
 }
 
 function findAdminByEmail_(state, epost) {
@@ -376,12 +400,19 @@ function loadDatabase() {
   for (key in IMPORT_SHEETS) {
     state[key] = readSheet_(ss, IMPORT_SHEETS[key]);
   }
+  if (ensurePersonTokens_(state.personer)) {
+    writeSheet_(ss, MASTER_SHEETS.personer, state.personer);
+  }
   return state;
 }
 
 function saveDatabase(state) {
   ensureSchema_();
   var ss = getSpreadsheet_();
+  if (state.personer) {
+    mergePersonTokens_(state.personer, readSheet_(ss, MASTER_SHEETS.personer));
+    ensurePersonTokens_(state.personer);
+  }
   var key;
   for (key in MASTER_SHEETS) {
     if (state[key]) {
@@ -389,6 +420,19 @@ function saveDatabase(state) {
     }
   }
   // Import-faner skrives aldri.
+}
+
+function mergePersonTokens_(incoming, existing) {
+  var byId = {};
+  var i;
+  for (i = 0; i < (existing || []).length; i++) {
+    byId[existing[i].PersonID] = existing[i].SikkerhetsToken;
+  }
+  for (i = 0; i < (incoming || []).length; i++) {
+    if (isMagicLinkToken_(incoming[i].SikkerhetsToken)) continue;
+    var prev = byId[incoming[i].PersonID];
+    if (isMagicLinkToken_(prev)) incoming[i].SikkerhetsToken = prev;
+  }
 }
 
 function getSpreadsheet_() {
@@ -417,7 +461,17 @@ function ensureSheet_(ss, spec) {
   if (sheet.getLastRow() === 0) {
     sheet.getRange(1, 1, 1, spec.columns.length).setValues([spec.columns]);
     sheet.setFrozenRows(1);
+    return;
   }
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0];
+  var i;
+  for (i = 0; i < spec.columns.length; i++) {
+    if (headers.indexOf(spec.columns[i]) < 0) {
+      sheet.getRange(1, sheet.getLastColumn() + 1).setValue(spec.columns[i]);
+    }
+  }
+  sheet.setFrozenRows(1);
 }
 
 function readSheet_(ss, spec) {

@@ -10,7 +10,7 @@ export interface Person {
   Etternavn: string;
   Epost: string;
   Telefon: string;
-  SikkerhetsToken?: string; // Ugjettelig statisk token for sikker direktelenke (Magic Link)
+  SikkerhetsToken?: string; // Tilfeldig magisk-lenke-token, lagres i arket
   BildeURL?: string;
   Fødselsår?: number;
   Fødselsdato?: string;

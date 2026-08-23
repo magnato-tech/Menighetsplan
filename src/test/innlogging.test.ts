@@ -5,6 +5,7 @@ import {
   finnAdministratorMedEpost,
   finnPersonMedMagiskToken,
   genererStatiskSikkerhetsToken,
+  genererTilfeldigSikkerhetsToken,
   hentTilgang,
   loadLocalDatabase,
 } from "../services/dataService";
@@ -56,6 +57,21 @@ const adminToken = genererStatiskSikkerhetsToken(admin!.PersonID, admin!.Navn);
 assert.equal(finnPersonMedMagiskToken(db, "P001"), undefined);
 assert.equal(finnPersonMedMagiskToken(db, admin!.PersonID), undefined);
 assert.equal(finnPersonMedMagiskToken(db, adminToken)?.PersonID, admin!.PersonID);
+
+const tilfeldigA = genererTilfeldigSikkerhetsToken();
+const tilfeldigB = genererTilfeldigSikkerhetsToken();
+assert.equal(erMagiskLenkeToken(tilfeldigA), true);
+assert.notEqual(tilfeldigA, tilfeldigB);
+const medLagret: DatabaseState = {
+  ...db,
+  personer: db.personer.map((p) =>
+    p.PersonID === admin!.PersonID ? { ...p, SikkerhetsToken: "mk_aabbccddeeff00112233445566778899" } : p
+  ),
+};
+assert.equal(
+  finnPersonMedMagiskToken(medLagret, "mk_aabbccddeeff00112233445566778899")?.PersonID,
+  admin!.PersonID
+);
 
 lagreMagiskToken("mk_testhash000");
 assert.equal(hentApiIdentitet().token, "mk_testhash000");

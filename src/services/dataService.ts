@@ -182,8 +182,22 @@ export interface DatabaseState {
 }
 
 /**
- * Genererer et ugjettelig, unikt og stabilt sikkerhetstoken per person.
- * Tokenet endres ikke fra gang til gang, slik at bokmerker og tilsendte SMS-er forblir gyldige.
+ * Tilfeldig magisk-lenke-token. Kan ikke regnes ut fra PersonID eller navn.
+ */
+export function genererTilfeldigSikkerhetsToken(): string {
+  const bytes = new Uint8Array(16);
+  const cryptoObj = globalThis.crypto;
+  if (cryptoObj?.getRandomValues) {
+    cryptoObj.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  return `mk_${hex}`;
+}
+
+/**
+ * Eldre, utledet token. Beholdes kun så eksisterende SMS-lenker fortsatt virker.
  */
 export function genererStatiskSikkerhetsToken(personId: string, navn: string): string {
   let hash1 = 0x811c9dc5;
@@ -210,7 +224,7 @@ export function sikreSikkerhetsTokens(personer: Person[]): Person[] {
     }
     return {
       ...p,
-      SikkerhetsToken: genererStatiskSikkerhetsToken(p.PersonID, p.Navn),
+      SikkerhetsToken: genererTilfeldigSikkerhetsToken(),
     };
   });
 }
@@ -223,8 +237,9 @@ export function finnPersonMedMagiskToken(db: DatabaseState, token: string): Pers
   const clean = token.trim();
   if (!erMagiskLenkeToken(clean)) return undefined;
   return db.personer.find((p) => {
-    const lagret = p.SikkerhetsToken || genererStatiskSikkerhetsToken(p.PersonID, p.Navn);
-    return lagret === clean;
+    const lagret = String(p.SikkerhetsToken || "").trim();
+    if (lagret && lagret === clean) return true;
+    return genererStatiskSikkerhetsToken(p.PersonID, p.Navn) === clean;
   });
 }
 
@@ -1957,14 +1972,20 @@ export function genererPersonligLenke(
     if (db) {
       const person = db.personer.find((p) => p.PersonID === personIDOrObj);
       if (person) {
-        token = person.SikkerhetsToken || genererStatiskSikkerhetsToken(person.PersonID, person.Navn);
+        if (!person.SikkerhetsToken || !erMagiskLenkeToken(person.SikkerhetsToken)) {
+          person.SikkerhetsToken = genererTilfeldigSikkerhetsToken();
+        }
+        token = person.SikkerhetsToken;
       }
     }
     if (!token) {
-      token = genererStatiskSikkerhetsToken(personIDOrObj, "");
+      token = genererTilfeldigSikkerhetsToken();
     }
   } else if (personIDOrObj && typeof personIDOrObj === "object") {
-    token = personIDOrObj.SikkerhetsToken || genererStatiskSikkerhetsToken(personIDOrObj.PersonID, personIDOrObj.Navn);
+    if (!personIDOrObj.SikkerhetsToken || !erMagiskLenkeToken(personIDOrObj.SikkerhetsToken)) {
+      personIDOrObj.SikkerhetsToken = genererTilfeldigSikkerhetsToken();
+    }
+    token = personIDOrObj.SikkerhetsToken;
   }
 
   params.set("t", token);
