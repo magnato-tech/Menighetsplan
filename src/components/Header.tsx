@@ -20,6 +20,7 @@ interface HeaderProps {
   onResetData: () => void;
   isAdminUser?: boolean;
   isMagicLinkUser?: boolean;
+  onLoggUt?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -31,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onResetData,
   isAdminUser = false,
   isMagicLinkUser = false,
+  onLoggUt,
 }) => {
   const [copied, setCopied] = useState(false);
   const [showPersonDropdown, setShowPersonDropdown] = useState(false);
@@ -165,6 +167,15 @@ export const Header: React.FC<HeaderProps> = ({
               copied={copied}
               size="md"
             />
+            {onLoggUt && (
+              <button
+                type="button"
+                onClick={onLoggUt}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Logg ut
+              </button>
+            )}
           </div>
         </div>
 

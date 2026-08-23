@@ -42,6 +42,7 @@ import {
   initialRollebeskrivelseImport,
   initialMalaktiviteter,
 } from "../data/initialData";
+import { hentApiIdentitet } from "./innlogging";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
 const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
@@ -429,6 +430,16 @@ export function loadLocalDatabase(): DatabaseState {
   });
 }
 
+function requireRemoteAuth(): { token?: string; googleCredential?: string } {
+  const ident = hentApiIdentitet();
+  if (!ident.token && !ident.googleCredential) {
+    throw new Error(
+      "Ikke innlogget. Åpne den personlige lenken, eller logg inn med Google som administrator."
+    );
+  }
+  return ident;
+}
+
 async function fetchJson(url: string, init?: RequestInit): Promise<string> {
   let lastError = "";
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -568,7 +579,12 @@ export async function loadDatabase(): Promise<DatabaseState> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
   try {
-    const text = await fetchJson(`${base}?action=load`, { signal: controller.signal });
+    const text = await fetchJson(base, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "load", ...requireRemoteAuth() }),
+      signal: controller.signal,
+    });
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
       const state = applyLoadedState(normalizeState(payload.data));
@@ -615,7 +631,12 @@ export async function forceSyncFromGoogleSheets(customUrl?: string): Promise<{ s
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
-    const text = await fetchJson(`${fetchUrl}?action=load`, { signal: controller.signal });
+    const text = await fetchJson(fetchUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "load", ...requireRemoteAuth() }),
+      signal: controller.signal,
+    });
     clearTimeout(timeoutId);
 
     const payload = JSON.parse(text);
@@ -659,7 +680,7 @@ export async function uploadToGoogleSheets(state: DatabaseState, customUrl?: str
     const response = await fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", data: state }),
+      body: JSON.stringify({ action: "save", data: state, ...requireRemoteAuth() }),
     });
     const payload = await response.json().catch(() => null);
     if (payload?.ok) {
@@ -682,10 +703,18 @@ export function saveDatabase(state: DatabaseState): void {
   const base = getApiBase();
   if (!base) return;
 
+  let ident: { token?: string; googleCredential?: string };
+  try {
+    ident = requireRemoteAuth();
+  } catch (e) {
+    console.error("Kunne ikke lagre til Google Sheets:", e instanceof Error ? e.message : e);
+    return;
+  }
+
   void fetch(base, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "save", data: state }),
+    body: JSON.stringify({ action: "save", data: state, ...ident }),
   }).then(async (response) => {
     const payload = await response.json().catch(() => null);
     if (!payload?.ok) {
@@ -1825,6 +1854,24 @@ export function hentTilgang(db: DatabaseState, personID: string): PersonTilgang 
 
 export function visningErTillatt(tilgang: PersonTilgang, view: AppView): boolean {
   return tilgang.views.indexOf(view) >= 0;
+}
+
+function normaliserEpost(epost: string): string {
+  return String(epost || "").trim().toLowerCase();
+}
+
+/** Administrator som matcher Google-epost i personregisteret. */
+export function finnAdministratorMedEpost(
+  db: DatabaseState,
+  epost: string
+): Person | undefined {
+  const needle = normaliserEpost(epost);
+  if (!needle) return undefined;
+  const person = db.personer.find(
+    (p) => p.Aktiv && normaliserEpost(p.Epost) === needle
+  );
+  if (!person) return undefined;
+  return hentTilgang(db, person.PersonID).isAdmin ? person : undefined;
 }
 
 export interface PersonGruppeTilknytning {

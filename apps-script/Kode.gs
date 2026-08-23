@@ -155,6 +155,137 @@ var IMPORT_SHEETS = {
   },
 };
 
+/**
+ * API-auth: load/save krever magisk token (mk_…) eller Google-ID-token.
+ * migrateImport krever administrator.
+ * Sett Script Properties → GOOGLE_CLIENT_ID (samme som VITE_GOOGLE_CLIENT_ID).
+ */
+function generateStaticSecurityToken_(personId, navn) {
+  var hash1 = 0x811c9dc5;
+  var salt = "LMK_SEC_" + personId + "_" + (navn || "frivillig") + "_SALT2026";
+  var i;
+  for (i = 0; i < salt.length; i++) {
+    hash1 ^= salt.charCodeAt(i);
+    hash1 = Math.imul(hash1, 0x01000193);
+  }
+  var hash2 = 0x5a17c2e3;
+  for (i = salt.length - 1; i >= 0; i--) {
+    hash2 ^= salt.charCodeAt(i);
+    hash2 = Math.imul(hash2, 0x01000193);
+  }
+  var part1 = ("0000000" + (hash1 >>> 0).toString(36)).slice(-7);
+  var part2 = ("0000000" + (hash2 >>> 0).toString(36)).slice(-7);
+  return "mk_" + part1 + part2;
+}
+
+function normalizeEmail_(epost) {
+  return String(epost || "").trim().toLowerCase();
+}
+
+function isAdministrator_(state, personId) {
+  var personer = state.personer || [];
+  var person = null;
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    if (personer[i].PersonID === personId) {
+      person = personer[i];
+      break;
+    }
+  }
+  if (!person || person.Aktiv === false) return false;
+
+  var roller = state.roller || [];
+  var adminRolleId = "";
+  for (i = 0; i < roller.length; i++) {
+    if (roller[i].Aktiv !== false && String(roller[i].Rollenavn || "").trim().toLowerCase() === "administrator") {
+      adminRolleId = roller[i].RolleID;
+      break;
+    }
+  }
+  if (adminRolleId) {
+    var pr = state.personroller || [];
+    for (i = 0; i < pr.length; i++) {
+      if (pr[i].Aktiv !== false && pr[i].PersonID === personId && pr[i].RolleID === adminRolleId) {
+        return true;
+      }
+    }
+  }
+  if (person.PersonID === "P009") return true;
+  var navn = String(person.Navn || "").trim().toLowerCase();
+  var fornavn = String(person.Fornavn || "").trim().toLowerCase();
+  return fornavn === "magnar" || navn === "magnar" || navn.indexOf("magnar ") === 0;
+}
+
+function findPersonByMagicToken_(state, token) {
+  var t = String(token || "").trim();
+  if (t.indexOf("mk_") !== 0) return null;
+  var personer = state.personer || [];
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    var p = personer[i];
+    if (generateStaticSecurityToken_(p.PersonID, p.Navn) === t) return p;
+  }
+  return null;
+}
+
+function findAdminByEmail_(state, epost) {
+  var needle = normalizeEmail_(epost);
+  if (!needle) return null;
+  var personer = state.personer || [];
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    var p = personer[i];
+    if (p.Aktiv === false) continue;
+    if (normalizeEmail_(p.Epost) === needle && isAdministrator_(state, p.PersonID)) {
+      return p;
+    }
+  }
+  return null;
+}
+
+function verifyGoogleIdToken_(idToken) {
+  var clientId = PropertiesService.getScriptProperties().getProperty("GOOGLE_CLIENT_ID");
+  if (!clientId) return null;
+  var resp = UrlFetchApp.fetch(
+    "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken),
+    { muteHttpExceptions: true }
+  );
+  if (resp.getResponseCode() >= 400) return null;
+  var info = JSON.parse(resp.getContentText() || "{}");
+  if (info.error || info.aud !== clientId) return null;
+  if (info.email_verified === "false" || info.email_verified === false) return null;
+  return normalizeEmail_(info.email);
+}
+
+function requireAuth_(body, needAdmin) {
+  var state = loadDatabase();
+  var googleCred = body && body.googleCredential;
+  var token = body && body.token;
+  if (googleCred) {
+    var email = verifyGoogleIdToken_(String(googleCred));
+    if (!email) {
+      return { ok: false, error: "Ugyldig Google-innlogging." };
+    }
+    var admin = findAdminByEmail_(state, email);
+    if (!admin) {
+      return { ok: false, error: "Google-kontoen er ikke registrert som administrator." };
+    }
+    return { ok: true, state: state, isAdmin: true };
+  }
+  if (token) {
+    var person = findPersonByMagicToken_(state, token);
+    if (!person) {
+      return { ok: false, error: "Ugyldig eller ukjent lenke." };
+    }
+    var isAdmin = isAdministrator_(state, person.PersonID);
+    if (needAdmin && !isAdmin) {
+      return { ok: false, error: "Denne handlingen krever administrator." };
+    }
+    return { ok: true, state: state, isAdmin: isAdmin };
+  }
+  return { ok: false, error: "Mangler innlogging (token eller Google)." };
+}
+
 function doGet(e) {
   try {
     var params = (e && e.parameter) ? e.parameter : {};
@@ -171,19 +302,15 @@ function doGet(e) {
     }
 
     if (action === "inspectImport") {
-      return json_({ ok: true, info: inspectImportSheets_() });
+      return json_({ ok: false, error: "inspectImport krever innlogget POST." });
     }
 
     if (action === "load") {
-      return json_({ ok: true, data: loadDatabase() });
+      return json_({ ok: false, error: "Lasting krever innlogging. Bruk POST med token eller Google." });
     }
 
     if (action === "migrateImport") {
-      var dryGet = parseDryRun_(params.dryRun, true);
-      if (dryGet) {
-        return json_({ ok: true, dryRun: true, report: migrerGudstjenesterImport(true) });
-      }
-      return json_(runMigrateImportLocked_(false));
+      return json_({ ok: false, error: "migrateImport krever innlogget administrator (POST)." });
     }
 
     return json_({ ok: false, error: "Ukjent action: " + action }, 400);
@@ -200,10 +327,14 @@ function doPost(e) {
     var action = String(body.action || ((e.parameter && e.parameter.action) || "save"));
 
     if (action === "load") {
-      return json_({ ok: true, data: loadDatabase() });
+      var loadAuth = requireAuth_(body, false);
+      if (!loadAuth.ok) return json_({ ok: false, error: loadAuth.error });
+      return json_({ ok: true, data: loadAuth.state });
     }
 
     if (action === "save") {
+      var saveAuth = requireAuth_(body, false);
+      if (!saveAuth.ok) return json_({ ok: false, error: saveAuth.error });
       if (!body.data) {
         return json_({ ok: false, error: "Mangler data" }, 400);
       }
@@ -211,7 +342,15 @@ function doPost(e) {
       return json_({ ok: true, data: loadDatabase() });
     }
 
+    if (action === "inspectImport") {
+      var inspectAuth = requireAuth_(body, true);
+      if (!inspectAuth.ok) return json_({ ok: false, error: inspectAuth.error });
+      return json_({ ok: true, info: inspectImportSheets_() });
+    }
+
     if (action === "migrateImport") {
+      var migAuth = requireAuth_(body, true);
+      if (!migAuth.ok) return json_({ ok: false, error: migAuth.error });
       var dryPost = parseDryRun_(body.dryRun != null ? body.dryRun : (e.parameter && e.parameter.dryRun), true);
       var report = migrerGudstjenesterImport(dryPost);
       return json_({ ok: true, dryRun: dryPost, report: report });

@@ -8,11 +8,25 @@ import {
   visningErTillatt,
   AppView,
   finnPersonMedTokenEllerId,
+  finnAdministratorMedEpost,
   switchDevDataSource,
   getDevDataSource,
   type DevDataSource,
 } from "./services/dataService";
+import {
+  epostFraGoogleJwt,
+  hentAdminSesjonEpost,
+  hentAdminGoogleCredential,
+  lagreAdminSesjon,
+  slettAdminSesjon,
+  tolkInnlimtLenke,
+  lesMagiskTokenFraUrl,
+  lagreMagiskToken,
+  harApiIdentitet,
+  slettMagiskToken,
+} from "./services/innlogging";
 import { Header } from "./components/Header";
+import { Startside } from "./components/Startside";
 import { PersonalView } from "./components/PersonalView";
 import { GroupLeaderView } from "./components/GroupLeaderView";
 import { AdminView } from "./components/AdminView";
@@ -25,7 +39,10 @@ export default function App() {
     remoteByConfig ? null : loadLocalDatabase()
   );
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isLoadingRemote, setIsLoadingRemote] = useState<boolean>(remoteByConfig);
+  const [isLoadingRemote, setIsLoadingRemote] = useState<boolean>(() => {
+    const remote = import.meta.env.PROD || getDevDataSource() === "remote";
+    return remote && (Boolean(lesMagiskTokenFraUrl()) || Boolean(hentAdminGoogleCredential()));
+  });
   const [activeView, setActiveView] = useState<AppView>("personal");
   const [selectedPersonId, setSelectedPersonId] = useState<string>("P001");
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
@@ -38,6 +55,13 @@ export default function App() {
   const [pinInput, setPinInput] = useState<string>("");
   const [pinError, setPinError] = useState<string | null>(null);
   const harValgtStartvisning = useRef(false);
+  const [viserStartside, setViserStartside] = useState(() => {
+    const remote = import.meta.env.PROD || getDevDataSource() === "remote";
+    if (!remote) return false;
+    return !lesMagiskTokenFraUrl() && !hentAdminGoogleCredential();
+  });
+  const [startFeil, setStartFeil] = useState<string | null>(null);
+  const [innloggetViaGoogle, setInnloggetViaGoogle] = useState(false);
 
   const fetchRemote = useCallback(() => {
     let cancelled = false;
@@ -64,6 +88,17 @@ export default function App() {
 
   useEffect(() => {
     if (!remoteByConfig) return;
+    const token = lesMagiskTokenFraUrl();
+    if (token) {
+      lagreMagiskToken(token);
+      slettAdminSesjon();
+    }
+    if (!harApiIdentitet()) {
+      setIsLoadingRemote(false);
+      setViserStartside(true);
+      harValgtStartvisning.current = true;
+      return;
+    }
     return fetchRemote();
   }, [remoteByConfig, fetchRemote]);
 
@@ -104,13 +139,13 @@ export default function App() {
       });
   };
 
-  // Uten magic link: åpne som administrator (egen innlogging kommer senere).
-  // ?t= / ?token= / ?personId= / ?p= er personlige lenker → Min side for den personen.
+  // Personlig lenke → Min side. Google-sesjon → admin. Produksjon uten lenke → startside.
   useEffect(() => {
     if (!db || db.personer.length === 0) return;
     if (harValgtStartvisning.current) return;
     try {
       const params = new URLSearchParams(window.location.search);
+      const tvingStartside = params.get("startside") === "1";
       const tokenParam = params.get("t") || params.get("token") || params.get("personId") || params.get("p");
       const viewParam = params.get("view");
 
@@ -129,19 +164,47 @@ export default function App() {
         if (found) {
           setSelectedPersonId(found.PersonID);
           setIsMagicLinkUser(true);
+          setInnloggetViaGoogle(false);
           velgVisning(found.PersonID, "personal");
+          setViserStartside(false);
+          harValgtStartvisning.current = true;
+          return;
+        }
+        setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
+        setViserStartside(true);
+        harValgtStartvisning.current = true;
+        return;
+      }
+
+      const sesjonEpost = hentAdminSesjonEpost();
+      if (sesjonEpost) {
+        const googleAdmin = finnAdministratorMedEpost(db, sesjonEpost);
+        if (googleAdmin) {
+          setSelectedPersonId(googleAdmin.PersonID);
+          setIsMagicLinkUser(false);
+          setInnloggetViaGoogle(true);
+          velgVisning(googleAdmin.PersonID, "admin");
+          setViserStartside(false);
+          harValgtStartvisning.current = true;
+          return;
+        }
+        slettAdminSesjon();
+      }
+
+      if (import.meta.env.DEV && !tvingStartside) {
+        const forsteAdmin = db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin);
+        if (forsteAdmin) {
+          setSelectedPersonId(forsteAdmin.PersonID);
+          setIsMagicLinkUser(false);
+          velgVisning(forsteAdmin.PersonID, "admin");
+          setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
         }
       }
 
-      const forsteAdmin = db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin);
-      if (forsteAdmin) {
-        setSelectedPersonId(forsteAdmin.PersonID);
-        setIsMagicLinkUser(false);
-        velgVisning(forsteAdmin.PersonID, "admin");
-        harValgtStartvisning.current = true;
-      }
+      setViserStartside(true);
+      harValgtStartvisning.current = true;
     } catch (e) {
       console.warn("Kunne ikke lese URL-parametre:", e);
     }
@@ -207,6 +270,54 @@ export default function App() {
       .then((refreshed) => setDb(refreshed))
       .catch((e) => setLoadError(e instanceof Error ? e.message : String(e)));
   };
+
+  const handleLimInnLenke = (raw: string) => {
+    const neste = tolkInnlimtLenke(raw, window.location.pathname);
+    if (!neste) {
+      setStartFeil("Kunne ikke lese lenken. Lim inn hele adressen du har fått.");
+      return;
+    }
+    window.location.assign(neste);
+  };
+
+  const handleGoogleCredential = (credential: string) => {
+    const epost = epostFraGoogleJwt(credential);
+    if (!epost) {
+      setStartFeil("Google-innlogging ga ingen bekreftet e-postadresse.");
+      return;
+    }
+    lagreAdminSesjon(epost, credential);
+    slettMagiskToken();
+    setStartFeil(null);
+    setViserStartside(false);
+    harValgtStartvisning.current = false;
+    setDb(null);
+    fetchRemote();
+  };
+
+  const handleLoggUt = () => {
+    slettAdminSesjon();
+    slettMagiskToken();
+    setInnloggetViaGoogle(false);
+    setIsMagicLinkUser(false);
+    setViserStartside(true);
+    setActiveView("personal");
+    setStartFeil(null);
+    if (remoteByConfig) {
+      setDb(null);
+    }
+    window.history.replaceState({}, "", window.location.pathname);
+  };
+
+  if (viserStartside) {
+    return (
+      <Startside
+        feilmelding={startFeil}
+        onLimInnLenke={handleLimInnLenke}
+        onGoogleCredential={handleGoogleCredential}
+      />
+    );
+  }
 
   if (!db) {
     return (
@@ -287,6 +398,7 @@ export default function App() {
         onResetData={handleResetData}
         isAdminUser={isActualAdmin && !adminSimulatingPersonId}
         isMagicLinkUser={isMagicLinkUser}
+        onLoggUt={innloggetViaGoogle ? handleLoggUt : undefined}
       />
 
       {/* Hovedinnhold basert på valgt modus */}
@@ -383,7 +495,7 @@ export default function App() {
             <strong>Gudstjenesteplanlegger 2.0</strong> &bull; Lillesand Misjonskirke
           </div>
           <div className="text-slate-400">
-            Sikret med unike, ugjettelige direktelenker &bull; Tilpasset GDPR
+            Personlig lenke for frivillige. Administrator logger inn med Google.
           </div>
         </div>
       </footer>

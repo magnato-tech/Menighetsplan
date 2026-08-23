@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/test/bemanning.test.ts && tsx src/test/program.test.ts",
+    "test": "tsx src/test/bemanning.test.ts && tsx src/test/program.test.ts && tsx src/test/innlogging.test.ts",
     "apps-script:push": "clasp push --force",
     "apps-script:deploy": "clasp deploy --deploymentId AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw --description Gudstjenesteplanlegger2.0-API"
   },
