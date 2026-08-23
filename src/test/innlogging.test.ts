@@ -10,6 +10,7 @@ import {
   hentTilgang,
   visningErTillatt,
   loadLocalDatabase,
+  oppdaterPersonIRegister,
 } from "../services/dataService";
 import { epostFraGoogleJwt, tolkInnlimtLenke, erMagiskLenkeToken, lesMagiskTokenFraUrl, lagreMagiskToken, slettMagiskToken, hentApiIdentitet } from "../services/innlogging";
 
@@ -113,5 +114,19 @@ assert.ok(nyAdmin?.SikkerhetsToken);
 assert.notEqual(nyAdmin!.SikkerhetsToken, gammelToken);
 assert.equal(finnPersonMedMagiskToken(fornyet, gammelToken!), undefined);
 assert.equal(finnPersonMedMagiskToken(fornyet, nyAdmin!.SikkerhetsToken!)?.PersonID, admin!.PersonID);
+
+const redigert = oppdaterPersonIRegister(db, admin!.PersonID, {
+  Navn: "Magnar Testesen",
+  Epost: "magnar.test@example.com",
+  Telefon: "11111111",
+  Aktiv: true,
+});
+const redigertPerson = redigert.personer.find((p) => p.PersonID === admin!.PersonID);
+assert.equal(redigertPerson?.Navn, "Magnar Testesen");
+assert.equal(redigertPerson?.Fornavn, "Magnar");
+assert.equal(redigertPerson?.Etternavn, "Testesen");
+assert.equal(redigertPerson?.Epost, "magnar.test@example.com");
+assert.equal(redigertPerson?.Telefon, "11111111");
+assert.equal(finnAdministratorMedEpost(redigert, "magnar.test@example.com")?.PersonID, admin!.PersonID);
 
 console.log("innlogging.test.ts: alle tester ok");

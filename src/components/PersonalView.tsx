@@ -95,7 +95,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
   const [showDatePickerForRolle, setShowDatePickerForRolle] = useState<Rolle | null>(null);
   const [datePickerFilter, setDatePickerFilter] = useState<"ledige" | "mine" | "alle">("alle");
-  const [visAlleFor, setVisAlleFor] = useState<Record<string, boolean>>({});
+  const [visHeleBemanningFor, setVisHeleBemanningFor] = useState<Record<string, boolean>>({});
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
 
   const openDatePicker = (rolle: Rolle) => {
@@ -268,13 +268,28 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
               const mine = personensTildelinger.filter(
                 (item) => item.gudstjeneste?.GudstjenesteID === gudstjeneste.GudstjenesteID
               );
-              const visAlle = Boolean(visAlleFor[gudstjeneste.GudstjenesteID]);
+              const visHele = Boolean(visHeleBemanningFor[gudstjeneste.GudstjenesteID]);
               const rollerIOversikt = db.roller.filter((r) => r.Aktiv);
+              const vekselKort = () =>
+                setVisHeleBemanningFor((prev) => ({
+                  ...prev,
+                  [gudstjeneste.GudstjenesteID]: !visHele,
+                }));
 
               return (
                 <div
                   key={gudstjeneste.GudstjenesteID}
-                  className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={visHele}
+                  onClick={vekselKort}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      vekselKort();
+                    }
+                  }}
+                  className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer hover:bg-slate-50/50 text-left"
                 >
                   <div className="px-4 sm:px-5 pt-2.5 pb-1.5 flex items-start justify-between gap-2">
                     <p className="text-xs sm:text-sm text-slate-700 truncate min-w-0">
@@ -303,12 +318,15 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                             : ScrollText
                         }
                         variant="sky"
-                        onClick={() => setLeserGudstjenesteId(gudstjeneste.GudstjenesteID)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLeserGudstjenesteId(gudstjeneste.GudstjenesteID);
+                        }}
                       />
                     )}
                   </div>
 
-                  {mine.length > 0 && (
+                  {!visHele && mine.length > 0 && (
                     <div className="px-4 sm:px-5">
                       {mine.map((item) => {
                         const isBekreftet = item.status === "Bekreftet";
@@ -320,7 +338,10 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                           >
                             <button
                               type="button"
-                              onClick={() => item.rolle && setSelectedRolleForModal(item.rolle)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                item.rolle && setSelectedRolleForModal(item.rolle);
+                              }}
                               title="Se instruks"
                               className="flex items-center gap-2 shrink-0 text-left cursor-pointer rounded-lg hover:bg-slate-50 px-0.5 py-0.5"
                             >
@@ -349,7 +370,8 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                               Icon={Check}
                               variant="confirm"
                               active={isBekreftet}
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 handleBekreft(item.tildeling.TildelingID, isBekreftet);
                               }}
                             />
@@ -358,7 +380,10 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                               variant="decline"
                               Icon={X}
                               active={isAvvist}
-                              onClick={() => handleAvkreft(item.tildeling.TildelingID)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAvkreft(item.tildeling.TildelingID);
+                              }}
                             />
                             </div>
                           </div>
@@ -367,34 +392,22 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                     </div>
                   )}
 
-                  <div className="px-4 sm:px-5 pb-2.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setVisAlleFor((prev) => ({
-                          ...prev,
-                          [gudstjeneste.GudstjenesteID]: !visAlle,
-                        }))
-                      }
-                      className="text-[11px] font-semibold text-[#2d5a3f] hover:underline cursor-pointer"
+                  {visHele && (
+                    <div
+                      className="px-4 sm:px-5 pb-2.5 pt-1"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {visAlle ? "Skjul alle" : "Vis alle"}
-                    </button>
-
-                    {visAlle && (
-                      <div className="mt-1">
-                        <GudstjenesteRolleOversikt
-                          db={db}
-                          gudstjenesteId={gudstjeneste.GudstjenesteID}
-                          roller={rollerIOversikt}
-                          onSelectRolle={setSelectedRolleForModal}
-                          skjulUbekreftet
-                          skjulTommeRoller
-                          inkluderPersonId={person.PersonID}
-                        />
-                      </div>
-                    )}
-                  </div>
+                      <GudstjenesteRolleOversikt
+                        db={db}
+                        gudstjenesteId={gudstjeneste.GudstjenesteID}
+                        roller={rollerIOversikt}
+                        onSelectRolle={setSelectedRolleForModal}
+                        skjulUbekreftet
+                        skjulTommeRoller
+                        inkluderPersonId={person.PersonID}
+                      />
+                    </div>
+                  )}
                 </div>
               );
             })}

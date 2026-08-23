@@ -16,34 +16,10 @@ import {
   plusBemanningstall,
   tomtBemanningstall,
   belastningForSemester,
+  situasjonRollerForGudstjeneste,
 } from "../services/dataService";
 import { personerIRolle } from "../components/GudstjenesteRolleOversikt";
 import { Rolle, Person, Tildeling, Svar } from "../types/database";
-
-const LOG = "http://127.0.0.1:7840/ingest/be584b0b-55ee-4028-934f-178c2d098e28";
-
-function log(
-  hypothesisId: string,
-  message: string,
-  data: Record<string, unknown>,
-  location: string
-) {
-  // #region agent log
-  fetch(LOG, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "6c32bc" },
-    body: JSON.stringify({
-      sessionId: "6c32bc",
-      runId: "logic-audit",
-      hypothesisId,
-      location,
-      message,
-      data,
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
-}
 
 function person(partial: Partial<Person> & Pick<Person, "PersonID" | "Navn" | "Fornavn">): Person {
   return {
@@ -144,16 +120,14 @@ function tildel(
 let failed = 0;
 let passed = 0;
 
-function test(name: string, hypothesisId: string, fn: () => void) {
+function test(name: string, _hypothesisId: string, fn: () => void) {
   try {
     fn();
     passed += 1;
-    log(hypothesisId, `PASS ${name}`, { ok: true }, "bemanning.test.ts");
     console.log(`PASS  ${name}`);
   } catch (e) {
     failed += 1;
     const err = e instanceof Error ? e.message : String(e);
-    log(hypothesisId, `FAIL ${name}`, { ok: false, err }, "bemanning.test.ts");
     console.error(`FAIL  ${name}`);
     console.error(`      ${err}`);
   }
@@ -385,6 +359,48 @@ test("belastning: eksterne og fortid telles ikke", "A", () => {
   assert.equal(b.gudstjenester.length, 1);
 });
 
+test("situasjonRollerForGudstjeneste: fast rekkefølge, fornavn og uten avviste", "SIT", () => {
+  const rolle = (id: string, navn: string, behov = 1): Rolle => ({
+    RolleID: id,
+    Rollenavn: navn,
+    Beskrivelse: "",
+    Aktiv: true,
+    Behov: behov,
+    GruppeID: "G001",
+    OpprettetDato: "2026-01-01",
+    SistEndret: "2026-01-01",
+  });
+  let db = tomDb();
+  db = {
+    ...db,
+    roller: [
+      rolle("R-KJOK", "Kjøkken"),
+      rolle("R-TAL", "Taler"),
+      rolle("R-MOT", "Møteleder"),
+      rolle("R-FOR", "Forbønn", 2),
+      rolle("R-INAKT", "Inaktiv"),
+    ],
+  };
+  db.roller.find((r) => r.RolleID === "R-INAKT")!.Aktiv = false;
+  db = tildel(db, "T-MOT", "P001", "Bekreftet", { RolleID: "R-MOT" });
+  db = tildel(db, "T-TAL", "P002", "Venter", { RolleID: "R-TAL" });
+  db = tildel(db, "T-FOR1", "P003", "Bekreftet", { RolleID: "R-FOR" });
+  db = tildel(db, "T-FOR2", "P001", "Avvist", { RolleID: "R-FOR" });
+  const rader = situasjonRollerForGudstjeneste(db, "GUD001");
+  assert.deepEqual(
+    rader.map((r) => r.rolle.Rollenavn),
+    ["Møteleder", "Taler", "Forbønn", "Kjøkken"]
+  );
+  assert.equal(rader[0].personer[0].navn, "Camilla");
+  assert.equal(rader[0].personer[0].status, "Bekreftet");
+  assert.equal(rader[1].personer[0].status, "Venter");
+  assert.equal(rader[2].personer.length, 1);
+  assert.equal(rader[2].personer[0].navn, "Andreas");
+  assert.equal(rader[3].personer.length, 0);
+  const kunKjokken = situasjonRollerForGudstjeneste(db, "GUD001", ["R-KJOK"]);
+  assert.deepEqual(kunKjokken.map((r) => r.rolle.RolleID), ["R-KJOK"]);
+});
+
 test("plusBemanningstall summerer semester-KPI", "A", () => {
   const a = { bekreftet: 1, venter: 2, ledige: 3, forfall: 1, behov: 4 };
   const b = { bekreftet: 3, venter: 0, ledige: 0, forfall: 0, behov: 2 };
@@ -399,13 +415,6 @@ test("plusBemanningstall summerer semester-KPI", "A", () => {
     behov: 0,
   });
 });
-
-log(
-  "SUM",
-  "logic-audit ferdig",
-  { passed, failed, total: passed + failed },
-  "bemanning.test.ts:summary"
-);
 
 console.log("");
 console.log(`${passed} passed, ${failed} failed`);

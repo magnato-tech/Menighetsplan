@@ -144,7 +144,10 @@ export const GudstjenesteRolleOversikt: React.FC<GudstjenesteRolleOversiktProps>
           >
             <button
               type="button"
-              onClick={() => onSelectRolle(rolle)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectRolle(rolle);
+              }}
               title="Se instruks"
               className="inline-flex items-center gap-2 min-w-0 text-left cursor-pointer rounded-lg hover:bg-slate-50 px-0.5 py-0.5"
             >

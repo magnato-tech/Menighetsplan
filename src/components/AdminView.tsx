@@ -12,6 +12,8 @@ import {
   Bemanningstall,
   genererPersonligLenke,
   opprettPersonIRegister,
+  oppdaterPersonIRegister,
+  rensSted,
   saveDatabase,
   hentTilgang,
   svarPaaTildeling,
@@ -26,6 +28,7 @@ import {
   Gudstjeneste,
   Tjenestebehov,
   SvarStatus,
+  Person,
 } from "../types/database";
 import { RoleDescriptionModal, oppsummerInstruks } from "./RoleDescriptionModal";
 import { ImportMigrationModal } from "./ImportMigrationModal";
@@ -35,6 +38,7 @@ import { GroupDetailModal } from "./GroupDetailModal";
 import { NewGroupModal } from "./NewGroupModal";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
+import { SituasjonRad } from "./SituasjonRad";
 import { BelastningView } from "./BelastningView";
 import { ProgrammalAdminView } from "./ProgrammalAdminView";
 import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
@@ -45,6 +49,7 @@ import {
   Shield,
   Layers,
   Plus,
+  Pencil,
   Trash2,
   Share2,
   Check,
@@ -60,8 +65,6 @@ import {
   List,
   X,
   UserPlus,
-  ChevronDown,
-  ChevronRight,
   AlertCircle,
   CircleHelp,
   CheckCircle2,
@@ -259,7 +262,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [newServiceData, setNewServiceData] = useState<Partial<Gudstjeneste>>({
     Dato: "",
     Tid: "11:00",
-    Sted: "Hovedsalen, Sentrumskirken",
+    Sted: "Bedehuset",
     Tema: "",
     Bibeltekst: "",
     Kollekt: "",
@@ -267,6 +270,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
   });
 
   const [newPersonModal, setNewPersonModal] = useState(false);
+  const [editPerson, setEditPerson] = useState<Person | null>(null);
+  const [editNavn, setEditNavn] = useState("");
+  const [editEpost, setEditEpost] = useState("");
+  const [editTelefon, setEditTelefon] = useState("");
+  const [editAktiv, setEditAktiv] = useState(true);
   const [newFornavn, setNewFornavn] = useState("");
   const [newPersonSlots, setNewPersonSlots] = useState<UkjentImportSlot[]>([]);
   const [newPersonGudstjenesteId, setNewPersonGudstjenesteId] = useState("");
@@ -287,7 +295,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     rolleNavn: string;
   } | null>(null);
   const [personToAssign, setPersonToAssign] = useState<string>("");
-  const [apneGudstjenester, setApneGudstjenester] = useState<string[]>([]);
+  const [visDetalj, setVisDetalj] = useState<Record<string, boolean>>({});
   const [uthevPersonId, setUthevPersonId] = useState<string | null>(null);
   const [scrollTilGudstjenesteId, setScrollTilGudstjenesteId] = useState<string | null>(null);
   const [visTidligere, setVisTidligere] = useState(false);
@@ -329,7 +337,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
       GudstjenesteID: newID,
       Dato: newServiceData.Dato,
       Tid: newServiceData.Tid || "11:00",
-      Sted: newServiceData.Sted || "Sentrumskirken",
+      Sted: rensSted(newServiceData.Sted) || "Bedehuset",
       Tema: newServiceData.Tema,
       Bibeltekst: newServiceData.Bibeltekst || "",
       Kollekt: newServiceData.Kollekt || "",
@@ -347,7 +355,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setNewServiceData({
       Dato: "",
       Tid: "11:00",
-      Sted: "Hovedsalen, Sentrumskirken",
+      Sted: "Bedehuset",
       Tema: "",
       Bibeltekst: "",
       Kollekt: "",
@@ -381,6 +389,27 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setNewPersonSlots([]);
     setNewPersonGudstjenesteId("");
     setNewPersonRolleId("");
+  };
+
+  const openEditPerson = (person: Person) => {
+    setEditPerson(person);
+    setEditNavn(person.Navn || "");
+    setEditEpost(person.Epost || "");
+    setEditTelefon(person.Telefon || "");
+    setEditAktiv(person.Aktiv !== false);
+  };
+
+  const handleSaveEditPerson = () => {
+    if (!editPerson || !editNavn.trim()) return;
+    const updatedDb = oppdaterPersonIRegister(db, editPerson.PersonID, {
+      Navn: editNavn.trim(),
+      Epost: editEpost,
+      Telefon: editTelefon,
+      Aktiv: editAktiv,
+    });
+    saveDatabase(updatedDb);
+    onUpdateDb(updatedDb);
+    setEditPerson(null);
   };
 
   const handleCreateAndAssign = () => {
@@ -678,7 +707,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
         )
       )
       .map((gud) => gud.GudstjenesteID);
-    setApneGudstjenester(ids);
+    setVisDetalj((prev) => {
+      const neste = { ...prev };
+      ids.forEach((id) => {
+        neste[id] = true;
+      });
+      return neste;
+    });
   }, [oversiktFilter, db, iDag]);
 
   useEffect(() => {
@@ -713,10 +748,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
     setFolgOppLederId((prev) => (prev === personId ? null : personId));
   };
 
-  const vekselApne = (id: string) => {
-    setApneGudstjenester((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+  const vekselDetalj = (id: string) => {
+    setVisDetalj((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const renderRolleRad = (gudstjenesteId: string, rolle: Rolle) => {
@@ -741,7 +774,10 @@ export const AdminView: React.FC<AdminViewProps> = ({
         <div className="flex items-center gap-3 shrink-0">
           <button
             type="button"
-            onClick={() => setSelectedRolleForModal(rolle)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedRolleForModal(rolle);
+            }}
             title="Se instruks"
             className="flex items-center gap-3 min-w-0 text-left cursor-pointer rounded-xl hover:bg-slate-100/80 -ml-1 px-1 py-0.5"
           >
@@ -752,7 +788,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
           </button>
           <button
             type="button"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setEditNeedModal({
                 gudstjenesteId,
                 rolleId: rolle.RolleID,
@@ -827,40 +864,53 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   Icon={Check}
                   variant="confirm"
                   active={isBekreftet}
-                  onClick={() => handleUpdatePersonStatus(t.TildelingID, t.PersonID, "Bekreftet")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpdatePersonStatus(t.TildelingID, t.PersonID, "Bekreftet");
+                  }}
                 />
                 <IkonHandling
                   label="Sett status til forespurt / venter svar"
                   Icon={Clock}
                   variant="wait"
                   active={status === "Venter"}
-                  onClick={() => handleUpdatePersonStatus(t.TildelingID, t.PersonID, "Venter")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpdatePersonStatus(t.TildelingID, t.PersonID, "Venter");
+                  }}
                 />
                 <IkonHandling
                   label="Marker som forfall / kan ikke"
                   Icon={X}
                   variant="decline"
                   active={isAvvist}
-                  onClick={() => handleUpdatePersonStatus(t.TildelingID, t.PersonID, "Avvist")}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleUpdatePersonStatus(t.TildelingID, t.PersonID, "Avvist");
+                  }}
                 />
                 <IkonHandling
                   label="Fjern tildeling"
                   Icon={Trash2}
                   variant="decline"
-                  onClick={() => handleRemoveTildeling(t.TildelingID)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRemoveTildeling(t.TildelingID);
+                  }}
                 />
               </div>
             );
           })}
           <button
             type="button"
-            onClick={() =>
+            onClick={(e) => {
+              e.stopPropagation();
               setAssignModal({
                 gudstjenesteId,
                 rolleId: rolle.RolleID,
                 rolleNavn: rolle.Rollenavn,
-              })
-            }
+              });
+            }}
             className="p-1.5 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] rounded-lg cursor-pointer transition shadow-2xs shrink-0"
             title="Tildel"
             aria-label="Tildel"
@@ -885,38 +935,26 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const rader = visAlleTall
       ? alleRader
       : alleRader.filter((rad) => trefferOversiktFilter(rad.tall, oversiktFilter));
-    const hullGrupper = alleRader.filter((r) => r.tall.ledige > 0);
-    const venterGrupper = alleRader.filter((r) => r.tall.venter > 0);
-    const erApen = apneGudstjenester.includes(gudstjeneste.GudstjenesteID);
-    const kant = visAlleTall
-      ? totalt.ledige > 0
-        ? "border-l-[3px] border-l-rose-400"
-        : totalt.venter > 0
-          ? "border-l-[3px] border-l-amber-400"
-          : "border-l-[3px] border-l-transparent opacity-80"
-      : oversiktFilter === "ledige"
-        ? "border-l-[3px] border-l-rose-400"
-        : oversiktFilter === "venter"
-          ? "border-l-[3px] border-l-amber-400"
-          : "border-l-[3px] border-l-emerald-400";
+    const visDetaljer = Boolean(visDetalj[gudstjeneste.GudstjenesteID]);
+    const kant = `border-l-[3px] border-l-[#2d5a3f]${visAlleTall && totalt.ledige === 0 && totalt.venter === 0 ? " opacity-80" : ""}`;
 
     return (
       <div
         key={gudstjeneste.GudstjenesteID}
         id={`gudstjeneste-${gudstjeneste.GudstjenesteID}`}
-        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden ${kant}`}
+        role="button"
+        tabIndex={0}
+        aria-expanded={visDetaljer}
+        onClick={() => vekselDetalj(gudstjeneste.GudstjenesteID)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            vekselDetalj(gudstjeneste.GudstjenesteID);
+          }
+        }}
+        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer ${kant}`}
       >
-        <button
-          type="button"
-          onClick={() => vekselApne(gudstjeneste.GudstjenesteID)}
-          aria-expanded={erApen}
-          className="w-full text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50/80 cursor-pointer"
-        >
-          {erApen ? (
-            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          )}
+        <div className="px-4 py-2.5 flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-1.5 text-sm">
               <span className="font-semibold text-[#2d5a3f]">
@@ -932,41 +970,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 </span>
               )}
             </div>
-            <div className="text-xs text-slate-600 mt-0.5">
-              {visAlleTall ? (
-                hullGrupper.length > 0 ? (
-                  <>
-                    <span className="font-semibold text-rose-800">
-                      {totalt.ledige} ledige
-                    </span>
-                    <span className="text-slate-500">
-                      {" · "}
-                      {hullGrupper.map((g) => g.gruppenavn).join(", ")}
-                    </span>
-                  </>
-                ) : totalt.venter > 0 ? (
-                  <span className="font-semibold text-amber-800">{totalt.venter} venter</span>
-                ) : (
-                  <span className="text-emerald-700 font-medium">Komplett</span>
-                )
-              ) : oversiktFilter === "ledige" ? (
-                <span className="font-semibold text-rose-800">
-                  {totalt.ledige} ledige
-                  {hullGrupper.length > 0 ? ` · ${hullGrupper.map((g) => g.gruppenavn).join(", ")}` : ""}
-                </span>
-              ) : oversiktFilter === "venter" ? (
-                <span className="font-semibold text-amber-800">
-                  {totalt.venter} venter
-                  {venterGrupper.length > 0
-                    ? ` · ${venterGrupper.map((g) => g.gruppenavn).join(", ")}`
-                    : ""}
-                </span>
-              ) : (
-                <span className="font-semibold text-emerald-800">{totalt.bekreftet} bekreftet</span>
-              )}
-            </div>
           </div>
-          <div className="hidden md:flex items-center gap-2 text-[11px] tabular-nums font-semibold shrink-0">
+          <div className="flex items-center gap-2 text-[11px] tabular-nums font-semibold shrink-0">
             {visAlleTall ? (
               <>
                 <span className={totalt.bekreftet ? "text-emerald-700" : "text-slate-400"}>
@@ -987,9 +992,13 @@ export const AdminView: React.FC<AdminViewProps> = ({
               <span className="text-rose-800">{totalt.ledige} ledige</span>
             )}
           </div>
-        </button>
+        </div>
 
-        {erApen && (
+        {!visDetaljer && (
+          <SituasjonRad db={db} gudstjenesteId={gudstjeneste.GudstjenesteID} />
+        )}
+
+        {visDetaljer && (
           <div className="border-t border-slate-100">
             <div className="flex border-b border-slate-100 px-2">
               {(
@@ -1442,7 +1451,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onVelgGudstjeneste={(gudstjenesteId, personId) => {
             setOversiktFilter(null);
             setActiveTab("services");
-            setApneGudstjenester([gudstjenesteId]);
+            setVisDetalj((prev) => ({ ...prev, [gudstjenesteId]: true }));
             setUthevPersonId(personId);
             setScrollTilGudstjenesteId(gudstjenesteId);
           }}
@@ -1519,7 +1528,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
                   <th className="p-3">Tilgang & Lederansvar</th>
                   <th className="p-3">Personroller (Godkjente)</th>
                   <th className="p-3">Tjenestegrupper</th>
-                  <th className="p-3 text-right">Personlenke</th>
+                  <th className="p-3 text-right">Handling</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -1600,6 +1609,11 @@ export const AdminView: React.FC<AdminViewProps> = ({
                       </td>
                       <td className="p-3 text-right">
                         <div className="inline-flex items-center justify-end gap-1">
+                          <IkonHandling
+                            label="Rediger person"
+                            Icon={Pencil}
+                            onClick={() => openEditPerson(person)}
+                          />
                           <IkonHandling
                             label="Kopier personlenke"
                             Icon={Share2}
@@ -2157,6 +2171,73 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 className="px-4 py-2 text-xs bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition cursor-pointer"
               >
                 Lagre person
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Rediger person */}
+      {editPerson && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Rediger person</h3>
+            <p className="text-xs text-slate-500 mb-4">
+              E-post brukes til Google-innlogging for administratorer.
+            </p>
+            <div className="space-y-3 mb-6 text-xs">
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Navn</label>
+                <input
+                  type="text"
+                  value={editNavn}
+                  onChange={(e) => setEditNavn(e.target.value)}
+                  className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">E-post</label>
+                <input
+                  type="email"
+                  value={editEpost}
+                  onChange={(e) => setEditEpost(e.target.value)}
+                  className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Telefon</label>
+                <input
+                  type="tel"
+                  value={editTelefon}
+                  onChange={(e) => setEditTelefon(e.target.value)}
+                  className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
+                />
+              </div>
+              <label className="flex items-center gap-2 font-semibold text-slate-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={editAktiv}
+                  onChange={(e) => setEditAktiv(e.target.checked)}
+                  className="rounded border-slate-300"
+                />
+                Aktiv
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setEditPerson(null)}
+                className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                disabled={!editNavn.trim()}
+                onClick={handleSaveEditPerson}
+                className="px-4 py-2 text-xs bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition cursor-pointer"
+              >
+                Lagre
               </button>
             </div>
           </div>

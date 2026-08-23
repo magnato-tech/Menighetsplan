@@ -239,6 +239,16 @@ export function finnPersonMedMagiskToken(db: DatabaseState, token: string): Pers
   return db.personer.find((p) => String(p.SikkerhetsToken || "").trim() === clean);
 }
 
+/** Fjern feil kirkenevn. Vis Bedehuset i stedet for gammel «Hovedsalen». */
+export function rensSted(sted: string | undefined | null): string {
+  return String(sted || "")
+    .replace(/\s*,\s*Sentrumskirken\s*/gi, "")
+    .replace(/\bSentrumskirken\b/gi, "")
+    .replace(/\bHovedsalen\b/gi, "Bedehuset")
+    .replace(/^[,\s]+|[,\s]+$/g, "")
+    .trim();
+}
+
 function emptyState(): DatabaseState {
   return {
     gruppetyper: [],
@@ -477,7 +487,14 @@ async function fetchJson(url: string, init?: RequestInit): Promise<string> {
 function applyLoadedState(state: DatabaseState): DatabaseState {
   const personer = sikreSikkerhetsTokens(state.personer);
   let endret = personer.some((p, i) => p.SikkerhetsToken !== state.personer[i]?.SikkerhetsToken);
-  let fixed: DatabaseState = { ...state, personer };
+  let fixed: DatabaseState = {
+    ...state,
+    personer,
+    gudstjenester: (state.gudstjenester || []).map((g) => {
+      const Sted = rensSted(g.Sted);
+      return Sted === g.Sted ? g : { ...g, Sted };
+    }),
+  };
   const lydBilde = korrigerLydBildeTilRigg(fixed);
   fixed = lydBilde.state;
   if (lydBilde.endret) endret = true;
@@ -609,7 +626,8 @@ export async function loadDatabase(): Promise<DatabaseState> {
     throw new Error(payload?.error || "Ukjent svar fra Google Sheets.");
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    if (e instanceof DOMException && e.name === "AbortError") {
+    const aborted = e instanceof DOMException && e.name === "AbortError";
+    if (aborted) {
       throw new Error(
         `Tidsavbrudd mot Google Sheets etter ${REMOTE_FETCH_TIMEOUT_MS / 1000} sekunder. Prøv igjen.`
       );
@@ -996,6 +1014,47 @@ export function hentAnsvarForBrikke(
       status: hentSvarStatus(db, t.TildelingID),
     }));
   return { rolle, gruppe, personer };
+}
+
+const SITUASJON_ROLLE_REKKEFOLGE = [
+  "møteleder",
+  "taler",
+  "forbønn",
+  "barnekirke",
+  "lovsang",
+];
+
+/** Flat rolleliste for situasjonsvisning (uten gruppe/gruppeleder). */
+export function situasjonRollerForGudstjeneste(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleIds?: string[]
+) {
+  const tillat = rolleIds ? new Set(rolleIds) : null;
+  const aktive = db.roller.filter((r) => r.Aktiv && (!tillat || tillat.has(r.RolleID)));
+  const rang = (navn: string) => {
+    const n = navn.trim().toLowerCase();
+    const i = SITUASJON_ROLLE_REKKEFOLGE.findIndex((x) => n.includes(x));
+    return i < 0 ? 100 + n.charCodeAt(0) : i;
+  };
+  return aktive
+    .slice()
+    .sort(
+      (a, b) =>
+        rang(a.Rollenavn) - rang(b.Rollenavn) || a.Rollenavn.localeCompare(b.Rollenavn, "nb")
+    )
+    .map((rolle) => {
+      const personer = db.tildelinger
+        .filter((t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID)
+        .filter((t) => hentSvarStatus(db, t.TildelingID) !== "Avvist")
+        .map((t) => ({
+          navn: tildelingVisningsnavn(db, t),
+          status: hentSvarStatus(db, t.TildelingID),
+        }));
+      const behov = getEffektivtBehov(gudstjenesteId, rolle, db.tjenestebehov);
+      return { rolle, personer, vis: behov > 0 || personer.length > 0 };
+    })
+    .filter((r) => r.vis);
 }
 
 export function finnMotelederRolle(db: DatabaseState): Rolle | undefined {
@@ -2331,5 +2390,35 @@ export function opprettPersonIRegister(
     tildelinger,
     svar,
     personroller,
+  };
+}
+
+/** Oppdater navn, e-post, telefon og aktiv-status for en eksisterende person. */
+export function oppdaterPersonIRegister(
+  db: DatabaseState,
+  personId: string,
+  input: { Navn: string; Epost: string; Telefon: string; Aktiv: boolean }
+): DatabaseState {
+  const navn = splittVisningsnavn(input.Navn);
+  if (!navn.Navn) return db;
+  const now = new Date().toISOString().split("T")[0];
+  const epost = String(input.Epost || "").trim();
+  const telefon = String(input.Telefon || "").trim();
+  return {
+    ...db,
+    personer: db.personer.map((p) =>
+      p.PersonID === personId
+        ? {
+            ...p,
+            Navn: navn.Navn,
+            Fornavn: navn.Fornavn,
+            Etternavn: navn.Etternavn,
+            Epost: epost,
+            Telefon: telefon,
+            Aktiv: input.Aktiv,
+            SistEndret: now,
+          }
+        : p
+    ),
   };
 }

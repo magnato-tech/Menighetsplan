@@ -28,6 +28,7 @@ import {
   RolleOversiktNavn,
 } from "./GudstjenesteRolleOversikt";
 import { ProgramLeserModal } from "./ProgramLeserModal";
+import { SituasjonRad } from "./SituasjonRad";
 import {
   GroupLeaderGuide,
 } from "./GroupLeaderGuide";
@@ -46,8 +47,6 @@ import {
   HelpCircle,
   CheckCircle2,
   CircleHelp,
-  ChevronDown,
-  ChevronRight,
   Pencil,
   ScrollText,
 } from "lucide-react";
@@ -161,7 +160,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [redigerMin, setRedigerMin] = useState<string | null>(null);
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
   const [guideOpen, setGuideOpen] = useState(false);
-  const [apneGudstjenester, setApneGudstjenester] = useState<string[]>([]);
+  const [visDetalj, setVisDetalj] = useState<Record<string, boolean>>({});
   const [visTidligere, setVisTidligere] = useState(false);
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
 
@@ -205,7 +204,13 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         (g) => rolleRaderForSondag(db, g.GudstjenesteID, roller, "venter").length > 0
       )
       .map((g) => g.GudstjenesteID);
-    setApneGudstjenester(ids);
+    setVisDetalj((prev) => {
+      const neste = { ...prev };
+      ids.forEach((id) => {
+        neste[id] = true;
+      });
+      return neste;
+    });
   }, [oversiktFilter, currentGruppe]);
 
   React.useEffect(() => {
@@ -221,9 +226,10 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         rolleRaderForSondag(db, g.GudstjenesteID, roller, null).some((r) => r.harLedig)
       );
     if (!first) return;
-    setApneGudstjenester((prev) =>
-      prev.includes(first.GudstjenesteID) ? prev : [...prev, first.GudstjenesteID]
-    );
+    setVisDetalj((prev) => ({
+      ...prev,
+      [first.GudstjenesteID]: true,
+    }));
   }, [guideOpen, currentGruppe, db]);
 
   const handleCopyLink = (targetPersonId: string) => {
@@ -278,7 +284,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             {person?.Navn || "Valgt person"} er ikke registrert som tjenestegruppeleder
           </h2>
           <p className="text-slate-600 text-sm mt-1 max-w-md mx-auto">
-            I Gudstjenesteplanlegger 2.0 får gruppeledere tilgang til sin tjenestegruppe, gruppemedlemmer og bemanning for tilknyttede roller.
+            I Menighetsplan får gruppeledere tilgang til sin tjenestegruppe, gruppemedlemmer og bemanning for tilknyttede roller.
           </p>
 
           <div className="mt-6 pt-6 border-t border-slate-100 max-w-lg mx-auto">
@@ -462,10 +468,8 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
       .slice(0, 8);
   })();
 
-  const vekselApne = (id: string) => {
-    setApneGudstjenester((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+  const vekselDetalj = (id: string) => {
+    setVisDetalj((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const renderSondagKort = (
@@ -482,7 +486,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
       venter: bemanning.venter,
       ledige: bemanning.ledige,
     };
-    const erApen = apneGudstjenester.includes(gudstjeneste.GudstjenesteID);
+    const visDetaljer = Boolean(visDetalj[gudstjeneste.GudstjenesteID]);
     const komplett = tall.ledige === 0 && tall.venter === 0;
     const visAlleTall = !oversiktFilter || oversiktFilter === "medlemmer";
     const ventendeNavn = visRoller
@@ -492,17 +496,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         return p?.Fornavn || p?.Navn || "Ukjent";
       })
       .filter((navn, i, arr) => arr.indexOf(navn) === i);
-    const kant = visAlleTall
-      ? tall.ledige > 0
-        ? "border-l-[3px] border-l-rose-400"
-        : tall.venter > 0
-        ? "border-l-[3px] border-l-amber-400"
-        : "border-l-[3px] border-l-transparent"
-      : oversiktFilter === "ledige"
-        ? "border-l-[3px] border-l-rose-400"
-        : oversiktFilter === "venter"
-          ? "border-l-[3px] border-l-amber-400"
-          : "border-l-[3px] border-l-emerald-400";
+    const kant = "border-l-[3px] border-l-[#2d5a3f]";
 
     const åpneSettOpp = (rolle: Rolle) => {
       setAssignSok("");
@@ -518,22 +512,22 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
     return (
       <div
         key={gudstjeneste.GudstjenesteID}
-        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden ${kant} ${
+        role="button"
+        tabIndex={0}
+        aria-expanded={visDetaljer}
+        onClick={() => vekselDetalj(gudstjeneste.GudstjenesteID)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            vekselDetalj(gudstjeneste.GudstjenesteID);
+          }
+        }}
+        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer ${kant} ${
           visAlleTall && komplett ? "opacity-80" : ""
         }`}
       >
         <div className="flex items-stretch">
-        <button
-          type="button"
-          onClick={() => vekselApne(gudstjeneste.GudstjenesteID)}
-          aria-expanded={erApen}
-          className="flex-1 min-w-0 text-left px-4 py-2.5 flex items-center gap-3 hover:bg-slate-50/80 cursor-pointer"
-        >
-          {erApen ? (
-            <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
-          ) : (
-            <ChevronRight className="w-4 h-4 text-slate-400 shrink-0" />
-          )}
+        <div className="flex-1 min-w-0 px-4 py-2.5 flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-baseline gap-x-1.5 text-sm">
               <span className="font-semibold text-[#2d5a3f]">
@@ -568,7 +562,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               <span className="text-rose-800">{tall.ledige} ledige</span>
             )}
           </div>
-        </button>
+        </div>
         {visProgramIkon(db, selectedPersonId, gudstjeneste.GudstjenesteID) && (
           <div className="flex items-center pr-3">
             <IkonHandling
@@ -592,7 +586,15 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         )}
         </div>
 
-        {erApen && (
+        {!visDetaljer && (
+          <SituasjonRad
+            db={db}
+            gudstjenesteId={gudstjeneste.GudstjenesteID}
+            rolleIds={gruppensRoller.map((r) => r.RolleID)}
+          />
+        )}
+
+        {visDetaljer && (
           <div className="border-t border-slate-100 px-4 pb-2.5 pt-1">
             <GudstjenesteRolleOversikt
               db={db}
@@ -621,59 +623,63 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                       Icon={Check}
                       variant="confirm"
                       active={erBekreftet}
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleSettStatus(
                           person.personId,
                           gudstjeneste.GudstjenesteID,
                           rolle.RolleID,
                           "Deltar",
                           false
-                        )
-                      }
+                        );
+                      }}
                     />
                     <IkonHandling
                       label="Sett status til forespurt / venter svar"
                       Icon={Clock}
                       variant="wait"
                       active={erVenter}
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleSettStatus(
                           person.personId,
                           gudstjeneste.GudstjenesteID,
                           rolle.RolleID,
                           "Avventer",
                           false
-                        )
-                      }
+                        );
+                      }}
                     />
                     <IkonHandling
                       label="Marker som forfall / kan ikke"
                       Icon={X}
                       variant="decline"
                       active={erAvvist}
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleSettStatus(
                           person.personId,
                           gudstjeneste.GudstjenesteID,
                           rolle.RolleID,
                           "Avvist",
                           false
-                        )
-                      }
+                        );
+                      }}
                     />
                     <IkonHandling
                       label="Fjern tildeling"
                       Icon={Trash2}
                       variant="decline"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         handleSettStatus(
                           person.personId,
                           gudstjeneste.GudstjenesteID,
                           rolle.RolleID,
                           "Deltar ikke",
                           false
-                        )
-                      }
+                        );
+                      }}
                     />
                   </span>
                 );
@@ -709,7 +715,10 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                     )}
                     <button
                       type="button"
-                      onClick={() => setRedigerMin(viserMinFelt ? null : minNokkel)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setRedigerMin(viserMinFelt ? null : minNokkel);
+                      }}
                       className={`text-[11px] font-bold px-2 py-0.5 rounded-full cursor-pointer ${
                         dekkerMin
                           ? "bg-emerald-100 text-emerald-800"
@@ -720,9 +729,12 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                       {egenRad.bekreftede} / {egenRad.minBehov}
                     </button>
                     {oversiktFilter !== "venter" ? (
-                      <button
-                        type="button"
-                        onClick={() => åpneSettOpp(rolle)}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        åpneSettOpp(rolle);
+                      }}
                         data-guide="sett-opp"
                         className="p-1.5 bg-[#2d5a3f] hover:bg-[#234731] text-white rounded-md cursor-pointer shrink-0"
                         title="Sett opp"

@@ -98,7 +98,7 @@ export const Startside: React.FC<StartsideProps> = ({
               <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 Lillesand Misjonskirke
               </div>
-              <h1 className="text-lg font-bold text-slate-900 leading-tight">Menighetsaktivitet</h1>
+              <h1 className="text-lg font-bold text-slate-900 leading-tight">Menighetsplan</h1>
             </div>
           </div>
 

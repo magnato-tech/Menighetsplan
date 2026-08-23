@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
                 Lillesand Misjonskirke
               </div>
               <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
-                Menighetsaktivitet
+                Menighetsplan
               </h1>
             </div>
           </div>
