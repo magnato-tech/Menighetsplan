@@ -172,6 +172,26 @@ function normaliserEpost(epost: string): string {
   return String(epost || "").trim().toLowerCase();
 }
 
+function normaliserEpostForMatch(epost: string): string {
+  const e = normaliserEpost(epost);
+  if (!e) return "";
+  const at = e.lastIndexOf("@");
+  if (at < 1) return e;
+  let local = e.slice(0, at);
+  let domain = e.slice(at + 1);
+  if (domain === "googlemail.com") domain = "gmail.com";
+  if (domain === "gmail.com") {
+    local = local.split("+")[0].replace(/\./g, "");
+  }
+  return `${local}@${domain}`;
+}
+
+function eposterMatcher(a: string, b: string): boolean {
+  const na = normaliserEpostForMatch(a);
+  const nb = normaliserEpostForMatch(b);
+  return Boolean(na && nb && na === nb);
+}
+
 /** Administrator som matcher Google-epost i personregisteret. */
 export function finnAdministratorMedEpost(
   db: DatabaseState,
@@ -180,7 +200,7 @@ export function finnAdministratorMedEpost(
   const needle = normaliserEpost(epost);
   if (!needle) return undefined;
   const person = db.personer.find(
-    (p) => erAktivRad(p.Aktiv) && normaliserEpost(p.Epost) === needle
+    (p) => erAktivRad(p.Aktiv) && eposterMatcher(p.Epost, needle)
   );
   if (!person) return undefined;
   return hentTilgang(db, person.PersonID).isAdmin ? person : undefined;
@@ -192,7 +212,7 @@ export function finnAdministratorMedPersonId(
 ): Person | undefined {
   const id = String(personId || "").trim();
   if (!id) return undefined;
-  const person = db.personer.find((p) => p.PersonID === id);
+  const person = db.personer.find((p) => String(p.PersonID) === id);
   if (!person || !erAktivRad(person.Aktiv)) return undefined;
   return hentTilgang(db, person.PersonID).isAdmin ? person : undefined;
 }

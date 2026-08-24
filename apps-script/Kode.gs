@@ -181,6 +181,26 @@ function normalizeEmail_(epost) {
   return String(epost || "").trim().toLowerCase();
 }
 
+function normalizeEmailForMatch_(epost) {
+  var e = normalizeEmail_(epost);
+  if (!e) return "";
+  var at = e.lastIndexOf("@");
+  if (at < 1) return e;
+  var local = e.substring(0, at);
+  var domain = e.substring(at + 1);
+  if (domain === "googlemail.com") domain = "gmail.com";
+  if (domain === "gmail.com") {
+    local = local.split("+")[0].replace(/\./g, "");
+  }
+  return local + "@" + domain;
+}
+
+function emailsEquivalent_(a, b) {
+  var na = normalizeEmailForMatch_(a);
+  var nb = normalizeEmailForMatch_(b);
+  return Boolean(na && nb && na === nb);
+}
+
 function findAdminRole_(state) {
   var roller = state.roller || [];
   var i;
@@ -315,9 +335,27 @@ function findAdminByEmail_(state, epost) {
   for (i = 0; i < personer.length; i++) {
     var p = personer[i];
     if (p.Aktiv === false) continue;
-    if (normalizeEmail_(p.Epost) === needle && isAdministrator_(state, p.PersonID)) {
+    if (emailsEquivalent_(p.Epost, needle) && isAdministrator_(state, p.PersonID)) {
       return p;
     }
+  }
+  return bindGoogleEmailToLegacyAdmin_(state, needle);
+}
+
+/** Magnar/P001 uten e-post i arket: skriv inn Google-eposten slik innlogging treffer. */
+function bindGoogleEmailToLegacyAdmin_(state, email) {
+  var personer = state.personer || [];
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    var p = personer[i];
+    if (p.Aktiv === false) continue;
+    if (!looksLikeLegacyAdminName_(p) && p.PersonID !== "P001") continue;
+    if (!isAdministrator_(state, p.PersonID)) continue;
+    var existing = normalizeEmail_(p.Epost);
+    if (existing && !emailsEquivalent_(existing, email)) continue;
+    p.Epost = email;
+    writeSheet_(getSpreadsheet_(), MASTER_SHEETS.personer, personer);
+    return p;
   }
   return null;
 }
@@ -683,6 +721,7 @@ var HEADER_ALIASES_ = {
   Tid: ["Tid", "Klokkeslett", "Kl"],
   Forbønn: ["Forbønn", "Forbønn"],
   Barnekirke: ["Barnekirke", "Barnekirke"],
+  Epost: ["Epost", "E-post", "E-postadresse", "Email", "E-mail", "Mail"],
 };
 
 function headerIndex_(headers, col) {

@@ -22,6 +22,7 @@ assert.ok(admin, "mock-data skal ha en administrator");
 
 const treff = finnAdministratorMedEpost(db, admin!.Epost);
 assert.equal(treff?.PersonID, admin!.PersonID);
+assert.equal(finnAdministratorMedEpost(db, "magnartotland@gmail.com")?.PersonID, admin!.PersonID);
 
 assert.equal(finnAdministratorMedEpost(db, "ukjent@example.com"), undefined);
 assert.equal(finnAdministratorMedEpost(db, ""), undefined);

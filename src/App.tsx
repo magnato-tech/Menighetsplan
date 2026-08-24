@@ -216,7 +216,7 @@ export default function App() {
         }
         slettAdminSesjon();
         setStartFeil(
-          "Google-kontoen er innlogget, men matcher ingen administrator i personregisteret. E-posten må være den samme som i arket, og personen må ha rollen Administrator."
+          "Google-kontoen er innlogget, men matcher ingen administrator i personregisteret. På Magnar-raden i arket Personer: sett Epost til magnar.totland@gmail.com, og sjekk at personen har rollen Administrator."
         );
         setViserStartside(true);
         harValgtStartvisning.current = true;

@@ -531,7 +531,7 @@ export async function loadDatabase(): Promise<DatabaseState> {
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
       const state = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
-      if (payload.isAdmin && payload.personId) {
+      if (payload.personId) {
         lagreAdminSesjonPersonId(String(payload.personId));
       }
       persistLocalState(state);
