@@ -3,6 +3,7 @@ import { Users, X } from "lucide-react";
 import { Gruppe } from "../types/database";
 import {
   DatabaseState,
+  synkGruppeledergruppe,
   nesteGruppeId,
   saveDatabase,
   sikreGruppemedlemskap,
@@ -78,13 +79,13 @@ export const NewGroupModal: React.FC<NewGroupModalProps> = ({
       );
     }
 
-    const updatedDb: DatabaseState = {
+    const updated = synkGruppeledergruppe({
       ...db,
       grupper: [...db.grupper, ny],
       gruppemedlemmer,
-    };
-    saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    });
+    saveDatabase(updated);
+    onUpdateDb(updated);
     onCreated?.(gruppeId);
     onClose();
   };

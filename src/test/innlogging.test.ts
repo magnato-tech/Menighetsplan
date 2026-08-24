@@ -100,11 +100,32 @@ assert.ok(
 );
 
 const lederUtenKontakt = rensPersondataForKlient(db, leder!.PersonID, false);
-const annen = lederUtenKontakt.personer.find((p) => p.PersonID !== leder!.PersonID && p.Aktiv);
+function iLedersGrupper(personId: string): boolean {
+  return db.grupper.some(
+    (g) =>
+      g.Aktiv &&
+      (g.GruppelederID === leder!.PersonID || g.NestlederID === leder!.PersonID) &&
+      (personId === g.GruppelederID ||
+        personId === g.NestlederID ||
+        db.gruppemedlemmer.some(
+          (gm) => gm.Aktiv && gm.GruppeID === g.GruppeID && gm.PersonID === personId
+        ))
+  );
+}
+const annen = lederUtenKontakt.personer.find(
+  (p) => p.PersonID !== leder!.PersonID && p.Aktiv && !iLedersGrupper(p.PersonID)
+);
 assert.ok(annen);
 assert.equal(annen!.Epost, "");
 assert.equal(annen!.Telefon, "");
 assert.equal(annen!.SikkerhetsToken, "");
+const iLag = db.personer.find(
+  (p) => p.PersonID !== leder!.PersonID && iLedersGrupper(p.PersonID) && p.Epost
+);
+if (iLag) {
+  const rensetLag = lederUtenKontakt.personer.find((p) => p.PersonID === iLag.PersonID);
+  assert.equal(rensetLag?.Epost, iLag.Epost);
+}
 const meg = lederUtenKontakt.personer.find((p) => p.PersonID === leder!.PersonID);
 assert.equal(meg?.Epost, leder!.Epost);
 assert.equal(rensPersondataForKlient(db, admin!.PersonID, true).personer[0].Epost, db.personer[0].Epost);

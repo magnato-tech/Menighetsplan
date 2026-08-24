@@ -1,5 +1,7 @@
 # Datakilde: mock vs Google Sheets
 
+Produkt og kodekart: [PRODUKT.md](PRODUKT.md).
+
 ## Hvordan utvikler bruker mock-data
 
 På localhost er mock standard. Velg **Mock-data** i Administrator (knapper øverst, eller fanen Google Sheets & Data). Det populerer testdata fra `src/data/initialData.ts`. Mock har egen localStorage-nøkkel og leser/skriver **ikke** Google Sheets.

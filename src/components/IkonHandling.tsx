@@ -22,6 +22,7 @@ interface IkonHandlingProps {
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   copied?: boolean;
   active?: boolean;
+  disabled?: boolean;
   variant?: Variant;
   size?: "sm" | "md";
 }
@@ -32,6 +33,7 @@ export const IkonHandling: React.FC<IkonHandlingProps> = ({
   onClick,
   copied = false,
   active = false,
+  disabled = false,
   variant = "default",
   size = "sm",
 }) => {
@@ -47,14 +49,24 @@ export const IkonHandling: React.FC<IkonHandlingProps> = ({
   } else if (active && variant === "decline") {
     farger = "bg-rose-600 border-rose-600 text-white";
   }
+  if (disabled) {
+    farger = "border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed";
+  }
 
   return (
     <button
       type="button"
-      onClick={onClick}
+      onClick={(e) => {
+        if (disabled) {
+          e.preventDefault();
+          return;
+        }
+        onClick(e);
+      }}
+      disabled={disabled}
       title={visLabel}
       aria-label={visLabel}
-      className={`${BASE} ${dim} ${farger}`}
+      className={`${BASE} ${dim} ${farger} ${disabled ? "cursor-not-allowed" : ""}`}
     >
       {copied ? (
         <Check className={`${iconDim} text-emerald-600`} />

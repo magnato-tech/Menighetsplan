@@ -229,7 +229,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
       }
       const fragment = sisteCelleFragment(raw);
       const forslag = foreslaPersonerForCelle(db, gudId, rolle.RolleID, fragment, {
-        gruppeId,
+        gruppeId: gruppeId || rolle.GruppeID,
         limit: 10,
       });
       const visEkstern = fragment.length > 0;
@@ -439,7 +439,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
             <table className="text-left text-xs border-separate border-spacing-0 min-w-full">
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="p-2 sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 min-w-[7.5rem]">
+                  <th className="p-2 sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 min-w-[7.5rem] w-[7.5rem]">
                     Dato
                   </th>
                   {roller.map((rolle) => {
@@ -447,7 +447,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
                     return (
                       <th
                         key={rolle.RolleID}
-                        className={`p-2 border-b border-slate-200 bg-slate-50 whitespace-nowrap font-semibold text-slate-700 cursor-pointer hover:text-[#2d5a3f] ${
+                        className={`p-2 border-b border-slate-200 bg-slate-50 font-semibold text-slate-700 cursor-pointer hover:text-[#2d5a3f] whitespace-normal break-words leading-tight min-w-[5.75rem] ${
                           isolert ? "text-[#2d5a3f] bg-[#eef5f1]" : ""
                         }`}
                         title="Klikk for å vise bare denne rollen"
@@ -501,7 +501,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
                             redigerer={aktiv && redigerer}
                             dimmet={dimmet}
                             bakgrunn={zebra}
-                            gruppeId={gruppeId}
+                            gruppeId={gruppeId || rolle.GruppeID}
                             sok={aktiv ? sok : ""}
                             forslagIndex={aktiv ? forslagIndex : 0}
                             onSokChange={(v) => {

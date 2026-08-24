@@ -372,6 +372,28 @@ export const initialGrupper: Gruppe[] = [
     OpprettetDato: "2026-01-10",
     SistEndret: "2026-01-10",
   },
+  {
+    GruppeID: "G008",
+    Gruppenavn: "Husgruppe Sentrum",
+    GruppetypeID: "GT004",
+    GruppelederID: "P007",
+    NestlederID: "P012",
+    Beskrivelse: "Fellesskap i hjemmet for bønn, bibel og relasjoner.",
+    Aktiv: true,
+    OpprettetDato: "2026-01-10",
+    SistEndret: "2026-01-10",
+  },
+  {
+    GruppeID: "G009",
+    Gruppenavn: "Lederskap",
+    GruppetypeID: "GT003",
+    GruppelederID: "P001",
+    NestlederID: "P002",
+    Beskrivelse: "Menighetens operative lederteam.",
+    Aktiv: true,
+    OpprettetDato: "2026-01-10",
+    SistEndret: "2026-01-10",
+  },
 ];
 
 export const initialGruppemedlemmer: Gruppemedlem[] = [
@@ -391,6 +413,10 @@ export const initialGruppemedlemmer: Gruppemedlem[] = [
   { GruppeMedlemID: "GM014", GruppeID: "G006", PersonID: "P011", Medlemsrolle: "Bakeansvarlig", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { GruppeMedlemID: "GM016", GruppeID: "G007", PersonID: "P010", Medlemsrolle: "Nestleder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { GruppeMedlemID: "GM017", GruppeID: "G007", PersonID: "P011", Medlemsrolle: "Leder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM018", GruppeID: "G008", PersonID: "P007", Medlemsrolle: "Leder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM019", GruppeID: "G008", PersonID: "P012", Medlemsrolle: "Nestleder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM020", GruppeID: "G009", PersonID: "P001", Medlemsrolle: "Leder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM021", GruppeID: "G009", PersonID: "P002", Medlemsrolle: "Nestleder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
 ];
 
 export const initialRoller: Rolle[] = [

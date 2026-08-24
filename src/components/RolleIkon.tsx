@@ -14,6 +14,7 @@ import {
   Smile,
   Sparkles,
   UserRound,
+  Users,
   Volume2,
   Wrench,
   type LucideIcon,
@@ -35,6 +36,9 @@ const FALLBACK: RolleUtseende[] = [
 ];
 
 const KJENTE: { treff: string[]; utseende: RolleUtseende }[] = [
+  { treff: ["husgruppe"], utseende: { Icon: Heart, wrap: "bg-rose-100", icon: "text-rose-500" } },
+  { treff: ["lederskap", "ledergruppe"], utseende: { Icon: UserRound, wrap: "bg-violet-100", icon: "text-violet-500" } },
+  { treff: ["gruppelederteam", "gruppeledergruppe"], utseende: { Icon: Users, wrap: "bg-amber-100", icon: "text-amber-600" } },
   { treff: ["gudstjenesteleder", "møteleder"], utseende: { Icon: UserRound, wrap: "bg-sky-100", icon: "text-sky-500" } },
   { treff: ["taler", "preken"], utseende: { Icon: Mic, wrap: "bg-violet-100", icon: "text-violet-500" } },
   { treff: ["forbønn", "bønn"], utseende: { Icon: Heart, wrap: "bg-rose-100", icon: "text-rose-500" } },

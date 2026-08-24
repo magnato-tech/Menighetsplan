@@ -1,5 +1,5 @@
 import React from "react";
-import { DatabaseState } from "../services/dataService";
+import { DatabaseState, erGruppeledergruppe, lederforumKilderForPerson } from "../services/dataService";
 import { Gruppe } from "../types/database";
 import { Pencil, Star, X } from "lucide-react";
 import { RolleIkon } from "./RolleIkon";
@@ -94,6 +94,12 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
           </div>
         </div>
 
+        {erGruppeledergruppe(db, gruppe) && (
+          <p className="text-xs text-slate-600 bg-[#eef5f1] border border-[#d2e8d9] rounded-xl p-3 mb-4">
+            Medlemmene her er gruppeledere og nestledere. Manuelle tillegg kan legges til ved redigering.
+          </p>
+        )}
+
         {gruppe.Beskrivelse && (
           <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-3 mb-4">
             {gruppe.Beskrivelse}
@@ -138,12 +144,16 @@ export const GroupDetailModal: React.FC<GroupDetailModalProps> = ({
                 )}
                 <span className="font-medium text-slate-900 truncate">{person.Navn}</span>
               </div>
-              <span className="text-[11px] text-slate-500 shrink-0">
+              <span className="text-[11px] text-slate-500 shrink-0 text-right max-w-[14rem]">
                 {erLeder
                   ? "Leder"
                   : erNestleder
                     ? "Nestleder"
-                    : medlemskap?.Medlemsrolle || "Medlem"}
+                    : erGruppeledergruppe(db, gruppe)
+                      ? lederforumKilderForPerson(db, person.PersonID)
+                          .map((k) => `${k.rolle} · ${k.gruppenavn}`)
+                          .join(", ") || medlemskap?.Medlemsrolle || "Manuelt medlem"
+                      : medlemskap?.Medlemsrolle || "Medlem"}
               </span>
             </li>
           ))}

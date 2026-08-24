@@ -231,3 +231,23 @@ export interface Programinstans {
   OpprettetDato: string;
   SistEndret: string;
 }
+
+export interface DatabaseState {
+  gruppetyper: Gruppetype[];
+  personer: Person[];
+  grupper: Gruppe[];
+  gruppemedlemmer: Gruppemedlem[];
+  roller: Rolle[];
+  personroller: Personrolle[];
+  rollebeskrivelser: Rollebeskrivelse[];
+  gudstjenester: Gudstjeneste[];
+  tjenestebehov: Tjenestebehov[];
+  tildelinger: Tildeling[];
+  svar: Svar[];
+  malaktiviteter: MalAktivitet[];
+  programaktiviteter: ProgramAktivitet[];
+  programinstanser: Programinstans[];
+  personerImport: PersonerImport[];
+  gudstjenesterImport: GudstjenesterImport[];
+  rollebeskrivelseImport: RollebeskrivelseImport[];
+}

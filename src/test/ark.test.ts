@@ -304,6 +304,35 @@ await testAsync("saveDatabase: localStorage med en gang, remote én in-flight og
   }
 });
 
+test("gruppemedlemmer merkes iGruppen og kommer først i listen", () => {
+  const db = tomDb();
+  db.grupper = [
+    {
+      GruppeID: "G005",
+      Gruppenavn: "Rigging",
+      GruppetypeID: "GT001",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.gruppemedlemmer = [
+    {
+      GruppeMedlemID: "GM1",
+      GruppeID: "G005",
+      PersonID: "P005",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  const forslag = foreslaPersonerForCelle(db, "GUD001", "R009", "", { gruppeId: "G005" });
+  assert.equal(forslag[0].personId, "P005");
+  assert.equal(forslag[0].iGruppen, true);
+  assert.equal(forslag.find((f) => f.personId === "P002")?.iGruppen, false);
+});
+
 console.log("");
 console.log(`${passed} passed, ${failed} failed`);
 if (failed > 0) process.exit(1);

@@ -4,9 +4,11 @@ import { IkonHandling } from "./IkonHandling";
 import { Gruppemedlem, Person } from "../types/database";
 import {
   DatabaseState,
+  erGruppeledergruppe,
   nesteGruppeMedlemId,
   saveDatabase,
   sikreGruppemedlemskap,
+  synkGruppeledergruppe,
 } from "../services/dataService";
 
 interface GroupAdminModalProps {
@@ -19,6 +21,7 @@ interface GroupAdminModalProps {
 type Lederskap = "Leder" | "Nestleder" | "Medlem";
 
 const LEDERSKAP_VERDIER = new Set(["Medlem", "Leder", "Nestleder", "Medleder"]);
+const GRUNN_TJENESTEROLLER = ["Gruppeleder"];
 
 function visningsinitialer(navn: string): string {
   const parts = String(navn || "")
@@ -234,7 +237,7 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
       );
     }
 
-    const updatedDb: DatabaseState = {
+    const updated = synkGruppeledergruppe({
       ...db,
       grupper: db.grupper.map((g) =>
         g.GruppeID === gruppeId
@@ -251,10 +254,10 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
           : g
       ),
       gruppemedlemmer,
-    };
+    });
 
-    saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
+    saveDatabase(updated);
+    onUpdateDb(updated);
     onClose();
   };
 
@@ -278,6 +281,12 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {erGruppeledergruppe(db, gruppe) && (
+          <p className="mb-4 text-xs text-slate-600 bg-[#eef5f1] border border-[#d2e8d9] rounded-xl px-3 py-2">
+            Ledere og nestledere fra tjenestegrupper, husgrupper og barnekirke oppdateres automatisk. Manuelle tillegg blir værende.
+          </p>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <section className="space-y-3">
@@ -384,6 +393,7 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
                 const rollevalg = Array.from(
                   new Set(
                     [
+                      ...GRUNN_TJENESTEROLLER,
                       ...gruppeRoller.map((r) => r.Rollenavn),
                       tjenesterolle,
                     ].filter((navn) => navn && !LEDERSKAP_VERDIER.has(navn))

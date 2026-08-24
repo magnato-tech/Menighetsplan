@@ -62,6 +62,8 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
   onPil,
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const celleRef = useRef<HTMLTableCellElement>(null);
+  const menyRef = useRef<HTMLUListElement>(null);
   const [menyPos, setMenyPos] = useState<{ top: number; left: number; width: number } | null>(
     null
   );
@@ -73,16 +75,28 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
   const forslag: CelleForslag[] = useMemo(() => {
     if (!redigerer) return [];
     return foreslaPersonerForCelle(db, gudstjenesteId, rolle.RolleID, fragment, {
-      gruppeId,
+      gruppeId: gruppeId || rolle.GruppeID,
       limit: 10,
     });
-  }, [redigerer, db, gudstjenesteId, rolle.RolleID, fragment, gruppeId]);
+  }, [redigerer, db, gudstjenesteId, rolle.RolleID, rolle.GruppeID, fragment, gruppeId]);
   const visEkstern = redigerer && fragment.length > 0;
   const menyAntall = forslag.length + (visEkstern ? 1 : 0);
 
   useEffect(() => {
     if (redigerer) inputRef.current?.focus();
   }, [redigerer, gudstjenesteId, rolle.RolleID]);
+
+  useEffect(() => {
+    if (!redigerer) return;
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (celleRef.current?.contains(t) || menyRef.current?.contains(t)) return;
+      onAvbryt();
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [redigerer, onAvbryt]);
 
   useLayoutEffect(() => {
     if (!redigerer || menyAntall === 0) {
@@ -104,6 +118,7 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
 
   return (
     <td
+      ref={celleRef}
       data-testid={`ark-celle-${gudstjenesteId}-${rolle.RolleID}`}
       onMouseDown={(e) => {
         if (!redigerer) {
@@ -111,7 +126,7 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
           onStartRediger();
         }
       }}
-      className={`p-1 align-top border-b border-slate-200 min-w-[7.5rem] max-w-[11rem] cursor-text ${
+      className={`p-1 align-top border-b border-slate-200 cursor-text min-w-[5.75rem] ${
         bakgrunn || ""
       } ${
         aktiv ? "ring-2 ring-inset ring-[#2d5a3f]" : ""
@@ -201,12 +216,21 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
               }
             }}
             placeholder={innhold.personer.length === 0 ? "Navn…" : ""}
+            onBlur={(e) => {
+              const neste = e.relatedTarget as Node | null;
+              if (neste && (celleRef.current?.contains(neste) || menyRef.current?.contains(neste))) {
+                return;
+              }
+              onAvbryt();
+            }}
             className="min-w-[3.5rem] flex-1 bg-transparent text-[11px] text-slate-800 outline-none placeholder:text-slate-400"
           />
         ) : null}
       </div>
       {redigerer && menyPos && menyAntall > 0 && (
         <ul
+          ref={menyRef}
+          data-testid="ark-forslagsmeny"
           className="fixed z-50 max-h-56 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg py-1 text-sm"
           style={{ top: menyPos.top, left: menyPos.left, width: menyPos.width }}
         >
@@ -228,8 +252,19 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
                   }}
                   className={`w-full text-left px-3 py-1.5 cursor-pointer ${
                     aktivRad ? "bg-[#eef5f1]" : "hover:bg-slate-50"
-                  } ${f.alleredeTildelt ? "opacity-60" : ""}`}
+                  } ${f.alleredeTildelt ? "opacity-60" : ""} ${
+                    f.iGruppen ? "ring-1 ring-inset ring-[#2d5a3f]/35" : ""
+                  }`}
                 >
+                  {f.iGruppen ? (
+                    <span
+                      className="inline-block w-1.5 h-1.5 rounded-full bg-[#2d5a3f] mr-1.5 align-middle"
+                      title="I tjenestegruppen"
+                      aria-hidden
+                    />
+                  ) : (
+                    <span className="inline-block w-1.5 h-1.5 mr-1.5 align-middle" aria-hidden />
+                  )}
                   <span className="font-medium text-slate-900">{f.visningsnavn}</span>
                   {f.visningsnavn !== f.fulltNavn && (
                     <span className="text-slate-500"> {f.fulltNavn}</span>
