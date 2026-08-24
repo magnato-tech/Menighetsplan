@@ -135,7 +135,7 @@ export function getCustomScriptUrl(): string {
   } catch (e) {
     // Ignore localStorage errors
   }
-  return ((import.meta.env.VITE_APPS_SCRIPT_URL as string | undefined) || DEFAULT_REMOTE_SCRIPT_URL).trim();
+  return ((import.meta.env?.VITE_APPS_SCRIPT_URL as string | undefined) || DEFAULT_REMOTE_SCRIPT_URL).trim();
 }
 
 export function saveCustomScriptUrl(url: string): void {
@@ -152,7 +152,7 @@ export function saveCustomScriptUrl(url: string): void {
 
 export function getApiBase(): string {
   const custom = getCustomScriptUrl();
-  if (import.meta.env.DEV) {
+  if (import.meta.env?.DEV) {
     // I dev miljø hvis det er default URL bruker vi proxyen
     if (custom === DEFAULT_REMOTE_SCRIPT_URL) {
       return "/gas-api";
@@ -237,6 +237,47 @@ export function finnPersonMedMagiskToken(db: DatabaseState, token: string): Pers
   const clean = token.trim();
   if (!erMagiskLenkeToken(clean) || erGammelHashLenke(clean)) return undefined;
   return db.personer.find((p) => String(p.SikkerhetsToken || "").trim() === clean);
+}
+
+/**
+ * Fjerner andres innloggingsnøkler og kontaktfelt. Admin får uendret sett.
+ */
+export function rensPersondataForKlient(
+  db: DatabaseState,
+  personId: string | undefined,
+  isAdmin: boolean
+): DatabaseState {
+  if (isAdmin) return db;
+  return {
+    ...db,
+    personer: db.personer.map((p) => {
+      if (personId && p.PersonID === personId) return p;
+      return {
+        ...p,
+        SikkerhetsToken: "",
+        Epost: "",
+        Telefon: "",
+        Adresse: "",
+        Postnummer: "",
+        Poststed: "",
+        Fødselsår: undefined,
+        Fødselsdato: "",
+        Kjønn: "",
+        Notat: "",
+      };
+    }),
+  };
+}
+
+export function rensLastetPersondata(db: DatabaseState): DatabaseState {
+  const ident = hentApiIdentitet();
+  if (ident.googleCredential) return db;
+  const token = ident.token;
+  if (!token) return db;
+  const meg = finnPersonMedMagiskToken(db, token);
+  if (!meg) return db;
+  if (hentTilgang(db, meg.PersonID).isAdmin) return db;
+  return rensPersondataForKlient(db, meg.PersonID, false);
 }
 
 /** Fjern feil kirkenevn. Vis Bedehuset i stedet for gammel «Hovedsalen». */
@@ -619,7 +660,7 @@ export async function loadDatabase(): Promise<DatabaseState> {
     });
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
-      const state = applyLoadedState(normalizeState(payload.data));
+      const state = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
       persistLocalState(state);
       return state;
     }
@@ -674,7 +715,7 @@ export async function forceSyncFromGoogleSheets(customUrl?: string): Promise<{ s
 
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
-      const normalized = applyLoadedState(normalizeState(payload.data));
+      const normalized = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
       // Lagre til lokal database slik at dataene sitter fast
       saveCustomScriptUrl(targetUrl);
       persistLocalState(normalized);
@@ -776,6 +817,18 @@ export async function overskrivFraGudstjenesterImport(): Promise<{
   }
 }
 
+let remoteSaveInFlight = false;
+let pendingRemoteState: DatabaseState | null = null;
+let remoteSaveIdleWaiters: Array<() => void> = [];
+
+function notifyRemoteSaveIdle() {
+  if (remoteSaveInFlight || pendingRemoteState) return;
+  const waiters = remoteSaveIdleWaiters;
+  remoteSaveIdleWaiters = [];
+  waiters.forEach((w) => w());
+}
+
+/** localStorage always; Sheets POST queued (latest state, one in-flight). */
 export function saveDatabase(state: DatabaseState): void {
   persistLocalState(state);
 
@@ -786,25 +839,65 @@ export function saveDatabase(state: DatabaseState): void {
   const base = getApiBase();
   if (!base) return;
 
+  pendingRemoteState = state;
+  void pumpRemoteSave();
+}
+
+async function pumpRemoteSave(): Promise<void> {
+  if (remoteSaveInFlight) return;
+  if (!pendingRemoteState) {
+    notifyRemoteSaveIdle();
+    return;
+  }
+
+  const base = getApiBase();
+  if (!base) {
+    pendingRemoteState = null;
+    notifyRemoteSaveIdle();
+    return;
+  }
+
   let ident: { token?: string; googleCredential?: string };
   try {
     ident = requireRemoteAuth();
   } catch (e) {
     console.error("Kunne ikke lagre til Google Sheets:", e instanceof Error ? e.message : e);
+    pendingRemoteState = null;
+    notifyRemoteSaveIdle();
     return;
   }
 
-  void fetch(base, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ action: "save", data: state, ...ident }),
-  }).then(async (response) => {
+  const state = pendingRemoteState;
+  pendingRemoteState = null;
+  remoteSaveInFlight = true;
+
+  try {
+    const response = await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "save", data: state, ...ident }),
+    });
     const payload = await response.json().catch(() => null);
     if (!payload?.ok) {
       console.error("Kunne ikke lagre til Google Sheets:", payload?.error || response.statusText);
     }
-  }).catch((e) => {
+  } catch (e) {
     console.error("Kunne ikke lagre til Google Sheets:", e);
+  } finally {
+    remoteSaveInFlight = false;
+    if (pendingRemoteState) {
+      void pumpRemoteSave();
+    } else {
+      notifyRemoteSaveIdle();
+    }
+  }
+}
+
+/** Test-hjelp: vent til køen er tom. */
+export function whenRemoteSaveIdle(): Promise<void> {
+  if (!remoteSaveInFlight && !pendingRemoteState) return Promise.resolve();
+  return new Promise((resolve) => {
+    remoteSaveIdleWaiters.push(resolve);
   });
 }
 
@@ -987,7 +1080,42 @@ const SITUASJON_ROLLE_REKKEFOLGE = [
   "forbønn",
   "barnekirke",
   "lovsang",
+  "lyd",
+  "bilde",
+  "møtevert",
+  "rigging",
+  "kjøkken",
+  "baking",
+  "kollekt",
 ];
+
+function rolleRang(navn: string): number {
+  const n = navn.trim().toLowerCase();
+  const i = SITUASJON_ROLLE_REKKEFOLGE.findIndex((x) => n.includes(x));
+  return i < 0 ? 100 + n.charCodeAt(0) : i;
+}
+
+function erAdministratorRolle(rolle: Rolle): boolean {
+  return String(rolle.Rollenavn || "")
+    .trim()
+    .toLowerCase()
+    .includes("administrator");
+}
+
+/** 12 tjenesteroller for planleggingsarket. Administrator (Behov 0) skjules. */
+export function arkRoller(db: DatabaseState, rolleIds?: string[]): Rolle[] {
+  const tillat = rolleIds ? new Set(rolleIds) : null;
+  return db.roller
+    .filter((r) => r.Aktiv)
+    .filter((r) => !erAdministratorRolle(r))
+    .filter((r) => !tillat || tillat.has(r.RolleID))
+    .slice()
+    .sort(
+      (a, b) =>
+        rolleRang(a.Rollenavn) - rolleRang(b.Rollenavn) ||
+        a.Rollenavn.localeCompare(b.Rollenavn, "nb")
+    );
+}
 
 /** Flat rolleliste for situasjonsvisning (uten gruppe/gruppeleder). */
 export function situasjonRollerForGudstjeneste(
@@ -997,16 +1125,12 @@ export function situasjonRollerForGudstjeneste(
 ) {
   const tillat = rolleIds ? new Set(rolleIds) : null;
   const aktive = db.roller.filter((r) => r.Aktiv && (!tillat || tillat.has(r.RolleID)));
-  const rang = (navn: string) => {
-    const n = navn.trim().toLowerCase();
-    const i = SITUASJON_ROLLE_REKKEFOLGE.findIndex((x) => n.includes(x));
-    return i < 0 ? 100 + n.charCodeAt(0) : i;
-  };
   return aktive
     .slice()
     .sort(
       (a, b) =>
-        rang(a.Rollenavn) - rang(b.Rollenavn) || a.Rollenavn.localeCompare(b.Rollenavn, "nb")
+        rolleRang(a.Rollenavn) - rolleRang(b.Rollenavn) ||
+        a.Rollenavn.localeCompare(b.Rollenavn, "nb")
     )
     .map((rolle) => {
       const personer = db.tildelinger
@@ -1918,20 +2042,13 @@ function erAdministrator(db: DatabaseState, personID: string): boolean {
   const adminRolle = (db.roller || []).find(
     (r) => r.Aktiv && String(r.Rollenavn || "").trim().toLowerCase() === "administrator"
   );
-  if (adminRolle) {
-    const harRolle = (db.personroller || []).some(
-      (pr) => pr.Aktiv && pr.PersonID === personID && pr.RolleID === adminRolle.RolleID
-    );
-    if (harRolle) return true;
-  }
-
-  if (person.PersonID === "P009") return true;
-  const navn = String(person.Navn || "").trim().toLowerCase();
-  const fornavn = String(person.Fornavn || "").trim().toLowerCase();
-  return fornavn === "magnar" || navn === "magnar" || navn.startsWith("magnar ");
+  if (!adminRolle) return false;
+  return (db.personroller || []).some(
+    (pr) => pr.Aktiv && pr.PersonID === personID && pr.RolleID === adminRolle.RolleID
+  );
 }
 
-/** Tilgang for aktiv person: vanlige brukere, gruppeledere og administrator (Magnar). */
+/** Tilgang for aktiv person: vanlige brukere, gruppeledere og administrator. */
 export function hentTilgang(db: DatabaseState, personID: string): PersonTilgang {
   const isAdmin = erAdministrator(db, personID);
   const isLeader = finnGrupperForGruppeleder(db, personID).length > 0;
@@ -2268,6 +2385,290 @@ export function finnPersonMedVisningsnavn(
   );
   if (kunFornavn.length === 1) return kunFornavn[0];
   return undefined;
+}
+
+export function splittCelleNavn(raw: string): string[] {
+  return String(raw || "")
+    .split(/[,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+export function uniktVisningsnavn(
+  db: DatabaseState,
+  person: { PersonID: string; Navn: string; Fornavn: string }
+): string {
+  const fn = (person.Fornavn || person.Navn || "").trim();
+  if (!fn) return person.Navn || "Ukjent";
+  const aktive = db.personer.filter(
+    (p) => p.Aktiv !== false && !erEksternPersonId(p.PersonID)
+  );
+  const like = aktive.filter(
+    (p) => (p.Fornavn || p.Navn || "").trim().toLowerCase() === fn.toLowerCase()
+  );
+  return like.length === 1 ? fn : person.Navn || fn;
+}
+
+export type ArkCellePerson = {
+  tildelingId: string;
+  personId: string;
+  navn: string;
+  status: SvarStatus;
+  ekstern: boolean;
+};
+
+export type ArkCelleInnhold = {
+  personer: ArkCellePerson[];
+  behov: number;
+  bekreftet: number;
+  venter: number;
+  forfall: number;
+  ledige: number;
+};
+
+/** Inkluderer Avvist (strikethrough) og ghost-plasser = behov − bekreftet. */
+export function arkCelleInnhold(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolle: Rolle
+): ArkCelleInnhold {
+  const behov = getEffektivtBehov(db, gudstjenesteId, rolle);
+  const tildelinger = db.tildelinger.filter(
+    (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID
+  );
+  let bekreftet = 0;
+  let venter = 0;
+  let forfall = 0;
+  const personer: ArkCellePerson[] = tildelinger.map((t) => {
+    const status = hentSvarStatus(db, t.TildelingID);
+    if (status === "Avvist") forfall += 1;
+    else if (status === "Bekreftet") bekreftet += 1;
+    else venter += 1;
+    const p = db.personer.find((pers) => pers.PersonID === t.PersonID);
+    const ekstern = Boolean(t.EksternNavn) || erEksternPersonId(t.PersonID);
+    return {
+      tildelingId: t.TildelingID,
+      personId: t.PersonID,
+      navn: t.EksternNavn || (p ? uniktVisningsnavn(db, p) : tildelingVisningsnavn(db, t)),
+      status,
+      ekstern,
+    };
+  });
+  return {
+    personer,
+    behov,
+    bekreftet,
+    venter,
+    forfall,
+    ledige: ledigePlasserForRolle(behov, bekreftet),
+  };
+}
+
+export type CelleForslag = {
+  personId: string;
+  visningsnavn: string;
+  fulltNavn: string;
+  iGruppen: boolean;
+  alleredeTildelt: boolean;
+  sammeDagAndreRoller: string[];
+  oppgaverSemester: number;
+  harFlereSammeDag: boolean;
+};
+
+/** Typeahead for en ark-celle. Krever ikke personrolle. */
+export function foreslaPersonerForCelle(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string,
+  query: string,
+  opts?: { gruppeId?: string; limit?: number }
+): CelleForslag[] {
+  const q = query.trim().toLowerCase();
+  const limit = opts?.limit ?? 12;
+  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === gudstjenesteId);
+  const fraDato = gud?.Dato || new Date().toISOString().split("T")[0];
+  const semester = belastningForSemester(db, fraDato);
+  const gruppeMedlemIds = new Set<string>();
+  if (opts?.gruppeId) {
+    for (const gm of db.gruppemedlemmer || []) {
+      if (gm.Aktiv && gm.GruppeID === opts.gruppeId) gruppeMedlemIds.add(gm.PersonID);
+    }
+    const gruppe = db.grupper.find((g) => g.GruppeID === opts.gruppeId);
+    if (gruppe?.GruppelederID) gruppeMedlemIds.add(gruppe.GruppelederID);
+    if (gruppe?.NestlederID) gruppeMedlemIds.add(gruppe.NestlederID);
+  }
+  const opptatt = new Set(
+    db.tildelinger
+      .filter(
+        (t) =>
+          t.GudstjenesteID === gudstjenesteId &&
+          t.RolleID === rolleId &&
+          hentSvarStatus(db, t.TildelingID) !== "Avvist"
+      )
+      .map((t) => t.PersonID)
+  );
+
+  const treffer = (p: Person) => {
+    if (!q) return true;
+    const navn = `${p.Fornavn || ""} ${p.Etternavn || ""} ${p.Navn || ""}`.toLowerCase();
+    return navn.includes(q);
+  };
+
+  const kandidater = db.personer.filter(
+    (p) => p.Aktiv !== false && !erEksternPersonId(p.PersonID) && treffer(p)
+  );
+
+  kandidater.sort((a, b) => {
+    const aG = gruppeMedlemIds.has(a.PersonID) ? 0 : 1;
+    const bG = gruppeMedlemIds.has(b.PersonID) ? 0 : 1;
+    if (aG !== bG) return aG - bG;
+    return (a.Fornavn || a.Navn).localeCompare(b.Fornavn || b.Navn, "nb");
+  });
+
+  return kandidater.slice(0, limit).map((p) => {
+    const rad = semester.rader.find((r) => r.personId === p.PersonID);
+    const celler = rad?.celler[gudstjenesteId] || [];
+    const sammeDagAndreRoller = celler
+      .filter((c) => c.rolleId !== rolleId)
+      .map((c) => c.rollenavn);
+    return {
+      personId: p.PersonID,
+      visningsnavn: uniktVisningsnavn(db, p),
+      fulltNavn: p.Navn,
+      iGruppen: gruppeMedlemIds.has(p.PersonID),
+      alleredeTildelt: opptatt.has(p.PersonID),
+      sammeDagAndreRoller,
+      oppgaverSemester: rad?.oppgaver ?? 0,
+      harFlereSammeDag: Boolean(rad?.harFlereSammeDag) || sammeDagAndreRoller.length > 0,
+    };
+  });
+}
+
+export function tildelEksternPersonMedStatus(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string,
+  navn: string,
+  status: DeltakelseStatus,
+  kommentar?: string
+): DatabaseState {
+  const visningsnavn = navn.trim();
+  if (!visningsnavn) return db;
+  const nøkkel = visningsnavn.toLowerCase();
+  const eksisterende = db.tildelinger.find(
+    (t) =>
+      t.GudstjenesteID === gudstjenesteId &&
+      t.RolleID === rolleId &&
+      (t.EksternNavn || "").trim().toLowerCase() === nøkkel
+  );
+  let next = db;
+  if (eksisterende) {
+    next = settDeltakelseForPerson(
+      db,
+      eksisterende.PersonID,
+      gudstjenesteId,
+      rolleId,
+      status === "Deltar" ? "Deltar" : status === "Avvist" ? "Avvist" : "Avventer",
+      kommentar
+    );
+    return next;
+  }
+  next = tildelEksternPerson(db, gudstjenesteId, rolleId, visningsnavn, kommentar);
+  if (status === "Deltar") {
+    const t = next.tildelinger.find(
+      (x) =>
+        x.GudstjenesteID === gudstjenesteId &&
+        x.RolleID === rolleId &&
+        (x.EksternNavn || "").trim().toLowerCase() === nøkkel
+    );
+    if (t) {
+      next = settDeltakelseForPerson(
+        next,
+        t.PersonID,
+        gudstjenesteId,
+        rolleId,
+        "Deltar",
+        kommentar
+      );
+    }
+  }
+  return next;
+}
+
+/** Komma-separerte navn → tildelinger. Unikt fornavn treffer registeret. */
+export function tildelNavnICelle(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string,
+  raw: string,
+  status: DeltakelseStatus,
+  kommentar?: string
+): DatabaseState {
+  const navn = splittCelleNavn(raw);
+  let next = db;
+  for (const n of navn) {
+    const person = finnPersonMedVisningsnavn(next, n);
+    if (person) {
+      next = settDeltakelseForPerson(
+        next,
+        person.PersonID,
+        gudstjenesteId,
+        rolleId,
+        status,
+        kommentar
+      );
+    } else {
+      next = tildelEksternPersonMedStatus(
+        next,
+        gudstjenesteId,
+        rolleId,
+        n,
+        status,
+        kommentar
+      );
+    }
+  }
+  return next;
+}
+
+export function fjernSisteFraCelle(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string
+): DatabaseState {
+  const tildelinger = db.tildelinger.filter(
+    (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolleId
+  );
+  const siste = tildelinger[tildelinger.length - 1];
+  if (!siste) return db;
+  return settDeltakelseForPerson(
+    db,
+    siste.PersonID,
+    gudstjenesteId,
+    rolleId,
+    "Deltar ikke"
+  );
+}
+
+export function tomArkCelle(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string
+): DatabaseState {
+  const tildelinger = db.tildelinger.filter(
+    (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolleId
+  );
+  let next = db;
+  for (const t of tildelinger) {
+    next = settDeltakelseForPerson(
+      next,
+      t.PersonID,
+      gudstjenesteId,
+      rolleId,
+      "Deltar ikke"
+    );
+  }
+  return next;
 }
 
 /** Opprett person. Etternavn lagres bare hvis navnet har mer enn ett ord. */

@@ -409,12 +409,6 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
                             <div className="font-semibold text-sm text-slate-900 truncate">
                               {person.Navn}
                             </div>
-                            <div className="text-[11px] text-slate-500 truncate">
-                              {person.Epost || "Ingen e-post"}
-                            </div>
-                            <div className="text-[11px] text-slate-400">
-                              {person.Telefon || "Ingen telefon"}
-                            </div>
                           </div>
                           <IkonHandling
                             label="Fjern medlem"

@@ -5,6 +5,7 @@ import {
   finnAdministratorMedEpost,
   finnPersonMedMagiskToken,
   genererTilfeldigSikkerhetsToken,
+  rensPersondataForKlient,
   startvisningForTilgang,
   fornySikkerhetsToken,
   hentTilgang,
@@ -92,6 +93,21 @@ const leder = db.personer.find((p) => {
   return t.isLeader && !t.isAdmin;
 });
 assert.ok(leder, "mock-data skal ha en tjenestegruppeleder");
+assert.equal(hentTilgang(db, "P009").isAdmin, false);
+assert.ok(db.roller.some((r) => String(r.Rollenavn).toLowerCase() === "administrator"));
+assert.ok(
+  db.personroller.some((pr) => pr.PersonID === admin!.PersonID && pr.RolleID === "R013" && pr.Aktiv)
+);
+
+const lederUtenKontakt = rensPersondataForKlient(db, leder!.PersonID, false);
+const annen = lederUtenKontakt.personer.find((p) => p.PersonID !== leder!.PersonID && p.Aktiv);
+assert.ok(annen);
+assert.equal(annen!.Epost, "");
+assert.equal(annen!.Telefon, "");
+assert.equal(annen!.SikkerhetsToken, "");
+const meg = lederUtenKontakt.personer.find((p) => p.PersonID === leder!.PersonID);
+assert.equal(meg?.Epost, leder!.Epost);
+assert.equal(rensPersondataForKlient(db, admin!.PersonID, true).personer[0].Epost, db.personer[0].Epost);
 const lederTilgang = hentTilgang(db, leder!.PersonID);
 assert.deepEqual(lederTilgang.views, ["personal", "leader"]);
 assert.equal(startvisningForTilgang(lederTilgang), "personal");

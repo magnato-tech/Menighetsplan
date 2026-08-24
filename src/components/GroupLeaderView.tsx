@@ -32,6 +32,7 @@ import { SituasjonRad } from "./SituasjonRad";
 import {
   GroupLeaderGuide,
 } from "./GroupLeaderGuide";
+import { ListeArkBryter, Planleggingsark, type ArkVisning } from "./Planleggingsark";
 import {
   Users,
   Shield,
@@ -163,6 +164,8 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [visDetalj, setVisDetalj] = useState<Record<string, boolean>>({});
   const [visTidligere, setVisTidligere] = useState(false);
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
+  const [gruppeVisning, setGruppeVisning] = useState<ArkVisning>("liste");
+  const [arkGudstjenesteId, setArkGudstjenesteId] = useState<string | null>(null);
 
   const lukkVeiledning = () => {
     setGuideOpen(false);
@@ -524,7 +527,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         }}
         className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer ${kant} ${
           visAlleTall && komplett ? "opacity-80" : ""
-        }`}
+        }${visDetaljer ? " lg:col-span-2" : ""}`}
       >
         <div className="flex items-stretch">
         <div className="flex-1 min-w-0 px-4 py-2.5 flex items-center gap-3">
@@ -918,7 +921,10 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
 
       {oversiktFilter !== "medlemmer" && (
       <div className="space-y-2" data-guide="gudstjenester">
-        <h3 className="text-sm font-bold text-slate-900">Kommende gudstjenester</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-bold text-slate-900">Kommende gudstjenester</h3>
+          <ListeArkBryter visning={gruppeVisning} onChange={setGruppeVisning} />
+        </div>
 
         {gruppensRoller.length === 0 ? (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center">
@@ -927,18 +933,39 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               Ingen roller er tilknyttet denne tjenestegruppen i dagens register.
             </p>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {visKommende.map((gudstjeneste) => renderSondagKort(gudstjeneste))}
-            {visKommende.length === 0 && (
-              <p className="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center">
-                Ingen treff for dette filteret. Trykk kortet igjen for å vise alle.
-              </p>
-            )}
+        ) : gruppeVisning === "ark" ? (
+          <div className="space-y-3">
+            <Planleggingsark
+              db={db}
+              onUpdateDb={onUpdateDb}
+              rolleIds={gruppensRoller.map((r) => r.RolleID)}
+              gruppeId={currentGruppe?.GruppeID}
+              valgtGudstjenesteId={arkGudstjenesteId}
+              onVelgGudstjeneste={(id) => {
+                setArkGudstjenesteId((prev) => (prev === id ? null : id));
+                setVisDetalj((prev) => ({ ...prev, [id]: true }));
+              }}
+            />
+            {arkGudstjenesteId &&
+              (() => {
+                const gud = db.gudstjenester.find((g) => g.GudstjenesteID === arkGudstjenesteId);
+                return gud ? renderSondagKort(gud) : null;
+              })()}
           </div>
+        ) : (
+          <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            {visKommende.map((gudstjeneste) => renderSondagKort(gudstjeneste))}
+          </div>
+          {visKommende.length === 0 && (
+            <p className="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center">
+              Ingen treff for dette filteret. Trykk kortet igjen for å vise alle.
+            </p>
+          )}
+          </>
         )}
 
-        {visTidligereFiltrert.length > 0 && (
+        {gruppeVisning === "liste" && visTidligereFiltrert.length > 0 && (
           <div className="pt-2">
             <button
               type="button"
@@ -949,7 +976,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               {visTidligere ? "Skjul tidligere" : `Tidligere (${visTidligereFiltrert.length})`}
             </button>
             {visTidligere && (
-              <div className="space-y-2 mt-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-2">
                 {visTidligereFiltrert.map((gudstjeneste) => renderSondagKort(gudstjeneste))}
               </div>
             )}

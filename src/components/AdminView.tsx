@@ -42,6 +42,7 @@ import { SituasjonRad } from "./SituasjonRad";
 import { BelastningView } from "./BelastningView";
 import { ProgrammalAdminView } from "./ProgrammalAdminView";
 import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
+import { ListeArkBryter, Planleggingsark, type ArkVisning } from "./Planleggingsark";
 import {
   Calendar,
   Users,
@@ -301,6 +302,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const [visTidligere, setVisTidligere] = useState(false);
   const [folgOppLederId, setFolgOppLederId] = useState<string | null>(null);
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
+  const [servicesVisning, setServicesVisning] = useState<ArkVisning>("liste");
+  const [arkGudstjenesteId, setArkGudstjenesteId] = useState<string | null>(null);
   const [gudstjenesteKortFane, setGudstjenesteKortFane] = useState<
     Record<string, "bemanning" | "kjoreplan">
   >({});
@@ -695,6 +698,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
     const totalt = summerGruppeRader(gruppeRaderForGudstjeneste(db, gud.GudstjenesteID));
     return trefferOversiktFilter(totalt, oversiktFilter);
   });
+  const arkGudstjeneste = arkGudstjenesteId
+    ? db.gudstjenester.find((g) => g.GudstjenesteID === arkGudstjenesteId)
+    : undefined;
 
   useEffect(() => {
     if (oversiktFilter !== "venter") return;
@@ -952,7 +958,9 @@ export const AdminView: React.FC<AdminViewProps> = ({
             vekselDetalj(gudstjeneste.GudstjenesteID);
           }
         }}
-        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer ${kant}`}
+        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer ${kant}${
+          visDetaljer ? " lg:col-span-2" : ""
+        }`}
       >
         <div className="px-4 py-2.5 flex items-center gap-3">
           <div className="min-w-0 flex-1">
@@ -1274,8 +1282,39 @@ export const AdminView: React.FC<AdminViewProps> = ({
         </button>
       </div>
 
-      {/* FANE 1: GUDSTJENESTER & OPPGAVEPLAN (LISTEFORM MED ADMIN-KONTROLLER) */}
+      {/* FANE 1: GUDSTJENESTER & OPPGAVEPLAN (LISTE ELLER ARK) */}
       {activeTab === "services" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
+            {servicesVisning === "ark" && (
+              <button
+                type="button"
+                onClick={() => setNewServiceModal(true)}
+                className="px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Ny gudstjeneste</span>
+              </button>
+            )}
+          </div>
+
+          {servicesVisning === "ark" && (
+            <>
+              <Planleggingsark
+                db={db}
+                onUpdateDb={onUpdateDb}
+                valgtGudstjenesteId={arkGudstjenesteId}
+                onVelgGudstjeneste={(id) => {
+                  setArkGudstjenesteId((prev) => (prev === id ? null : id));
+                  setVisDetalj((prev) => ({ ...prev, [id]: true }));
+                }}
+              />
+              {arkGudstjeneste && renderGudstjenesteKort(arkGudstjeneste)}
+            </>
+          )}
+
+          {servicesVisning === "liste" && (
         <div className="space-y-4">
           <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <div className="flex flex-wrap items-end justify-between gap-2">
@@ -1415,16 +1454,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
             )}
           </div>
 
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
             {visKommendeGudstjenester.map((gudstjeneste) => renderGudstjenesteKort(gudstjeneste))}
-            {visKommendeGudstjenester.length === 0 && (
-              <p className="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center">
-                {folgOppLederId || oversiktFilter
-                  ? "Ingen treff for dette filteret. Trykk kortet eller navnet igjen for å vise alle."
-                  : "Ingen kommende gudstjenester."}
-              </p>
-            )}
           </div>
+          {visKommendeGudstjenester.length === 0 && (
+            <p className="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center">
+              {folgOppLederId || oversiktFilter
+                ? "Ingen treff for dette filteret. Trykk kortet eller navnet igjen for å vise alle."
+                : "Ingen kommende gudstjenester."}
+            </p>
+          )}
 
           {visTidligereFiltrert.length > 0 && oversiktFilter !== "medlemmer" && (
             <div>
@@ -1437,12 +1476,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
                 {visTidligere ? "Skjul tidligere" : `Tidligere (${visTidligereFiltrert.length})`}
               </button>
               {visTidligere && (
-                <div className="space-y-2 mt-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2 mt-2">
                   {visTidligereFiltrert.map((gudstjeneste) => renderGudstjenesteKort(gudstjeneste))}
                 </div>
               )}
             </div>
           )}
+        </div>
+        )}
         </div>
       )}
       {activeTab === "belastning" && (
@@ -1451,6 +1492,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onVelgGudstjeneste={(gudstjenesteId, personId) => {
             setOversiktFilter(null);
             setActiveTab("services");
+            setServicesVisning("liste");
             setVisDetalj((prev) => ({ ...prev, [gudstjenesteId]: true }));
             setUthevPersonId(personId);
             setScrollTilGudstjenesteId(gudstjenesteId);

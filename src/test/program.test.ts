@@ -63,6 +63,16 @@ function tomDb(): DatabaseState {
     ],
     grupper: [gruppe],
     gruppemedlemmer: [],
+    personroller: [
+      {
+        PersonRolleID: "PR-ADM",
+        PersonID: "P003",
+        RolleID: "R013",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
     roller: [
       moteleder,
       {
@@ -75,8 +85,16 @@ function tomDb(): DatabaseState {
         OpprettetDato: "2026-01-01",
         SistEndret: "2026-01-01",
       },
+      {
+        RolleID: "R013",
+        Rollenavn: "Administrator",
+        Beskrivelse: "",
+        Aktiv: true,
+        Behov: 0,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
     ],
-    personroller: [],
     rollebeskrivelser: [],
     gudstjenester: [
       {

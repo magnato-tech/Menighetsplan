@@ -181,6 +181,17 @@ function normalizeEmail_(epost) {
   return String(epost || "").trim().toLowerCase();
 }
 
+function findAdminRole_(state) {
+  var roller = state.roller || [];
+  var i;
+  for (i = 0; i < roller.length; i++) {
+    if (roller[i].Aktiv !== false && String(roller[i].Rollenavn || "").trim().toLowerCase() === "administrator") {
+      return roller[i];
+    }
+  }
+  return null;
+}
+
 function isAdministrator_(state, personId) {
   var personer = state.personer || [];
   var person = null;
@@ -193,26 +204,83 @@ function isAdministrator_(state, personId) {
   }
   if (!person || person.Aktiv === false) return false;
 
-  var roller = state.roller || [];
-  var adminRolleId = "";
-  for (i = 0; i < roller.length; i++) {
-    if (roller[i].Aktiv !== false && String(roller[i].Rollenavn || "").trim().toLowerCase() === "administrator") {
-      adminRolleId = roller[i].RolleID;
-      break;
+  var adminRolle = findAdminRole_(state);
+  if (!adminRolle) return false;
+  var pr = state.personroller || [];
+  for (i = 0; i < pr.length; i++) {
+    if (pr[i].Aktiv !== false && pr[i].PersonID === personId && pr[i].RolleID === adminRolle.RolleID) {
+      return true;
     }
   }
-  if (adminRolleId) {
-    var pr = state.personroller || [];
-    for (i = 0; i < pr.length; i++) {
-      if (pr[i].Aktiv !== false && pr[i].PersonID === personId && pr[i].RolleID === adminRolleId) {
-        return true;
-      }
-    }
-  }
-  if (person.PersonID === "P009") return true;
+  return false;
+}
+
+function looksLikeLegacyAdminName_(person) {
   var navn = String(person.Navn || "").trim().toLowerCase();
   var fornavn = String(person.Fornavn || "").trim().toLowerCase();
   return fornavn === "magnar" || navn === "magnar" || navn.indexOf("magnar ") === 0;
+}
+
+/** Oppretter Administrator-rollen og knytter tidligere Magnar-unntak til den. */
+function ensureAdministratorRole_(state) {
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Oslo", "yyyy-MM-dd");
+  var roller = state.roller || [];
+  var adminRolle = findAdminRole_(state);
+  var changed = false;
+  if (!adminRolle) {
+    adminRolle = {
+      RolleID: "R013",
+      Rollenavn: "Administrator",
+      Beskrivelse: "Full administrativ tilgang til planleggeren.",
+      Aktiv: true,
+      Behov: 0,
+      GruppeID: "",
+      OpprettetDato: today,
+      SistEndret: today,
+    };
+    roller.push(adminRolle);
+    state.roller = roller;
+    changed = true;
+  }
+
+  var personroller = state.personroller || [];
+  var personer = state.personer || [];
+  var i;
+  var maxPr = 0;
+  for (i = 0; i < personroller.length; i++) {
+    var n = parseInt(String(personroller[i].PersonRolleID || "").replace(/\D/g, ""), 10);
+    if (n > maxPr) maxPr = n;
+  }
+  for (i = 0; i < personer.length; i++) {
+    var p = personer[i];
+    if (!p || p.Aktiv === false) continue;
+    if (!looksLikeLegacyAdminName_(p) && p.PersonID !== "P001") continue;
+    var har = false;
+    var j;
+    for (j = 0; j < personroller.length; j++) {
+      if (personroller[j].Aktiv !== false && personroller[j].PersonID === p.PersonID && personroller[j].RolleID === adminRolle.RolleID) {
+        har = true;
+        break;
+      }
+    }
+    if (har) continue;
+    maxPr += 1;
+    var prId = "PR" + ("000" + maxPr).slice(-3);
+    personroller.push({
+      PersonRolleID: prId,
+      PersonID: p.PersonID,
+      RolleID: adminRolle.RolleID,
+      Aktiv: true,
+      FraDato: today,
+      TilDato: "",
+      Notat: "Tildelt ved overgang fra navnebasert admin",
+      OpprettetDato: today,
+      SistEndret: today,
+    });
+    changed = true;
+  }
+  state.personroller = personroller;
+  return changed;
 }
 
 function findPersonByMagicToken_(state, token) {
@@ -281,7 +349,7 @@ function requireAuth_(body, needAdmin) {
     if (!admin) {
       return { ok: false, error: "Google-kontoen er ikke registrert som administrator." };
     }
-    return { ok: true, state: state, isAdmin: true };
+    return { ok: true, state: state, isAdmin: true, personId: admin.PersonID };
   }
   if (token) {
     var person = findPersonByMagicToken_(state, token);
@@ -292,7 +360,7 @@ function requireAuth_(body, needAdmin) {
     if (needAdmin && !isAdmin) {
       return { ok: false, error: "Denne handlingen krever administrator." };
     }
-    return { ok: true, state: state, isAdmin: isAdmin };
+    return { ok: true, state: state, isAdmin: isAdmin, personId: person.PersonID };
   }
   return { ok: false, error: "Mangler innlogging (token eller Google)." };
 }
@@ -309,7 +377,7 @@ function doGet(e) {
     }
 
     if (action === "ping") {
-      return json_({ ok: true, service: "Gudstjenesteplanlegger2.0", spreadsheetId: SPREADSHEET_ID });
+      return json_({ ok: true, service: "Gudstjenesteplanlegger2.0" });
     }
 
     if (action === "inspectImport") {
@@ -340,7 +408,10 @@ function doPost(e) {
     if (action === "load") {
       var loadAuth = requireAuth_(body, false);
       if (!loadAuth.ok) return json_({ ok: false, error: loadAuth.error });
-      return json_({ ok: true, data: loadAuth.state });
+      return json_({
+        ok: true,
+        data: sanitizeStateForViewer_(loadAuth.state, loadAuth.personId, loadAuth.isAdmin),
+      });
     }
 
     if (action === "save") {
@@ -349,8 +420,12 @@ function doPost(e) {
       if (!body.data) {
         return json_({ ok: false, error: "Mangler data" }, 400);
       }
-      saveDatabase(body.data);
-      return json_({ ok: true, data: loadDatabase() });
+      saveDatabase(body.data, saveAuth.isAdmin);
+      var saved = loadDatabase();
+      return json_({
+        ok: true,
+        data: sanitizeStateForViewer_(saved, saveAuth.personId, saveAuth.isAdmin),
+      });
     }
 
     if (action === "inspectImport") {
@@ -377,6 +452,47 @@ function doPost(e) {
   }
 }
 
+var NON_ADMIN_WRITABLE_SHEETS = {
+  grupper: true,
+  gruppemedlemmer: true,
+  tjenestebehov: true,
+  tildelinger: true,
+  svar: true,
+  programaktiviteter: true,
+  programinstanser: true,
+};
+
+function sanitizeStateForViewer_(state, personId, isAdmin) {
+  if (isAdmin) return state;
+  var personer = state.personer || [];
+  var i;
+  var renset = [];
+  for (i = 0; i < personer.length; i++) {
+    var p = personer[i];
+    var kopi = {};
+    var k;
+    for (k in p) {
+      if (Object.prototype.hasOwnProperty.call(p, k)) kopi[k] = p[k];
+    }
+    var erMeg = personId && kopi.PersonID === personId;
+    if (!erMeg) {
+      kopi.SikkerhetsToken = "";
+      kopi.Epost = "";
+      kopi.Telefon = "";
+      kopi.Adresse = "";
+      kopi.Postnummer = "";
+      kopi.Poststed = "";
+      kopi.Fødselsår = "";
+      kopi.Fødselsdato = "";
+      kopi.Kjønn = "";
+      kopi.Notat = "";
+    }
+    renset.push(kopi);
+  }
+  state.personer = renset;
+  return state;
+}
+
 function loadDatabase() {
   var ss = getSpreadsheet_();
   var state = {};
@@ -387,6 +503,10 @@ function loadDatabase() {
   }
   for (key in IMPORT_SHEETS) {
     state[key] = [];
+  }
+  if (ensureAdministratorRole_(state)) {
+    writeSheet_(ss, MASTER_SHEETS.roller, state.roller);
+    writeSheet_(ss, MASTER_SHEETS.personroller, state.personroller);
   }
   return state;
 }
@@ -401,18 +521,18 @@ function fyllSikkerhetsTokens() {
   return personer.length;
 }
 
-function saveDatabase(state) {
+function saveDatabase(state, isAdmin) {
   ensureSchema_();
   var ss = getSpreadsheet_();
-  if (state.personer) {
+  if (isAdmin !== false && state.personer) {
     mergePersonTokens_(state.personer, readSheet_(ss, MASTER_SHEETS.personer));
     ensurePersonTokens_(state.personer);
   }
   var key;
   for (key in MASTER_SHEETS) {
-    if (state[key]) {
-      writeSheet_(ss, MASTER_SHEETS[key], state[key]);
-    }
+    if (!state[key]) continue;
+    if (isAdmin === false && !NON_ADMIN_WRITABLE_SHEETS[key]) continue;
+    writeSheet_(ss, MASTER_SHEETS[key], state[key]);
   }
   // Import-faner skrives aldri.
 }
