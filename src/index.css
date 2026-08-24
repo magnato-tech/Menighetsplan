@@ -6,6 +6,22 @@ html.dark {
   color-scheme: dark;
 }
 
+/* Ark: full viewport width without being trapped in max-w-7xl. */
+.ark-fullbredde {
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  box-sizing: border-box;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+@media (min-width: 640px) {
+  .ark-fullbredde {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+}
+
 html.dark body {
   background-color: #0b1220;
 }

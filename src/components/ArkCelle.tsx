@@ -126,17 +126,17 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
           onStartRediger();
         }
       }}
-      className={`p-1 align-top border-b border-slate-200 cursor-text min-w-[5.75rem] ${
+      className={`px-1 py-0.5 align-top border-b border-slate-200 cursor-text ${
         bakgrunn || ""
       } ${
         aktiv ? "ring-2 ring-inset ring-[#2d5a3f]" : ""
       } ${dimmet ? "opacity-35" : ""}`}
     >
-      <div className="flex flex-wrap items-center gap-0.5 min-h-[1.75rem]">
+      <div className="flex flex-wrap items-center gap-0.5 min-h-[1.6rem]">
         {innhold.personer.map((p) => (
           <span
             key={p.tildelingId}
-            className={`inline-flex items-center rounded px-1 py-px text-[11px] font-medium leading-tight ${statusKlasse(
+            className={`inline-flex items-center rounded px-1 py-px text-xs font-medium leading-tight ${statusKlasse(
               p.status
             )}`}
             title={p.ekstern ? `${p.navn} (ekstern)` : p.navn}
@@ -223,7 +223,7 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
               }
               onAvbryt();
             }}
-            className="min-w-[3.5rem] flex-1 bg-transparent text-[11px] text-slate-800 outline-none placeholder:text-slate-400"
+            className="min-w-[3.5rem] flex-1 bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400"
           />
         ) : null}
       </div>

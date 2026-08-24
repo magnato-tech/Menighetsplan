@@ -33,7 +33,7 @@ Hver gudstjeneste har roller med **veiledende behov** (overstyrbart per søndag)
 
 **Liste** viser ett kort per søndag: dato, tema, bekr./venter/ledige, sammenklappet rollesituasjon. Åpnet kort har rollerader (statusknapper, tildel, juster behov) og valgfri fane **Kjøreplan**.
 
-**Ark** er rutenett per rolle og søndag (samme data).
+**Ark** er rutenett per rolle og søndag (samme data). Hos administrator på stor skjerm bruker det nesten full bredde (små marger). Hos gruppeleder blir det i den vanlige kolonnen — færre roller, ingen grunn til å strekke tabellen.
 
 Admin ser alle grupper. Gruppeleder ser bare gruppens roller. Begge bruker samme listekomponent med ulikt omfang.
 

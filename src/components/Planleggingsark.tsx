@@ -94,6 +94,7 @@ interface PlanleggingsarkProps {
   valgtGudstjenesteId?: string | null;
   rolleIds?: string[];
   gruppeId?: string;
+  fullBredde?: boolean;
 }
 
 export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
@@ -103,6 +104,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
   valgtGudstjenesteId,
   rolleIds,
   gruppeId,
+  fullBredde = false,
 }) => {
   const [nyStatus, setNyStatus] = useState<DeltakelseStatus>("Deltar");
   const [visBareHull, setVisBareHull] = useState(false);
@@ -372,7 +374,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
 
   return (
     <div
-      className="space-y-3"
+      className="space-y-2"
       data-testid="planleggingsark"
       onPaste={(e) => {
         const text = e.clipboardData.getData("text");
@@ -427,8 +429,8 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
         </p>
       </div>
 
-      <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-2 sm:px-3">
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-auto max-h-[70vh]">
+      <div>
+        <div className="bg-white rounded-md border border-slate-200 overflow-auto max-h-[calc(100dvh-11rem)]">
           {gudstjenester.length === 0 || roller.length === 0 ? (
             <p className="px-4 py-8 text-sm text-slate-500 text-center">
               {roller.length === 0
@@ -436,10 +438,14 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
                 : "Ingen kommende gudstjenester."}
             </p>
           ) : (
-            <table className="text-left text-xs border-separate border-spacing-0 min-w-full">
+            <table
+              className={`text-left text-sm border-separate border-spacing-0 w-full ${
+                fullBredde ? "min-w-[70rem] table-fixed" : "min-w-0"
+              }`}
+            >
               <thead className="sticky top-0 z-20">
                 <tr>
-                  <th className="p-2 sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 min-w-[7.5rem] w-[7.5rem]">
+                  <th className="px-1.5 py-1.5 sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 w-[8.5rem]">
                     Dato
                   </th>
                   {roller.map((rolle) => {
@@ -447,7 +453,7 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
                     return (
                       <th
                         key={rolle.RolleID}
-                        className={`p-2 border-b border-slate-200 bg-slate-50 font-semibold text-slate-700 cursor-pointer hover:text-[#2d5a3f] whitespace-normal break-words leading-tight min-w-[5.75rem] ${
+                        className={`px-1.5 py-1.5 border-b border-slate-200 bg-slate-50 font-semibold text-slate-700 cursor-pointer hover:text-[#2d5a3f] whitespace-normal break-words leading-tight ${
                           isolert ? "text-[#2d5a3f] bg-[#eef5f1]" : ""
                         }`}
                         title="Klikk for å vise bare denne rollen"
@@ -470,18 +476,18 @@ export const Planleggingsark: React.FC<PlanleggingsarkProps> = ({
                   return (
                     <tr key={gud.GudstjenesteID} className={zebra}>
                       <th
-                        className={`p-2 sticky left-0 z-10 border-b border-r border-slate-200 text-left font-semibold ${zebra} ${
+                        className={`px-1.5 py-1 sticky left-0 z-10 border-b border-r border-slate-200 text-left font-semibold ${zebra} ${
                           valgt ? "text-[#2d5a3f]" : "text-slate-800"
                         }`}
                       >
                         <button
                           type="button"
                           onClick={() => onVelgGudstjeneste?.(gud.GudstjenesteID)}
-                          className="text-left cursor-pointer hover:text-[#2d5a3f]"
+                          className="text-left cursor-pointer hover:text-[#2d5a3f] w-full"
                         >
                           <span className="block whitespace-nowrap">{formatArkDato(gud.Dato)}</span>
                           {gud.Tema ? (
-                            <span className="block text-[10px] font-medium text-slate-500 truncate max-w-[7rem]">
+                            <span className="block text-[11px] font-medium text-slate-500 truncate">
                               {gud.Tema}
                             </span>
                           ) : null}

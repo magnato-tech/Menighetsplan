@@ -999,14 +999,20 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         ) : (
           <>
             {visKpiAlltid && kpiKort}
-            {visningBryter}
+            {servicesVisning === "liste" && visningBryter}
             {servicesVisning === "ark" && visListe && (
-              <>
+              <div
+                className={
+                  statusAktor === "administrator" ? "ark-fullbredde space-y-2" : "space-y-2"
+                }
+              >
+                {visningBryter}
                 <Planleggingsark
                   db={db}
                   onUpdateDb={onUpdateDb}
                   rolleIds={rolleIds}
                   gruppeId={gruppeId}
+                  fullBredde={statusAktor === "administrator"}
                   valgtGudstjenesteId={arkGudstjenesteId}
                   onVelgGudstjeneste={(id) => {
                     setArkGudstjenesteId((prev) => (prev === id ? null : id));
@@ -1014,7 +1020,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                   }}
                 />
                 {arkGudstjeneste && renderGudstjenesteKort(arkGudstjeneste)}
-              </>
+              </div>
             )}
             {servicesVisning === "liste" && visKpi && !visKpiAlltid && kpiKort}
             {servicesVisning === "liste" && afterKpi}
