@@ -27,6 +27,12 @@ const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
 const DEV_SOURCE_KEY = "gudstjenesteplanlegger_dev_data_source";
 const SCRIPT_URL_STORAGE_KEY = "gudstjenesteplanlegger_apps_script_url";
 
+let sisteLastetPersonId: string | null = null;
+
+export function hentSisteLastetPersonId(): string | null {
+  return sisteLastetPersonId;
+}
+
 export const DEFAULT_REMOTE_SCRIPT_URL =
   "https://script.google.com/macros/s/AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw/exec";
 
@@ -532,7 +538,8 @@ export async function loadDatabase(): Promise<DatabaseState> {
     if (payload?.ok && payload.data) {
       const state = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
       if (payload.personId) {
-        lagreAdminSesjonPersonId(String(payload.personId));
+        sisteLastetPersonId = String(payload.personId);
+        lagreAdminSesjonPersonId(sisteLastetPersonId);
       }
       persistLocalState(state);
       return state;

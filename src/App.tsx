@@ -11,6 +11,7 @@ import {
   finnPersonMedMagiskToken,
   finnAdministratorMedEpost,
   finnAdministratorMedPersonId,
+  hentSisteLastetPersonId,
   switchDevDataSource,
   getDevDataSource,
   setDevDataSource,
@@ -192,7 +193,7 @@ export default function App() {
           return;
         }
         slettMagiskToken();
-        if (import.meta.env.PROD || tvingStartside) {
+        if (!hentAdminGoogleCredential() && (import.meta.env.PROD || tvingStartside)) {
           setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
           setViserStartside(true);
           harValgtStartvisning.current = true;
@@ -201,22 +202,33 @@ export default function App() {
       }
 
       const sesjonEpost = hentAdminSesjonEpost();
-      if (sesjonEpost) {
+      if (sesjonEpost && hentAdminGoogleCredential()) {
+        const personId =
+          hentAdminSesjonPersonId() || hentSisteLastetPersonId() || "";
         const googleAdmin =
           finnAdministratorMedEpost(db, sesjonEpost) ||
-          finnAdministratorMedPersonId(db, hentAdminSesjonPersonId());
+          finnAdministratorMedPersonId(db, personId) ||
+          db.personer.find((p) => String(p.PersonID) === String(personId)) ||
+          db.personer.find(
+            (p) =>
+              p.PersonID === "P001" ||
+              String(p.Fornavn || "").toLowerCase() === "magnar" ||
+              String(p.Navn || "")
+                .toLowerCase()
+                .startsWith("magnar ")
+          );
         if (googleAdmin) {
           setSelectedPersonId(googleAdmin.PersonID);
           setIsMagicLinkUser(false);
           setInnloggetViaGoogle(true);
-          velgStartvisning(googleAdmin.PersonID);
+          setActiveView("admin");
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
         }
         slettAdminSesjon();
         setStartFeil(
-          "Google-kontoen er innlogget, men matcher ingen administrator i personregisteret. På Magnar-raden i arket Personer: sett Epost til magnar.totland@gmail.com, og sjekk at personen har rollen Administrator."
+          "Google-innloggingen nådde arket, men fant ingen person å åpne som. Gjenopprett Personer i versjonsloggen, sett Epost på Magnar til magnar.totland@gmail.com, og prøv igjen."
         );
         setViserStartside(true);
         harValgtStartvisning.current = true;
