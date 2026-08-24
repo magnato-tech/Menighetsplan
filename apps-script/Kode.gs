@@ -570,6 +570,7 @@ function loadDatabase() {
   for (key in IMPORT_SHEETS) {
     state[key] = [];
   }
+  fillEmptySikkerhetsTokenCells_(ss, state.personer);
   if (ensureAdministratorRole_(state)) {
     writeSheet_(ss, MASTER_SHEETS.roller, state.roller);
     writeSheet_(ss, MASTER_SHEETS.personroller, state.personroller);
@@ -577,13 +578,46 @@ function loadDatabase() {
   return state;
 }
 
+/** Fyller tomme SikkerhetsToken-celler én og én. Tømmer ikke fanen. */
+function fillEmptySikkerhetsTokenCells_(ss, personer) {
+  var spec = MASTER_SHEETS.personer;
+  var sheet = ss.getSheetByName(spec.name);
+  if (!sheet || !personer || !personer.length) return;
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return;
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  var headerRow = findHeaderRow_(values, spec.columns[0]);
+  var headers = values[headerRow] || [];
+  var idIdx = headerIndex_(headers, "PersonID");
+  var tokIdx = headerIndex_(headers, "SikkerhetsToken");
+  if (idIdx < 0 || tokIdx < 0) return;
+  var byId = {};
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    byId[String(personer[i].PersonID || "").trim()] = personer[i];
+  }
+  for (i = headerRow + 1; i < values.length; i++) {
+    var id = String(values[i][idIdx] || "").trim();
+    if (!id) continue;
+    var p = byId[id];
+    if (!p) continue;
+    var existing = String(values[i][tokIdx] || "").trim();
+    if (isUsableStoredToken_(existing)) {
+      p.SikkerhetsToken = existing;
+      continue;
+    }
+    var token = generateRandomMagicToken_();
+    p.SikkerhetsToken = token;
+    sheet.getRange(i + 1, tokIdx + 1).setValue(token);
+  }
+}
+
 /** Kjør denne én gang fra Apps Script (Kjør): lager kolonne SikkerhetsToken og fyller mk_-verdier. */
 function fyllSikkerhetsTokens() {
-  ensureSchema_();
   var ss = getSpreadsheet_();
   var personer = readSheet_(ss, MASTER_SHEETS.personer);
-  ensurePersonTokens_(personer);
-  writeSheet_(ss, MASTER_SHEETS.personer, personer);
+  fillEmptySikkerhetsTokenCells_(ss, personer);
   return personer.length;
 }
 
@@ -746,6 +780,7 @@ var HEADER_ALIASES_ = {
   Forbønn: ["Forbønn", "Forbønn"],
   Barnekirke: ["Barnekirke", "Barnekirke"],
   Epost: ["Epost", "E-post", "E-postadresse", "Email", "E-mail", "Mail"],
+  SikkerhetsToken: ["SikkerhetsToken", "Sikkerhetstoken", "Token"],
 };
 
 function headerIndex_(headers, col) {
