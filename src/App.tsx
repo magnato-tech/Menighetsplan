@@ -93,17 +93,11 @@ export default function App() {
   useEffect(() => {
     if (!remoteByConfig) return;
     const token = lesMagiskTokenFraUrl();
-    if (token) {
-      lagreMagiskToken(token);
-      slettAdminSesjon();
-    }
+    if (token) lagreMagiskToken(token);
     if (!harApiIdentitet()) {
       setIsLoadingRemote(false);
-      setStartFeil(
-        "Ekte data krever din personlige admin-lenke. Lim den inn under, eller åpne lenken du har fått."
-      );
+      setStartFeil(null);
       setViserStartside(true);
-      harValgtStartvisning.current = true;
       return;
     }
     return fetchRemote();
@@ -333,6 +327,7 @@ export default function App() {
     setViserStartside(false);
     harValgtStartvisning.current = false;
     setDb(null);
+    window.history.replaceState({}, "", window.location.pathname);
     fetchRemote();
   };
 

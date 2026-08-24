@@ -178,7 +178,9 @@ function isUsableStoredToken_(token) {
 }
 
 function normalizeEmail_(epost) {
-  return String(epost || "").trim().toLowerCase();
+  var e = String(epost || "").trim().toLowerCase();
+  if (e.indexOf("mailto:") === 0) e = e.slice(7);
+  return e.trim();
 }
 
 function normalizeEmailForMatch_(epost) {
@@ -350,7 +352,6 @@ function bindGoogleEmailToLegacyAdmin_(state, email) {
     var p = personer[i];
     if (p.Aktiv === false) continue;
     if (!looksLikeLegacyAdminName_(p) && p.PersonID !== "P001") continue;
-    if (!isAdministrator_(state, p.PersonID)) continue;
     var existing = normalizeEmail_(p.Epost);
     if (existing && !emailsEquivalent_(existing, email)) continue;
     p.Epost = email;
@@ -570,11 +571,12 @@ function loadDatabase() {
   for (key in IMPORT_SHEETS) {
     state[key] = [];
   }
-  fillEmptySikkerhetsTokenCells_(ss, state.personer);
-  if (ensureAdministratorRole_(state)) {
-    writeSheet_(ss, MASTER_SHEETS.roller, state.roller);
-    writeSheet_(ss, MASTER_SHEETS.personroller, state.personroller);
+  try {
+    fillEmptySikkerhetsTokenCells_(ss, state.personer);
+  } catch (tokenErr) {
+    // Innlogging skal ikke feile fordi token-fylling feilet.
   }
+  ensureAdministratorRole_(state);
   return state;
 }
 
