@@ -130,16 +130,21 @@ export interface PersonTilgang {
   views: AppView[];
 }
 
+function erAktivRad(verdi: unknown): boolean {
+  return verdi !== false && verdi !== "FALSE" && verdi !== "false";
+}
+
 export function erAdministrator(db: DatabaseState, personID: string): boolean {
   const person = db.personer.find((p) => p.PersonID === personID);
-  if (!person || !person.Aktiv) return false;
+  if (!person || !erAktivRad(person.Aktiv)) return false;
 
   const adminRolle = (db.roller || []).find(
-    (r) => r.Aktiv && String(r.Rollenavn || "").trim().toLowerCase() === "administrator"
+    (r) =>
+      erAktivRad(r.Aktiv) && String(r.Rollenavn || "").trim().toLowerCase() === "administrator"
   );
   if (!adminRolle) return false;
   return (db.personroller || []).some(
-    (pr) => pr.Aktiv && pr.PersonID === personID && pr.RolleID === adminRolle.RolleID
+    (pr) => erAktivRad(pr.Aktiv) && pr.PersonID === personID && pr.RolleID === adminRolle.RolleID
   );
 }
 
@@ -175,9 +180,20 @@ export function finnAdministratorMedEpost(
   const needle = normaliserEpost(epost);
   if (!needle) return undefined;
   const person = db.personer.find(
-    (p) => p.Aktiv && normaliserEpost(p.Epost) === needle
+    (p) => erAktivRad(p.Aktiv) && normaliserEpost(p.Epost) === needle
   );
   if (!person) return undefined;
+  return hentTilgang(db, person.PersonID).isAdmin ? person : undefined;
+}
+
+export function finnAdministratorMedPersonId(
+  db: DatabaseState,
+  personId: string | null | undefined
+): Person | undefined {
+  const id = String(personId || "").trim();
+  if (!id) return undefined;
+  const person = db.personer.find((p) => p.PersonID === id);
+  if (!person || !erAktivRad(person.Aktiv)) return undefined;
   return hentTilgang(db, person.PersonID).isAdmin ? person : undefined;
 }
 

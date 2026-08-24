@@ -10,6 +10,7 @@ import {
   AppView,
   finnPersonMedMagiskToken,
   finnAdministratorMedEpost,
+  finnAdministratorMedPersonId,
   switchDevDataSource,
   getDevDataSource,
   setDevDataSource,
@@ -18,6 +19,7 @@ import {
 import {
   epostFraGoogleJwt,
   hentAdminSesjonEpost,
+  hentAdminSesjonPersonId,
   hentAdminGoogleCredential,
   lagreAdminSesjon,
   slettAdminSesjon,
@@ -75,7 +77,10 @@ export default function App() {
       })
       .catch((e) => {
         if (!cancelled) {
-          setLoadError(e instanceof Error ? e.message : String(e));
+          const melding = e instanceof Error ? e.message : String(e);
+          setLoadError(melding);
+          setStartFeil(melding);
+          setViserStartside(true);
           setIsLoadingRemote(false);
         }
       });
@@ -197,7 +202,9 @@ export default function App() {
 
       const sesjonEpost = hentAdminSesjonEpost();
       if (sesjonEpost) {
-        const googleAdmin = finnAdministratorMedEpost(db, sesjonEpost);
+        const googleAdmin =
+          finnAdministratorMedEpost(db, sesjonEpost) ||
+          finnAdministratorMedPersonId(db, hentAdminSesjonPersonId());
         if (googleAdmin) {
           setSelectedPersonId(googleAdmin.PersonID);
           setIsMagicLinkUser(false);
@@ -208,6 +215,12 @@ export default function App() {
           return;
         }
         slettAdminSesjon();
+        setStartFeil(
+          "Google-kontoen er innlogget, men matcher ingen administrator i personregisteret. E-posten må være den samme som i arket, og personen må ha rollen Administrator."
+        );
+        setViserStartside(true);
+        harValgtStartvisning.current = true;
+        return;
       }
 
       if (import.meta.env.DEV && !tvingStartside) {

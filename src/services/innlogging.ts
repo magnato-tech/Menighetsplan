@@ -56,13 +56,19 @@ export function slettMagiskToken(): void {
   }
 }
 
-export function lagreAdminSesjon(epost: string, googleCredential?: string): void {
+export function lagreAdminSesjon(
+  epost: string,
+  googleCredential?: string,
+  personId?: string
+): void {
   try {
+    const forrige = lesAdminSesjon();
     sessionStorage.setItem(
       ADMIN_SESJON_KEY,
       JSON.stringify({
         epost: epost.trim().toLowerCase(),
-        googleCredential: googleCredential || undefined,
+        googleCredential: googleCredential || forrige?.googleCredential || undefined,
+        personId: personId || forrige?.personId || undefined,
       })
     );
   } catch {
@@ -70,28 +76,41 @@ export function lagreAdminSesjon(epost: string, googleCredential?: string): void
   }
 }
 
-export function hentAdminSesjonEpost(): string | null {
+function lesAdminSesjon(): {
+  epost?: string;
+  googleCredential?: string;
+  personId?: string;
+} | null {
   try {
     const raw = sessionStorage.getItem(ADMIN_SESJON_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as { epost?: string };
-    const epost = String(parsed.epost || "").trim().toLowerCase();
-    return epost || null;
+    return JSON.parse(raw) as { epost?: string; googleCredential?: string; personId?: string };
   } catch {
     return null;
   }
 }
 
+export function lagreAdminSesjonPersonId(personId: string): void {
+  const id = String(personId || "").trim();
+  if (!id) return;
+  const forrige = lesAdminSesjon();
+  if (!forrige) return;
+  lagreAdminSesjon(String(forrige.epost || ""), forrige.googleCredential, id);
+}
+
+export function hentAdminSesjonPersonId(): string | null {
+  const id = String(lesAdminSesjon()?.personId || "").trim();
+  return id || null;
+}
+
+export function hentAdminSesjonEpost(): string | null {
+  const epost = String(lesAdminSesjon()?.epost || "").trim().toLowerCase();
+  return epost || null;
+}
+
 export function hentAdminGoogleCredential(): string | null {
-  try {
-    const raw = sessionStorage.getItem(ADMIN_SESJON_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { googleCredential?: string };
-    const cred = String(parsed.googleCredential || "").trim();
-    return cred || null;
-  } catch {
-    return null;
-  }
+  const cred = String(lesAdminSesjon()?.googleCredential || "").trim();
+  return cred || null;
 }
 
 export function slettAdminSesjon(): void {

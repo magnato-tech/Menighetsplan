@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   DatabaseState,
   finnAdministratorMedEpost,
+  finnAdministratorMedPersonId,
   finnPersonMedMagiskToken,
   genererTilfeldigSikkerhetsToken,
   rensPersondataForKlient,
@@ -24,6 +25,16 @@ assert.equal(treff?.PersonID, admin!.PersonID);
 
 assert.equal(finnAdministratorMedEpost(db, "ukjent@example.com"), undefined);
 assert.equal(finnAdministratorMedEpost(db, ""), undefined);
+assert.equal(finnAdministratorMedPersonId(db, admin!.PersonID)?.PersonID, admin!.PersonID);
+assert.equal(finnAdministratorMedPersonId(db, "P999"), undefined);
+
+const tomAktiv = {
+  ...db,
+  personer: db.personer.map((p) =>
+    p.PersonID === admin!.PersonID ? { ...p, Aktiv: "" as unknown as boolean } : p
+  ),
+};
+assert.equal(finnAdministratorMedEpost(tomAktiv, admin!.Epost)?.PersonID, admin!.PersonID);
 
 const ikkeAdmin = db.personer.find((p) => !hentTilgang(db, p.PersonID).isAdmin && p.Epost);
 if (ikkeAdmin) {

@@ -18,7 +18,7 @@ import {
   initialRollebeskrivelseImport,
   initialMalaktiviteter,
 } from "../data/initialData";
-import { hentApiIdentitet } from "./innlogging";
+import { hentApiIdentitet, lagreAdminSesjonPersonId } from "./innlogging";
 import { sikreSikkerhetsTokens, rensLastetPersondata } from "./tilgang";
 import { synkGruppeledergruppe } from "./grupper";
 
@@ -531,6 +531,9 @@ export async function loadDatabase(): Promise<DatabaseState> {
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
       const state = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
+      if (payload.isAdmin && payload.personId) {
+        lagreAdminSesjonPersonId(String(payload.personId));
+      }
       persistLocalState(state);
       return state;
     }

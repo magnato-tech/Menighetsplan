@@ -411,6 +411,8 @@ function doPost(e) {
       return json_({
         ok: true,
         data: sanitizeStateForViewer_(loadAuth.state, loadAuth.personId, loadAuth.isAdmin),
+        personId: loadAuth.personId,
+        isAdmin: loadAuth.isAdmin,
       });
     }
 
@@ -425,6 +427,8 @@ function doPost(e) {
       return json_({
         ok: true,
         data: sanitizeStateForViewer_(saved, saveAuth.personId, saveAuth.isAdmin),
+        personId: saveAuth.personId,
+        isAdmin: saveAuth.isAdmin,
       });
     }
 
