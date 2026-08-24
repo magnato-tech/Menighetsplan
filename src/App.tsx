@@ -209,14 +209,11 @@ export default function App() {
           finnAdministratorMedEpost(db, sesjonEpost) ||
           finnAdministratorMedPersonId(db, personId) ||
           db.personer.find((p) => String(p.PersonID) === String(personId)) ||
-          db.personer.find(
-            (p) =>
-              p.PersonID === "P001" ||
-              String(p.Fornavn || "").toLowerCase() === "magnar" ||
-              String(p.Navn || "")
-                .toLowerCase()
-                .startsWith("magnar ")
-          );
+          db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin && (
+            String(p.Fornavn || "").toLowerCase() === "magnar" ||
+            String(p.Navn || "").toLowerCase().startsWith("magnar")
+          )) ||
+          db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin);
         if (googleAdmin) {
           setSelectedPersonId(googleAdmin.PersonID);
           setIsMagicLinkUser(false);
