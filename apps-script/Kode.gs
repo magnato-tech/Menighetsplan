@@ -354,10 +354,34 @@ function bindGoogleEmailToLegacyAdmin_(state, email) {
     var existing = normalizeEmail_(p.Epost);
     if (existing && !emailsEquivalent_(existing, email)) continue;
     p.Epost = email;
-    writeSheet_(getSpreadsheet_(), MASTER_SHEETS.personer, personer);
+    setPersonEmailCell_(p.PersonID, email);
     return p;
   }
   return null;
+}
+
+function setPersonEmailCell_(personId, email) {
+  var ss = getSpreadsheet_();
+  var spec = MASTER_SHEETS.personer;
+  var sheet = ss.getSheetByName(spec.name);
+  if (!sheet) return false;
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 1 || lastCol < 1) return false;
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  var headerRow = findHeaderRow_(values, spec.columns[0]);
+  var headers = values[headerRow] || [];
+  var idIdx = headerIndex_(headers, "PersonID");
+  var emailIdx = headerIndex_(headers, "Epost");
+  if (idIdx < 0 || emailIdx < 0) return false;
+  var i;
+  for (i = headerRow + 1; i < values.length; i++) {
+    if (String(values[i][idIdx] || "").trim() === String(personId || "").trim()) {
+      sheet.getRange(i + 1, emailIdx + 1).setValue(email);
+      return true;
+    }
+  }
+  return false;
 }
 
 function verifyGoogleIdToken_(idToken) {
