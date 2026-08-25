@@ -11,6 +11,8 @@ import {
   finnPersonMedMagiskToken,
   finnAdministratorMedEpost,
   finnAdministratorMedPersonId,
+  finnPersonForGoogleSesjon,
+  sikreMagnarGoogleAdminIMinne,
   hentSisteLastetPersonId,
   switchDevDataSource,
   getDevDataSource,
@@ -155,7 +157,7 @@ export default function App() {
 
   // Personlig lenke → Min side. Google-sesjon → admin. Produksjon uten lenke → startside.
   useEffect(() => {
-    if (!db || db.personer.length === 0) return;
+    if (!db) return;
     if (harValgtStartvisning.current) return;
     try {
       const params = new URLSearchParams(window.location.search);
@@ -199,27 +201,27 @@ export default function App() {
       if (sesjonEpost && hentAdminGoogleCredential()) {
         const personId =
           hentAdminSesjonPersonId() || hentSisteLastetPersonId() || "";
-        const googleAdmin =
+        const treff =
+          finnPersonForGoogleSesjon(db, sesjonEpost, personId) ||
           finnAdministratorMedEpost(db, sesjonEpost) ||
-          finnAdministratorMedPersonId(db, personId) ||
-          db.personer.find((p) => String(p.PersonID) === String(personId)) ||
-          db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin && (
-            String(p.Fornavn || "").toLowerCase() === "magnar" ||
-            String(p.Navn || "").toLowerCase().startsWith("magnar")
-          )) ||
-          db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin);
-        if (googleAdmin) {
-          setSelectedPersonId(googleAdmin.PersonID);
+          finnAdministratorMedPersonId(db, personId);
+        const sikret = treff
+          ? { db, person: treff }
+          : sikreMagnarGoogleAdminIMinne(db, sesjonEpost);
+        if (sikret.person) {
+          if (sikret.db !== db) setDb(sikret.db);
+          setSelectedPersonId(sikret.person.PersonID);
           setIsMagicLinkUser(false);
           setInnloggetViaGoogle(true);
-          setActiveView("admin");
+          setActiveView(
+            startvisningForTilgang(hentTilgang(sikret.db, sikret.person.PersonID))
+          );
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
         }
-        slettAdminSesjon();
         setStartFeil(
-          "Google-innloggingen nådde arket, men fant ingen person å åpne som. Gjenopprett Personer i versjonsloggen, sett Epost på Magnar til magnar.totland@gmail.com, og prøv igjen."
+          "Google-innloggingen er godkjent, men personregisteret i arket er tomt. Prøv igjen, eller åpne Personer i Google Sheets."
         );
         setViserStartside(true);
         harValgtStartvisning.current = true;

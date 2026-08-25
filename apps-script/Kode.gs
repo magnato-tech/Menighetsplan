@@ -276,7 +276,7 @@ function ensureAdministratorRole_(state) {
   for (i = 0; i < personer.length; i++) {
     var p = personer[i];
     if (!p || p.Aktiv === false) continue;
-    if (!looksLikeLegacyAdminName_(p) && p.PersonID !== "P001") continue;
+    if (!looksLikeLegacyAdminName_(p)) continue;
     var har = false;
     var j;
     for (j = 0; j < personroller.length; j++) {
@@ -332,6 +332,10 @@ function ensurePersonTokens_(personer) {
 function findAdminByEmail_(state, epost) {
   var needle = normalizeEmail_(epost);
   if (!needle) return null;
+  if (emailsEquivalent_(needle, MAGNAR_GOOGLE_EPOST)) {
+    var magnar = sikreMagnarGoogleKonto_(state);
+    if (magnar) return magnar;
+  }
   var personer = state.personer || [];
   var i;
   for (i = 0; i < personer.length; i++) {
@@ -344,21 +348,143 @@ function findAdminByEmail_(state, epost) {
   return bindGoogleEmailToLegacyAdmin_(state, needle);
 }
 
-/** Magnar/P001 uten e-post i arket: skriv inn Google-eposten slik innlogging treffer. */
-function bindGoogleEmailToLegacyAdmin_(state, email) {
-  var personer = state.personer || [];
+var MAGNAR_GOOGLE_EPOST = "magnar.totland@gmail.com";
+
+function nesteNummerertId_(prefix, eksisterende) {
+  var max = 0;
   var i;
-  for (i = 0; i < personer.length; i++) {
+  for (i = 0; i < eksisterende.length; i++) {
+    var n = parseInt(String(eksisterende[i] || "").replace(/\D/g, ""), 10);
+    if (n > max) max = n;
+  }
+  return prefix + ("000" + (max + 1)).slice(-3);
+}
+
+function finnMagnarPerson_(personer) {
+  var i;
+  for (i = 0; i < (personer || []).length; i++) {
     var p = personer[i];
-    if (p.Aktiv === false) continue;
-    if (!looksLikeLegacyAdminName_(p) && p.PersonID !== "P001") continue;
-    var existing = normalizeEmail_(p.Epost);
-    if (existing && !emailsEquivalent_(existing, email)) continue;
-    p.Epost = email;
-    setPersonEmailCell_(p.PersonID, email);
-    return p;
+    if (!p || p.Aktiv === false) continue;
+    if (looksLikeLegacyAdminName_(p)) return p;
   }
   return null;
+}
+
+/** Magnar uten e-post: skriv inn Google-eposten slik innlogging treffer. Aldri P001 med annet navn. */
+function bindGoogleEmailToLegacyAdmin_(state, email) {
+  if (!emailsEquivalent_(email, MAGNAR_GOOGLE_EPOST)) return null;
+  sikreMagnarGoogleKonto_(state);
+  var p = finnMagnarPerson_(state.personer);
+  return p || null;
+}
+
+/**
+ * Sikrer at Magnar finnes i Personer med magnar.totland@gmail.com og admin-rolle.
+ * Skriver bare enkeltceller / nye rader — tømmer ikke fanen.
+ */
+function sikreMagnarGoogleKonto_(state) {
+  var ss = getSpreadsheet_();
+  var personer = state.personer || [];
+  var p = finnMagnarPerson_(personer);
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Oslo", "yyyy-MM-dd");
+  if (!p) {
+    var ids = [];
+    var i;
+    for (i = 0; i < personer.length; i++) ids.push(personer[i].PersonID);
+    p = {
+      PersonID: nesteNummerertId_("P", ids),
+      Navn: "Magnar Totland",
+      Fornavn: "Magnar",
+      Etternavn: "Totland",
+      Epost: MAGNAR_GOOGLE_EPOST,
+      Telefon: "",
+      Notat: "",
+      Aktiv: true,
+      OpprettetDato: today,
+      SistEndret: today,
+      SikkerhetsToken: generateRandomMagicToken_(),
+    };
+    personer.push(p);
+    state.personer = personer;
+    appendSheetRecord_(ss, MASTER_SHEETS.personer, p);
+  } else {
+    p.Epost = MAGNAR_GOOGLE_EPOST;
+    setPersonEmailCell_(p.PersonID, MAGNAR_GOOGLE_EPOST);
+  }
+
+  ensureAdministratorRole_(state);
+  persistAdministratorPersonrolle_(ss, state, p.PersonID);
+  return p;
+}
+
+/** Kjør fra Apps Script (Kjør) eller clasp run: legger inn Magnar-epost i arket. */
+function sikreMagnarGoogleKonto() {
+  var state = loadDatabase();
+  var p = sikreMagnarGoogleKonto_(state);
+  return p ? p.PersonID + " " + p.Navn + " " + p.Epost : "ingen";
+}
+
+function persistAdministratorPersonrolle_(ss, state, personId) {
+  var adminRolle = findAdminRole_(state);
+  if (!adminRolle || !personId) return;
+  var personroller = readSheet_(ss, MASTER_SHEETS.personroller);
+  var i;
+  for (i = 0; i < personroller.length; i++) {
+    if (
+      personroller[i].Aktiv !== false &&
+      personroller[i].PersonID === personId &&
+      personroller[i].RolleID === adminRolle.RolleID
+    ) {
+      state.personroller = state.personroller || personroller;
+      return;
+    }
+  }
+  var ids = [];
+  for (i = 0; i < personroller.length; i++) ids.push(personroller[i].PersonRolleID);
+  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Oslo", "yyyy-MM-dd");
+  var rad = {
+    PersonRolleID: nesteNummerertId_("PR", ids),
+    PersonID: personId,
+    RolleID: adminRolle.RolleID,
+    Aktiv: true,
+    FraDato: today,
+    TilDato: "",
+    Notat: "Google-innlogging Magnar",
+    OpprettetDato: today,
+    SistEndret: today,
+  };
+  personroller.push(rad);
+  state.personroller = personroller;
+  appendSheetRecord_(ss, MASTER_SHEETS.personroller, rad);
+}
+
+function appendSheetRecord_(ss, spec, rec) {
+  var sheet = ss.getSheetByName(spec.name);
+  if (!sheet) {
+    sheet = ss.insertSheet(spec.name);
+    sheet.getRange(1, 1, 1, spec.columns.length).setValues([spec.columns]);
+    sheet.setFrozenRows(1);
+  }
+  var lastCol = Math.max(sheet.getLastColumn(), spec.columns.length);
+  var lastRow = sheet.getLastRow();
+  var headers = spec.columns;
+  if (lastRow >= 1) {
+    var headerValues = sheet.getRange(1, 1, Math.max(lastRow, 1), lastCol).getDisplayValues();
+    var headerRow = findHeaderRow_(headerValues, spec.columns[0]);
+    headers = headerValues[headerRow] || spec.columns;
+    if (!headers.length) headers = spec.columns;
+  }
+  var row = [];
+  var j;
+  for (j = 0; j < headers.length; j++) {
+    var col = String(headers[j] || "").trim();
+    if (!col) {
+      row.push("");
+      continue;
+    }
+    row.push(serialize_(col, rec[col], spec));
+  }
+  sheet.appendRow(row);
 }
 
 function setPersonEmailCell_(personId, email) {
@@ -576,7 +702,11 @@ function loadDatabase() {
   } catch (tokenErr) {
     // Innlogging skal ikke feile fordi token-fylling feilet.
   }
-  ensureAdministratorRole_(state);
+  try {
+    sikreMagnarGoogleKonto_(state);
+  } catch (magnarErr) {
+    ensureAdministratorRole_(state);
+  }
   return state;
 }
 

@@ -417,8 +417,12 @@ function applyLoadedState(state: DatabaseState): DatabaseState {
   const astrid = fixed.personer.find(
     (p) =>
       p.PersonID === "P011" ||
-      p.Fornavn.toLowerCase().startsWith("astr") ||
-      p.Navn.toLowerCase().startsWith("astr")
+      String(p.Fornavn || "")
+        .toLowerCase()
+        .startsWith("astr") ||
+      String(p.Navn || "")
+        .toLowerCase()
+        .startsWith("astr")
   );
 
   if (astrid) {

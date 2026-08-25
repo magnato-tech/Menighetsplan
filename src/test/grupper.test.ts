@@ -4,6 +4,7 @@ import {
   DatabaseState,
   erGruppeledergruppe,
   finnGrupperForGruppeleder,
+  finnGrupperSomLederEllerNestleder,
   finnTjenestegrupperForPerson,
   hentTilgang,
   lederforumKilderForPerson,
@@ -122,6 +123,9 @@ assert.equal(kilder[0].rolle, "Leder");
 assert.equal(hentTilgang(synket, "P001").isLeader, true);
 assert.equal(hentTilgang(synket, "P090").isLeader, false);
 assert.equal(finnGrupperForGruppeleder(synket, "P090").length, 0);
+assert.equal(finnGrupperSomLederEllerNestleder(synket, "P001").length, 1);
+assert.equal(finnGrupperSomLederEllerNestleder(synket, "P001")[0].Gruppenavn, "Lovsang");
+assert.equal(finnGrupperSomLederEllerNestleder(synket, "P090").length, 0);
 assert.ok(!finnTjenestegrupperForPerson(synket, "P001").some((t) => t.gruppe.GruppeID === forum!.GruppeID));
 
 const igjen = synkGruppeledergruppe(synket);

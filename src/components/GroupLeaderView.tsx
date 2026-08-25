@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   DatabaseState,
-  finnGrupperForGruppeleder,
+  finnGrupperSomLederEllerNestleder,
   finnMedlemmerIGruppe,
   genererPersonligLenke,
   hentSvarStatus,
@@ -14,13 +14,16 @@ import {
 } from "../services/dataService";
 import { Person } from "../types/database";
 import { GruppeMedlemListe } from "./GruppeMedlemListe";
-import { GroupLeaderGuide } from "./GroupLeaderGuide";
+import { GroupLeaderGuide, type GuideStegSignal } from "./GroupLeaderGuide";
 import {
   SondagBemanning,
   type OversiktFilter,
   type TildelForesporsel,
 } from "./SondagBemanning";
+import type { ArkVisning } from "./Planleggingsark";
 import { Users, Shield, Search, HelpCircle } from "lucide-react";
+
+const ALLE_GRUPPER = "";
 
 interface GroupLeaderViewProps {
   db: DatabaseState;
@@ -40,6 +43,25 @@ function formatDato(dato: string): string {
   });
 }
 
+function personerIGrupper(db: DatabaseState, gruppeIds: string[]): Person[] {
+  const byId = new Map<string, Person>();
+  for (const gruppeId of gruppeIds) {
+    const gruppe = db.grupper.find((g) => g.GruppeID === gruppeId);
+    for (const m of finnMedlemmerIGruppe(db, gruppeId)) {
+      byId.set(m.person.PersonID, m.person);
+    }
+    if (gruppe?.GruppelederID) {
+      const leder = db.personer.find((p) => p.PersonID === gruppe.GruppelederID);
+      if (leder) byId.set(leder.PersonID, leder);
+    }
+    if (gruppe?.NestlederID) {
+      const nest = db.personer.find((p) => p.PersonID === gruppe.NestlederID);
+      if (nest) byId.set(nest.PersonID, nest);
+    }
+  }
+  return Array.from(byId.values());
+}
+
 export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   db,
   selectedPersonId,
@@ -52,24 +74,37 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [eksternForesporsel, setEksternForesporsel] = useState<string | null>(null);
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [guideVisning, setGuideVisning] = useState<ArkVisning | undefined>(undefined);
+  const [guideApneForsteKort, setGuideApneForsteKort] = useState(false);
+  const [activeGruppeId, setActiveGruppeId] = useState(ALLE_GRUPPER);
 
   const person = db.personer.find((p) => p.PersonID === selectedPersonId);
-  const lededeGrupper = person ? finnGrupperForGruppeleder(db, person.PersonID) : [];
+  const lededeGrupper = person
+    ? finnGrupperSomLederEllerNestleder(db, person.PersonID)
+    : [];
   const alleGruppeledere = db.personer.filter(
-    (p) => finnGrupperForGruppeleder(db, p.PersonID).length > 0
+    (p) => finnGrupperSomLederEllerNestleder(db, p.PersonID).length > 0
   );
 
-  const [activeGruppeId, setActiveGruppeId] = useState<string>(
-    lededeGrupper[0]?.GruppeID || ""
-  );
+  useEffect(() => {
+    setActiveGruppeId(ALLE_GRUPPER);
+  }, [selectedPersonId]);
 
-  React.useEffect(() => {
-    if (lededeGrupper.length > 0 && !lededeGrupper.some((g) => g.GruppeID === activeGruppeId)) {
-      setActiveGruppeId(lededeGrupper[0].GruppeID);
+  useEffect(() => {
+    if (
+      activeGruppeId &&
+      !lededeGrupper.some((g) => g.GruppeID === activeGruppeId)
+    ) {
+      setActiveGruppeId(ALLE_GRUPPER);
     }
   }, [lededeGrupper, activeGruppeId]);
 
-  const currentGruppe = db.grupper.find((g) => g.GruppeID === activeGruppeId);
+  const visGrupper =
+    activeGruppeId === ALLE_GRUPPER
+      ? lededeGrupper
+      : lededeGrupper.filter((g) => g.GruppeID === activeGruppeId);
+  const currentGruppe = visGrupper.length === 1 ? visGrupper[0] : undefined;
+  const visGruppeIds = visGrupper.map((g) => g.GruppeID);
 
   const handleCopyLink = (targetPersonId: string) => {
     const link = genererPersonligLenke(targetPersonId, db);
@@ -113,6 +148,11 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
     setAssignModal(null);
   };
 
+  const handleGuideSteg = useCallback((signal: GuideStegSignal) => {
+    setGuideVisning(signal.visning);
+    setGuideApneForsteKort(Boolean(signal.apneKort));
+  }, []);
+
   if (lededeGrupper.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-8">
@@ -131,11 +171,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {alleGruppeledere.map((leder) => {
-                const gruppenavn = db.grupper
-                  .filter(
-                    (g) =>
-                      g.GruppelederID === leder.PersonID || g.NestlederID === leder.PersonID
-                  )
+                const gruppenavn = finnGrupperSomLederEllerNestleder(db, leder.PersonID)
                   .map((g) => g.Gruppenavn)
                   .join(", ");
                 return (
@@ -157,26 +193,26 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
     );
   }
 
-  const gruppensMedlemmer = currentGruppe
-    ? finnMedlemmerIGruppe(db, currentGruppe.GruppeID)
-    : [];
-  const oversiktPersoner: Person[] = (() => {
-    const byId = new Map<string, Person>();
-    for (const m of gruppensMedlemmer) byId.set(m.person.PersonID, m.person);
-    if (currentGruppe?.GruppelederID) {
-      const leder = db.personer.find((p) => p.PersonID === currentGruppe.GruppelederID);
-      if (leder) byId.set(leder.PersonID, leder);
-    }
-    if (currentGruppe?.NestlederID) {
-      const nest = db.personer.find((p) => p.PersonID === currentGruppe.NestlederID);
-      if (nest) byId.set(nest.PersonID, nest);
-    }
-    return Array.from(byId.values());
-  })();
+  const oversiktPersoner = personerIGrupper(db, visGruppeIds);
+  const tildelGruppeId = assignModal
+    ? db.roller.find((r) => r.RolleID === assignModal.rolleId)?.GruppeID
+    : undefined;
+  const tildelPersoner = tildelGruppeId
+    ? personerIGrupper(db, [tildelGruppeId])
+    : oversiktPersoner;
 
-  const gruppensRoller = currentGruppe
-    ? db.roller.filter((r) => r.GruppeID === currentGruppe.GruppeID && r.Aktiv)
-    : [];
+  const gruppensRoller = db.roller.filter(
+    (r) => r.Aktiv && visGruppeIds.includes(r.GruppeID)
+  );
+
+  const tittel =
+    currentGruppe?.Gruppenavn ||
+    (visGrupper.length > 1
+      ? `Alle tjenestegrupper (${visGrupper.length})`
+      : "Tjenestegruppe");
+  const beskrivelse =
+    currentGruppe?.Beskrivelse ||
+    visGrupper.map((g) => g.Gruppenavn).join(" · ");
 
   const iDag = (() => {
     const d = new Date();
@@ -224,10 +260,8 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                 {person?.Fornavn ? ` for ${person.Fornavn}` : ""}
               </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">
-              {currentGruppe?.Gruppenavn || "Tjenestegruppe"}
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">{currentGruppe?.Beskrivelse}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">{tittel}</h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">{beskrivelse}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -241,13 +275,14 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             {lededeGrupper.length > 1 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                  Bytt tjenestegruppe:
+                  Tjenestegruppe:
                 </span>
                 <select
                   value={activeGruppeId}
                   onChange={(e) => setActiveGruppeId(e.target.value)}
                   className="text-sm font-medium border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:ring-2 focus:ring-[#2d5a3f] focus:outline-hidden"
                 >
+                  <option value={ALLE_GRUPPER}>Alle</option>
                   {lededeGrupper.map((g) => (
                     <option key={g.GruppeID} value={g.GruppeID}>
                       {g.Gruppenavn}
@@ -267,7 +302,11 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         gruppeId={currentGruppe?.GruppeID}
         medlemstall={oversiktPersoner.length}
         kpiTittel="Semesteret totalt"
-        kpiBeskrivelse={`Tallene gjelder ${currentGruppe?.Gruppenavn || "denne tjenestegruppen"}, ikke oppgaver personen har i andre grupper.`}
+        kpiBeskrivelse={
+          visGrupper.length === 1
+            ? `Tallene gjelder ${currentGruppe?.Gruppenavn || "denne tjenestegruppen"}, ikke oppgaver personen har i andre grupper.`
+            : `Tallene gjelder ${visGrupper.map((g) => g.Gruppenavn).join(", ")}.`
+        }
         visKpiAlltid
         visKjoreplan="programrett"
         skjulGruppehode
@@ -292,6 +331,8 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         onCopyLink={handleCopyLink}
         copiedPersonId={copiedPersonId}
         statusAktor="gruppeleder"
+        guideVisning={guideOpen ? guideVisning : undefined}
+        guideApneForsteKort={guideOpen && guideApneForsteKort}
       />
 
       <GruppeMedlemListe
@@ -359,13 +400,13 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                     const navn = `${p.Fornavn || ""} ${p.Etternavn || ""} ${p.Navn || ""}`.toLowerCase();
                     return navn.includes(q);
                   };
-                  const iGruppen = oversiktPersoner
+                  const iGruppen = tildelPersoner
                     .filter((p) => !opptatt.has(p.PersonID) && treffer(p))
                     .slice()
                     .sort((a, b) =>
                       (a.Fornavn || a.Navn).localeCompare(b.Fornavn || b.Navn, "nb")
                     );
-                  const gruppeIds = new Set(oversiktPersoner.map((p) => p.PersonID));
+                  const gruppeIds = new Set(tildelPersoner.map((p) => p.PersonID));
                   const iMenigheten = q
                     ? db.personer
                         .filter(
@@ -467,7 +508,15 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         </div>
       )}
 
-      <GroupLeaderGuide open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <GroupLeaderGuide
+        open={guideOpen}
+        onClose={() => {
+          setGuideOpen(false);
+          setGuideVisning(undefined);
+          setGuideApneForsteKort(false);
+        }}
+        onSteg={handleGuideSteg}
+      />
     </div>
   );
 };

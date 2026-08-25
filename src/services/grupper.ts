@@ -2,6 +2,19 @@ import { Gruppetype, Gruppe, Gruppemedlem, Person, Rolle } from "../types/databa
 import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 
+/** Aktive tjenestegrupper der personen er GruppelederID eller NestlederID. */
+export function finnGrupperSomLederEllerNestleder(
+  db: DatabaseState,
+  personID: string
+): Gruppe[] {
+  return (db.grupper || []).filter(
+    (g) =>
+      g.Aktiv &&
+      (g.GruppelederID === personID || g.NestlederID === personID) &&
+      erTjenestegruppe(db, g)
+  );
+}
+
 /**
  * Gruppeleder-hjelpefunksjoner:
  * Finner grupper der personen er registrert som GruppelederID, NestlederID

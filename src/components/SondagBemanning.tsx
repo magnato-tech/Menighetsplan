@@ -165,6 +165,8 @@ export interface SondagBemanningProps {
   copiedPersonId: string | null;
   statusAktor: "administrator" | "gruppeleder";
   rolleInstruksRedigerbar?: boolean;
+  guideVisning?: ArkVisning;
+  guideApneForsteKort?: boolean;
 }
 
 export const SondagBemanning: React.FC<SondagBemanningProps> = ({
@@ -199,6 +201,8 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   copiedPersonId,
   statusAktor,
   rolleInstruksRedigerbar = false,
+  guideVisning,
+  guideApneForsteKort = false,
 }) => {
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
   const [editNeedModal, setEditNeedModal] = useState<{
@@ -222,6 +226,10 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     Record<string, "bemanning" | "kjoreplan">
   >({});
 
+  useEffect(() => {
+    if (guideVisning) setServicesVisning(guideVisning);
+  }, [guideVisning]);
+
   const omfangRoller = rolleIds
     ? db.roller.filter((r) => r.Aktiv && rolleIds.includes(r.RolleID))
     : db.roller.filter((r) => r.Aktiv);
@@ -232,6 +240,12 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     .sort((a, b) => `${a.Dato} ${a.Tid}`.localeCompare(`${b.Dato} ${b.Tid}`));
   const kommendeGudstjenester = sorterteGudstjenester.filter((g) => g.Dato >= iDag);
   const tidligereGudstjenester = sorterteGudstjenester.filter((g) => g.Dato < iDag).reverse();
+  const forsteKommendeId = kommendeGudstjenester[0]?.GudstjenesteID;
+
+  useEffect(() => {
+    if (!guideApneForsteKort || !forsteKommendeId) return;
+    setVisDetalj((prev) => ({ ...prev, [forsteKommendeId]: true }));
+  }, [guideApneForsteKort, forsteKommendeId]);
 
   const semesterOversikt = kommendeGudstjenester.reduce(
     (acc, gud) => plusBemanningstall(acc, summerBemanning(db, gud.GudstjenesteID, omfangRoller)),
@@ -971,7 +985,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         <span />
       )}
       <div className="flex flex-wrap items-center gap-2 ml-auto">
-        <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
+        <div data-guide="liste-ark">
+          <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
+        </div>
         {kanOpprettGudstjeneste && servicesVisning === "ark" && (
           <button
             type="button"

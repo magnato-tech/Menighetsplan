@@ -1,47 +1,69 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
   Circle,
+  LayoutGrid,
+  List,
   Share2,
   UserPlus,
   X,
 } from "lucide-react";
+import type { ArkVisning } from "./Planleggingsark";
 
 export const GRUPPELEDER_VEILEDNING_KEY = "gruppeleder-veiledning-sett";
+
+export type GuideStegSignal = {
+  visning: ArkVisning;
+  apneKort?: boolean;
+};
 
 type Steg = {
   target: string | null;
   tittel: string;
   tekst: string;
   Icon: React.ComponentType<{ className?: string }>;
+  visning: ArkVisning;
+  apneKort?: boolean;
 };
 
 const STEG: Steg[] = [
   {
-    target: "del-lenke",
-    tittel: "Send Min side-lenken",
-    tekst: "Kopier lenken til et medlem og send den på SMS, e-post eller melding. De kommer rett til sin side og ser gudstjenester fremover.",
-    Icon: Share2,
-  },
-  {
-    target: null,
-    tittel: "Be dem ta noen datoer",
-    tekst: "På Min side kan de takke ja til oppgaver de er forespurt om, og melde seg på ledige oppgaver. Be dem gjerne finne tre datoer for det gruppen din trenger — baking, rigging eller annet som ennå ikke er satt opp.",
-    Icon: CalendarDays,
+    target: "liste-ark",
+    visning: "liste",
+    tittel: "Liste eller Ark — samme data",
+    tekst: "Bytt mellom Liste og Ark etter smak. Innholdet er det samme. Ark ligner et Excel-ark: kolonner er roller, rader er søndager, tom rute er ledig. Liste viser ett åpent kort om gangen.",
+    Icon: List,
   },
   {
     target: "sett-opp",
-    tittel: "Fyll hullene selv",
-    tekst: "Sett opp vises på hver rolle. Velg et gruppemedlem — også når veiledende antall er dekket. Flere enn behovet er helt greit. Lenken kopieres, så du kan sende den med en gang. Har dere avtalt på telefon, kan du bekrefte i planen.",
+    visning: "liste",
+    apneKort: true,
+    tittel: "Sett forespørsel i det åpne kortet",
+    tekst: "Åpne en søndag i Listen. Trykk pluss ved en rolle, søk fram et medlem og sett forespørsel. Personen blir gul til de svarer. Flere enn veiledende antall er helt greit.",
     Icon: UserPlus,
   },
   {
     target: "status",
+    visning: "liste",
+    apneKort: true,
     tittel: "Gul venter, grønn er klart",
-    tekst: "Gul prikk betyr forespurt og venter på svar. Grønn betyr bekreftet. Medlemmet må selv takke ja på Min side for at det skal bli grønt — med mindre du bekrefter etter avtale.",
+    tekst: "Gul prikk betyr forespurt og venter på svar. Grønn betyr bekreftet. Medlemmet takker ja på Min side — med mindre du bekrefter etter avtale.",
     Icon: Circle,
+  },
+  {
+    target: "liste-ark",
+    visning: "ark",
+    tittel: "Fyll i Arket",
+    tekst: "Bytt til Ark. En tom celle er ledig. Skriv navn i cellen og trykk Enter for å sette opp. Samme tildeling som i Listen, bare i rutenett.",
+    Icon: LayoutGrid,
+  },
+  {
+    target: "del-lenke",
+    visning: "liste",
+    tittel: "Send Min side-lenken",
+    tekst: "Kopier lenken til et medlem og send den på SMS, e-post eller melding. De kommer rett til sin side og ser gudstjenester fremover.",
+    Icon: Share2,
   },
 ];
 
@@ -54,6 +76,7 @@ const FALLBACK_TARGET: Record<string, string> = {
 interface GroupLeaderGuideProps {
   open: boolean;
   onClose: () => void;
+  onSteg?: (signal: GuideStegSignal) => void;
 }
 
 function finnMal(target: string | null): HTMLElement | null {
@@ -68,6 +91,7 @@ function finnMal(target: string | null): HTMLElement | null {
 export const GroupLeaderGuide: React.FC<GroupLeaderGuideProps> = ({
   open,
   onClose,
+  onSteg,
 }) => {
   const [stegIndex, setStegIndex] = useState(0);
   const [malRect, setMalRect] = useState<DOMRect | null>(null);
@@ -84,8 +108,11 @@ export const GroupLeaderGuide: React.FC<GroupLeaderGuideProps> = ({
   useEffect(() => {
     if (!open) {
       setStegIndex(0);
+      return;
     }
-  }, [open]);
+    const gjeldende = STEG[stegIndex];
+    onSteg?.({ visning: gjeldende.visning, apneKort: gjeldende.apneKort });
+  }, [open, stegIndex, onSteg]);
 
   useEffect(() => {
     if (!open) return;
@@ -132,7 +159,7 @@ export const GroupLeaderGuide: React.FC<GroupLeaderGuideProps> = ({
       setKortPos({ top, left, plassering });
     };
 
-    const timer = window.setTimeout(oppdater, 50);
+    const timer = window.setTimeout(oppdater, 200);
     window.addEventListener("resize", oppdater);
     window.addEventListener("scroll", oppdater, true);
     return () => {
@@ -206,7 +233,7 @@ export const GroupLeaderGuide: React.FC<GroupLeaderGuideProps> = ({
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-[#eef5f1] text-[#2d5a3f] shrink-0">
-              {stegIndex === 3 ? (
+              {steg.target === "status" ? (
                 <span className="flex items-center gap-0.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />

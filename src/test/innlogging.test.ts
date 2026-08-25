@@ -4,6 +4,8 @@ import {
   DatabaseState,
   finnAdministratorMedEpost,
   finnAdministratorMedPersonId,
+  finnPersonForGoogleSesjon,
+  sikreMagnarGoogleAdminIMinne,
   finnPersonMedMagiskToken,
   genererTilfeldigSikkerhetsToken,
   rensPersondataForKlient,
@@ -177,5 +179,20 @@ assert.equal(redigertPerson?.Etternavn, "Testesen");
 assert.equal(redigertPerson?.Epost, "magnar.test@example.com");
 assert.equal(redigertPerson?.Telefon, "11111111");
 assert.equal(finnAdministratorMedEpost(redigert, "magnar.test@example.com")?.PersonID, admin!.PersonID);
+
+const utenAdminRolle = {
+  ...db,
+  personroller: db.personroller.filter((pr) => pr.PersonID !== admin!.PersonID),
+};
+assert.equal(finnAdministratorMedEpost(utenAdminRolle, admin!.Epost), undefined);
+assert.equal(
+  finnPersonForGoogleSesjon(utenAdminRolle, admin!.Epost)?.PersonID,
+  admin!.PersonID
+);
+const tomtRegister = { ...db, personer: [] as typeof db.personer, personroller: [] };
+const sikret = sikreMagnarGoogleAdminIMinne(tomtRegister, "magnar.totland@gmail.com");
+assert.equal(sikret.person.Fornavn, "Magnar");
+assert.equal(sikret.person.Epost, "magnar.totland@gmail.com");
+assert.equal(hentTilgang(sikret.db, sikret.person.PersonID).isAdmin, true);
 
 console.log("innlogging.test.ts: alle tester ok");

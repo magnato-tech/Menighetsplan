@@ -192,6 +192,128 @@ function eposterMatcher(a: string, b: string): boolean {
   return Boolean(na && nb && na === nb);
 }
 
+export const MAGNAR_GOOGLE_EPOST = "magnar.totland@gmail.com";
+
+function serUtSomMagnar(person: Person): boolean {
+  const navn = String(person.Navn || "").trim().toLowerCase();
+  const fornavn = String(person.Fornavn || "").trim().toLowerCase();
+  return fornavn === "magnar" || navn === "magnar" || navn.startsWith("magnar ");
+}
+
+/** Person som matcher Google-sesjonen — uten å kreve at admin-rollen allerede ligger i arket. */
+export function finnPersonForGoogleSesjon(
+  db: DatabaseState,
+  epost: string,
+  personId?: string | null
+): Person | undefined {
+  const needle = normaliserEpost(epost);
+  const id = String(personId || "").trim();
+  const aktive = (db.personer || []).filter((p) => erAktivRad(p.Aktiv));
+  if (needle) {
+    const medEpost = aktive.find((p) => eposterMatcher(p.Epost, needle));
+    if (medEpost) return medEpost;
+  }
+  if (id) {
+    const medId = aktive.find((p) => String(p.PersonID) === id);
+    if (medId) return medId;
+  }
+  if (needle && eposterMatcher(needle, MAGNAR_GOOGLE_EPOST)) {
+    const magnar = aktive.find(serUtSomMagnar);
+    if (magnar) return magnar;
+  }
+  return undefined;
+}
+
+function adminRolleIDb(db: DatabaseState) {
+  return (db.roller || []).find(
+    (r) =>
+      erAktivRad(r.Aktiv) && String(r.Rollenavn || "").trim().toLowerCase() === "administrator"
+  );
+}
+
+/** Sørg for at Magnars Google-konto kan åpne appen selv om arket mangler e-post eller admin-rad. */
+export function sikreMagnarGoogleAdminIMinne(
+  db: DatabaseState,
+  epost: string
+): { db: DatabaseState; person: Person } {
+  const now = new Date().toISOString().split("T")[0];
+  let neste = db;
+  let person = finnPersonForGoogleSesjon(neste, epost);
+  if (!person) {
+    const n = Math.max(
+      0,
+      ...neste.personer.map((p) => parseInt(String(p.PersonID || "").replace(/\D/g, ""), 10) || 0)
+    );
+    person = {
+      PersonID: `P${String(n + 1).padStart(3, "0")}`,
+      Navn: "Magnar Totland",
+      Fornavn: "Magnar",
+      Etternavn: "Totland",
+      Epost: MAGNAR_GOOGLE_EPOST,
+      Telefon: "",
+      Aktiv: true,
+      OpprettetDato: now,
+      SistEndret: now,
+    };
+    neste = { ...neste, personer: [...neste.personer, person] };
+  } else if (!eposterMatcher(person.Epost, MAGNAR_GOOGLE_EPOST)) {
+    person = { ...person, Epost: MAGNAR_GOOGLE_EPOST, SistEndret: now };
+    neste = {
+      ...neste,
+      personer: neste.personer.map((p) => (p.PersonID === person!.PersonID ? person! : p)),
+    };
+  }
+
+  let roller = neste.roller || [];
+  let adminRolle = adminRolleIDb(neste);
+  if (!adminRolle) {
+    adminRolle = {
+      RolleID: "R013",
+      Rollenavn: "Administrator",
+      Beskrivelse: "Full administrativ tilgang til planleggeren.",
+      Aktiv: true,
+      Behov: 0,
+      GruppeID: "",
+      OpprettetDato: now,
+      SistEndret: now,
+    };
+    roller = [...roller, adminRolle];
+    neste = { ...neste, roller };
+  }
+  const harRolle = (neste.personroller || []).some(
+    (pr) =>
+      erAktivRad(pr.Aktiv) &&
+      pr.PersonID === person.PersonID &&
+      pr.RolleID === adminRolle!.RolleID
+  );
+  if (!harRolle) {
+    const n = Math.max(
+      0,
+      ...(neste.personroller || []).map(
+        (pr) => parseInt(String(pr.PersonRolleID || "").replace(/\D/g, ""), 10) || 0
+      )
+    );
+    neste = {
+      ...neste,
+      personroller: [
+        ...(neste.personroller || []),
+        {
+          PersonRolleID: `PR${String(n + 1).padStart(3, "0")}`,
+          PersonID: person.PersonID,
+          RolleID: adminRolle.RolleID,
+          Aktiv: true,
+          FraDato: now,
+          TilDato: "",
+          Notat: "Google-innlogging Magnar",
+          OpprettetDato: now,
+          SistEndret: now,
+        },
+      ],
+    };
+  }
+  return { db: neste, person };
+}
+
 /** Administrator som matcher Google-epost i personregisteret. */
 export function finnAdministratorMedEpost(
   db: DatabaseState,
