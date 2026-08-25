@@ -3,7 +3,8 @@ import {
   DatabaseState,
   getEffektivtBehov,
   hentSvarStatus,
-  hentVisningsRoller,
+  erMedITjenestegruppe,
+  hentPåmeldingsRoller,
   svarPaaTildeling,
   velgDatoForPerson,
   kanRedigereProgram,
@@ -15,6 +16,7 @@ import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { GudstjenesteRolleOversikt } from "./GudstjenesteRolleOversikt";
 import { ProgramLeserModal } from "./ProgramLeserModal";
+import { InteresseSkjema } from "./InteresseSkjema";
 import {
   Clock3,
   Check,
@@ -32,6 +34,8 @@ interface PersonalViewProps {
   onUpdateDb: (updatedDb: DatabaseState) => void;
   datePickerRolle: Rolle | null;
   onDatePickerRolleChange: (rolle: Rolle | null) => void;
+  visOppgaverArk?: boolean;
+  onOppgaverArkChange?: (apen: boolean) => void;
 }
 
 type PåmeldingsFilter = "ledige" | "mine" | "alle";
@@ -97,14 +101,20 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   onUpdateDb,
   datePickerRolle,
   onDatePickerRolleChange,
+  visOppgaverArk = false,
+  onOppgaverArkChange,
 }) => {
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
   const [datePickerFilter, setDatePickerFilter] = useState<"ledige" | "mine" | "alle">("alle");
   const [visHeleBemanningFor, setVisHeleBemanningFor] = useState<Record<string, boolean>>({});
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
   const [visAlleSondager, setVisAlleSondager] = useState(false);
+  const [holdLandingVelkomst, setHoldLandingVelkomst] = useState(false);
 
   const openDatePicker = (rolle: Rolle) => {
+    if (!hentPåmeldingsRoller(db, selectedPersonId).some((r) => r.RolleID === rolle.RolleID)) {
+      return;
+    }
     setDatePickerFilter("alle");
     onDatePickerRolleChange(rolle);
   };
@@ -127,12 +137,8 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
     );
   }
 
-  // 1. Personens aktive personroller
-  const personensRolleIds = db.personroller
-    .filter((pr) => pr.PersonID === person.PersonID && pr.Aktiv)
-    .map((pr) => pr.RolleID);
-  
-  const personensRoller = db.roller.filter((r) => personensRolleIds.includes(r.RolleID));
+  const visningsRoller = hentPåmeldingsRoller(db, person.PersonID);
+  const personensRoller = visningsRoller;
 
   // Formater listen over roller i hilsningsteksten ("Møtevert, Nattverd og Kirkekaffe")
   const rolleNavnTekst = (() => {
@@ -193,7 +199,24 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
     }
   };
 
-  const visningsRoller = hentVisningsRoller(db, person.PersonID);
+  const trengerLanding = !erMedITjenestegruppe(db, person.PersonID) || holdLandingVelkomst;
+  if (trengerLanding) {
+    return (
+      <InteresseSkjema
+        landing
+        db={db}
+        personId={person.PersonID}
+        onUpdateDb={(neste) => {
+          onUpdateDb(neste);
+          if (erMedITjenestegruppe(neste, person.PersonID)) setHoldLandingVelkomst(true);
+        }}
+        onFerdig={() => {
+          setHoldLandingVelkomst(false);
+          onOppgaverArkChange?.(false);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
@@ -214,6 +237,13 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             Du bidrar med {rolleNavnTekst}.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => onOppgaverArkChange?.(true)}
+          className="min-h-11 px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer"
+        >
+          {personensRoller.length === 0 ? "Velg oppgaver" : "Mine oppgaver"}
+        </button>
 
         <div className="hidden sm:block bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
           <p>
@@ -682,6 +712,15 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             />
           );
         })()}
+
+      {visOppgaverArk && (
+        <InteresseSkjema
+          db={db}
+          personId={person.PersonID}
+          onUpdateDb={onUpdateDb}
+          onFerdig={() => onOppgaverArkChange?.(false)}
+        />
+      )}
     </div>
   );
 };

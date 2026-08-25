@@ -3,7 +3,8 @@ import {
   AppView,
   DatabaseState,
   hentTilgang,
-  hentVisningsRoller,
+  hentPåmeldingsRoller,
+  erMedITjenestegruppe,
 } from "../services/dataService";
 import { Rolle } from "../types/database";
 import { RolleIkon } from "./RolleIkon";
@@ -58,7 +59,8 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
 }) => {
   const [flereApen, setFlereApen] = useState(false);
   const tilgang = hentTilgang(db, personId);
-  const roller = hentVisningsRoller(db, personId);
+  const medITjenestegruppe = erMedITjenestegruppe(db, personId);
+  const roller = medITjenestegruppe ? hentPåmeldingsRoller(db, personId) : [];
 
   const poster: BunnPost[] = [];
   if (activeView === "personal") {

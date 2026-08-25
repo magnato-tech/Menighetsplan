@@ -59,6 +59,7 @@ export default function App() {
   const [datePickerRolle, setDatePickerRolle] = useState<Rolle | null>(null);
   const [lederSeksjon, setLederSeksjon] = useState<LederSeksjon>("gruppe");
   const [fokusMedlemmerNokkel, setFokusMedlemmerNokkel] = useState(0);
+  const [visOppgaverArk, setVisOppgaverArk] = useState(false);
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
   const [adminSimulatingPersonId, setAdminSimulatingPersonId] = useState<string | null>(null);
 
@@ -256,6 +257,7 @@ export default function App() {
     setSelectedPersonId(personId);
     setDatePickerRolle(null);
     setLederSeksjon("gruppe");
+    setVisOppgaverArk(false);
     if (view) {
       setActiveView(view);
       return;
@@ -286,7 +288,10 @@ export default function App() {
   const handleNavigateView = (view: AppView) => {
     if (!db) return;
     if (!visningErTillatt(hentTilgang(db, selectedPersonId), view)) return;
-    if (view !== "personal") setDatePickerRolle(null);
+    if (view !== "personal") {
+      setDatePickerRolle(null);
+      setVisOppgaverArk(false);
+    }
     if (view === "leader") setLederSeksjon("gruppe");
     setActiveView(view);
   };
@@ -447,6 +452,11 @@ export default function App() {
         isAdminUser={isActualAdmin && !adminSimulatingPersonId}
         isMagicLinkUser={isMagicLinkUser}
         onLoggUt={innloggetViaGoogle ? handleLoggUt : undefined}
+        onMineOppgaver={() => {
+          setActiveView("personal");
+          setDatePickerRolle(null);
+          setVisOppgaverArk(true);
+        }}
       />
 
       {/* Hovedinnhold basert på valgt modus */}
@@ -458,6 +468,8 @@ export default function App() {
             onUpdateDb={handleUpdateDb}
             datePickerRolle={datePickerRolle}
             onDatePickerRolleChange={setDatePickerRolle}
+            visOppgaverArk={visOppgaverArk}
+            onOppgaverArkChange={setVisOppgaverArk}
           />
         )}
 

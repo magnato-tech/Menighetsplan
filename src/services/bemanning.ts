@@ -11,6 +11,7 @@ import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 import { saveDatabase } from "./persistens";
 import { finnTjenestegrupperForPerson } from "./grupper";
+import { hentPåmeldingsRoller } from "./interesse";
 
 /**
  * Beregner effektivt behov for en rolle på en bestemt gudstjeneste
@@ -395,14 +396,12 @@ export function meldPaaFrivillig(
     return { success: false, message: "Personen finnes ikke eller er ikke aktiv." };
   }
 
-  // 2. Valider personrolle
-  const harRolle = db.personroller.some(
-    (pr) => pr.PersonID === personID && pr.RolleID === rolleID && pr.Aktiv
-  );
-  if (!harRolle) {
+  // 2. Valider at personen kan velge rollen (personrolle eller medlemskap i tjenestegruppen)
+  const kanVelgeRollen = hentPåmeldingsRoller(db, personID).some((r) => r.RolleID === rolleID);
+  if (!kanVelgeRollen) {
     return {
       success: false,
-      message: "Personen har ikke registrert denne rollen i sine personroller.",
+      message: "Personen har ikke tilgang til denne oppgaven.",
     };
   }
 
@@ -497,6 +496,14 @@ export function velgDatoForPerson(
       success: true,
       message: "Datoen er nå bekreftet for din oppgave!",
       updatedDb,
+    };
+  }
+
+  const kanVelgeRollen = hentPåmeldingsRoller(db, personID).some((r) => r.RolleID === rolleID);
+  if (!kanVelgeRollen) {
+    return {
+      success: false,
+      message: "Du kan bare velge oppgaver i tjenestegrupper du er med i.",
     };
   }
 

@@ -53,8 +53,35 @@ function tomDb(): DatabaseState {
       person({ PersonID: "P002", Navn: "Astrid Moen", Fornavn: "Astrid", Etternavn: "Moen" }),
       person({ PersonID: "P003", Navn: "Andreas Lund", Fornavn: "Andreas", Etternavn: "Lund" }),
     ],
-    grupper: [],
-    gruppemedlemmer: [],
+    grupper: [
+      {
+        GruppeID: "G005",
+        Gruppenavn: "Møtevert & Rigging",
+        GruppetypeID: "GT001",
+        Beskrivelse: "",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    gruppemedlemmer: [
+      {
+        GruppeMedlemID: "GM001",
+        GruppeID: "G005",
+        PersonID: "P001",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        GruppeMedlemID: "GM003",
+        GruppeID: "G005",
+        PersonID: "P003",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
     roller: [rolle],
     personroller: [
       {

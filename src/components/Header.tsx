@@ -23,6 +23,7 @@ interface HeaderProps {
   isAdminUser?: boolean;
   isMagicLinkUser?: boolean;
   onLoggUt?: () => void;
+  onMineOppgaver?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -35,6 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
   isAdminUser = false,
   isMagicLinkUser = false,
   onLoggUt,
+  onMineOppgaver,
 }) => {
   const [copied, setCopied] = useState(false);
   const [copyFeil, setCopyFeil] = useState(false);
@@ -166,6 +168,15 @@ export const Header: React.FC<HeaderProps> = ({
             )}
 
             <div className="hidden md:flex items-center gap-2">
+            {onMineOppgaver && (
+              <button
+                type="button"
+                onClick={onMineOppgaver}
+                className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
+              >
+                Mine oppgaver
+              </button>
+            )}
             <TemaBryter kompakt />
             <IkonHandling
               label="Kopier min lenke"
@@ -199,6 +210,18 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
               {showMer && (
                 <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
+                  {onMineOppgaver && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMer(false);
+                        onMineOppgaver();
+                      }}
+                      className="w-full text-left px-3 py-3 min-h-11 text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Mine oppgaver
+                    </button>
+                  )}
                   <div className="px-3 py-2">
                     <TemaBryter />
                   </div>
