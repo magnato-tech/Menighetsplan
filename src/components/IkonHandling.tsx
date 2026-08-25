@@ -37,8 +37,11 @@ export const IkonHandling: React.FC<IkonHandlingProps> = ({
   variant = "default",
   size = "sm",
 }) => {
-  const dim = size === "md" ? "p-2" : "p-1.5";
-  const iconDim = size === "md" ? "w-4 h-4" : "w-3.5 h-3.5";
+  const dim =
+    size === "md"
+      ? "p-2.5 min-h-11 min-w-11 md:p-2 md:min-h-0 md:min-w-0"
+      : "p-2 min-h-11 min-w-11 md:p-1.5 md:min-h-0 md:min-w-0";
+  const iconDim = size === "md" ? "w-5 h-5 md:w-4 md:h-4" : "w-4 h-4 md:w-3.5 md:h-3.5";
   const visLabel = copied ? `${label} kopiert` : label;
 
   let farger = copied ? "bg-emerald-50 border-emerald-300 text-emerald-700" : VARIANTS[variant];

@@ -39,7 +39,9 @@ import { Startside } from "./components/Startside";
 import { PersonalView } from "./components/PersonalView";
 import { GroupLeaderView } from "./components/GroupLeaderView";
 import { AdminView } from "./components/AdminView";
+import { MobilBunnmeny, type LederSeksjon } from "./components/MobilBunnmeny";
 import { Shield, ArrowLeft } from "lucide-react";
+import { Rolle } from "./types/database";
 
 export default function App() {
   const [dataSource, setDataSource] = useState<DevDataSource>(() => getDevDataSource());
@@ -54,6 +56,9 @@ export default function App() {
   });
   const [activeView, setActiveView] = useState<AppView>("personal");
   const [selectedPersonId, setSelectedPersonId] = useState<string>("P001");
+  const [datePickerRolle, setDatePickerRolle] = useState<Rolle | null>(null);
+  const [lederSeksjon, setLederSeksjon] = useState<LederSeksjon>("gruppe");
+  const [fokusMedlemmerNokkel, setFokusMedlemmerNokkel] = useState(0);
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
   const [adminSimulatingPersonId, setAdminSimulatingPersonId] = useState<string | null>(null);
 
@@ -249,6 +254,8 @@ export default function App() {
 
   const handleSelectPerson = (personId: string, view?: AppView) => {
     setSelectedPersonId(personId);
+    setDatePickerRolle(null);
+    setLederSeksjon("gruppe");
     if (view) {
       setActiveView(view);
       return;
@@ -279,6 +286,8 @@ export default function App() {
   const handleNavigateView = (view: AppView) => {
     if (!db) return;
     if (!visningErTillatt(hentTilgang(db, selectedPersonId), view)) return;
+    if (view !== "personal") setDatePickerRolle(null);
+    if (view === "leader") setLederSeksjon("gruppe");
     setActiveView(view);
   };
 
@@ -441,12 +450,14 @@ export default function App() {
       />
 
       {/* Hovedinnhold basert på valgt modus */}
-      <main className="flex-1 pb-16">
+      <main className="flex-1 pb-28 md:pb-16">
         {activeView === "personal" && (
           <PersonalView
             db={db}
             selectedPersonId={selectedPersonId}
             onUpdateDb={handleUpdateDb}
+            datePickerRolle={datePickerRolle}
+            onDatePickerRolleChange={setDatePickerRolle}
           />
         )}
 
@@ -456,6 +467,9 @@ export default function App() {
             selectedPersonId={selectedPersonId}
             onUpdateDb={handleUpdateDb}
             onSelectPerson={handleSelectPerson}
+            lederSeksjon={lederSeksjon}
+            onLederSeksjon={setLederSeksjon}
+            fokusMedlemmerNokkel={fokusMedlemmerNokkel}
           />
         )}
 
@@ -472,7 +486,7 @@ export default function App() {
       </main>
 
       {/* Enkel, ren bunntekst */}
-      <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+      <footer className="hidden md:block bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <div>
             <strong>Menighetsplan</strong> &bull; Lillesand Misjonskirke
@@ -482,6 +496,28 @@ export default function App() {
           </div>
         </div>
       </footer>
+      {!datePickerRolle && (
+        <MobilBunnmeny
+          db={db}
+          personId={selectedPersonId}
+          activeView={activeView}
+          datePickerRolle={datePickerRolle}
+          lederSeksjon={lederSeksjon}
+          onNavigate={handleNavigateView}
+          onVelgDato={(rolle) => {
+            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "personal")) return;
+            setActiveView("personal");
+            setDatePickerRolle(rolle);
+          }}
+          onFokusMedlemmer={() => {
+            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
+            setDatePickerRolle(null);
+            setActiveView("leader");
+            setLederSeksjon("medlemmer");
+            setFokusMedlemmerNokkel((n) => n + 1);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { DatabaseState, AppView } from "../services/dataService";
 import { Person } from "../types/database";
 import { IkonHandling } from "./IkonHandling";
-import { Search, Eye, Share2, Mail, Phone, MapPin, MessageSquare } from "lucide-react";
+import { Search, Eye, Share2, Mail, Phone, MapPin } from "lucide-react";
 
 function visningsadresse(p: Person): string {
   const linje = [p.Adresse, [p.Postnummer, p.Poststed].filter(Boolean).join(" ")]
@@ -170,12 +170,6 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
                       )}
                     </div>
                     <div className="flex items-center gap-1 shrink-0 pt-0.5">
-                      <IkonHandling
-                        label="SMS er ikke på plass ennå"
-                        Icon={MessageSquare}
-                        disabled
-                        onClick={() => {}}
-                      />
                       <IkonHandling
                         label={`Se Min side som ${m.Fornavn || m.Navn}`}
                         Icon={Eye}

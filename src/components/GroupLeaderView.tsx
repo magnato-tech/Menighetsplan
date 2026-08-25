@@ -22,6 +22,7 @@ import {
 } from "./SondagBemanning";
 import type { ArkVisning } from "./Planleggingsark";
 import { Users, Shield, Search, HelpCircle } from "lucide-react";
+import type { LederSeksjon } from "./MobilBunnmeny";
 
 const ALLE_GRUPPER = "";
 
@@ -30,6 +31,9 @@ interface GroupLeaderViewProps {
   selectedPersonId: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   onSelectPerson: (personId: string, view?: AppView) => void;
+  lederSeksjon?: LederSeksjon;
+  onLederSeksjon?: (seksjon: LederSeksjon) => void;
+  fokusMedlemmerNokkel?: number;
 }
 
 function formatDato(dato: string): string {
@@ -67,6 +71,9 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   selectedPersonId,
   onUpdateDb,
   onSelectPerson,
+  lederSeksjon = "gruppe",
+  onLederSeksjon,
+  fokusMedlemmerNokkel = 0,
 }) => {
   const [copiedPersonId, setCopiedPersonId] = useState<string | null>(null);
   const [assignModal, setAssignModal] = useState<TildelForesporsel | null>(null);
@@ -89,6 +96,23 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   useEffect(() => {
     setActiveGruppeId(ALLE_GRUPPER);
   }, [selectedPersonId]);
+
+  const visOversiktFilter: OversiktFilter =
+    lederSeksjon === "medlemmer"
+      ? "medlemmer"
+      : oversiktFilter === "medlemmer"
+        ? null
+        : oversiktFilter;
+
+  useEffect(() => {
+    if (!fokusMedlemmerNokkel) return;
+    setOversiktFilter("medlemmer");
+    window.requestAnimationFrame(() => {
+      document
+        .querySelector<HTMLElement>("[data-guide='medlemmer']")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [fokusMedlemmerNokkel]);
 
   useEffect(() => {
     if (
@@ -261,7 +285,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">{tittel}</h2>
-            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">{beskrivelse}</p>
+            <p className="hidden sm:block text-xs sm:text-sm text-slate-500 mt-0.5">{beskrivelse}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -270,7 +294,8 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#dceee3] border border-[#d2e8d9] px-3 py-1.5 rounded-xl cursor-pointer"
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              Slik gjør du det
+              <span className="hidden sm:inline">Slik gjør du det</span>
+              <span className="sm:hidden">Guide</span>
             </button>
             {lededeGrupper.length > 1 && (
               <div className="flex items-center gap-2">
@@ -312,9 +337,14 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         skjulGruppehode
         skjulListeVedMedlemmer
         listeTittel="Kommende gudstjenester"
-        oversiktFilter={oversiktFilter}
-        onOversiktFilter={setOversiktFilter}
+        oversiktFilter={visOversiktFilter}
+        onOversiktFilter={(filter) => {
+          setOversiktFilter(filter);
+          if (filter === "medlemmer") onLederSeksjon?.("medlemmer");
+          else onLederSeksjon?.("gruppe");
+        }}
         onMedlemmer={() => {
+          onLederSeksjon?.("medlemmer");
           window.requestAnimationFrame(() => {
             document
               .querySelector<HTMLElement>("[data-guide='medlemmer']")
@@ -335,20 +365,23 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         guideApneForsteKort={guideOpen && guideApneForsteKort}
       />
 
-      <GruppeMedlemListe
-        db={db}
-        medlemmer={oversiktPersoner}
-        venterPersonIds={venterPersonIds}
-        uthevMedlemmer={oversiktFilter === "medlemmer"}
-        copiedPersonId={copiedPersonId}
-        onCopyLink={handleCopyLink}
-        onSelectPerson={onSelectPerson}
-        onLeggTilMedlem={handleLeggTilMedlem}
-      />
+      <div className={visOversiktFilter === "medlemmer" ? undefined : "hidden md:block"}>
+        <GruppeMedlemListe
+          db={db}
+          medlemmer={oversiktPersoner}
+          venterPersonIds={venterPersonIds}
+          uthevMedlemmer={visOversiktFilter === "medlemmer"}
+          copiedPersonId={copiedPersonId}
+          onCopyLink={handleCopyLink}
+          onSelectPerson={onSelectPerson}
+          onLeggTilMedlem={handleLeggTilMedlem}
+        />
+      </div>
 
       {assignModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200">
+        <div className="fixed inset-0 bg-slate-900/60 z-50 animate-fadeIn flex items-end sm:items-center justify-center sm:p-4">
+          <button type="button" className="absolute inset-0 cursor-pointer" aria-label="Lukk" onClick={() => { setAssignSok(""); setEksternForesporsel(null); setAssignModal(null); }} />
+          <div className="relative bg-white rounded-t-3xl sm:rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 sheet-safe-bottom max-h-[90dvh] overflow-y-auto">
             <h3 className="text-lg font-bold text-slate-900 mb-0.5">
               Sett opp {assignModal.rolleNavn}
             </h3>

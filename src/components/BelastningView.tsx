@@ -29,8 +29,8 @@ export const BelastningView: React.FC<BelastningViewProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [gruppeFilter, setGruppeFilter] = useState("all");
-  const [skjulTomme, setSkjulTomme] = useState(false);
-  const [kunFlereSammeDag, setKunFlereSammeDag] = useState(false);
+  const [kunFlereSammeDag, setKunFlereSammeDag] = useState(true);
+  const [skjulTomme, setSkjulTomme] = useState(true);
 
   const iDag = new Date().toISOString().split("T")[0];
   const semester = useMemo(() => belastningForSemester(db, iDag), [db, iDag]);
@@ -131,7 +131,21 @@ export const BelastningView: React.FC<BelastningViewProps> = ({
         </label>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-auto max-h-[70vh]">
+      <div className="md:hidden space-y-2">
+        {filtrert.map((rad) => (
+          <div key={rad.personId} className="bg-white rounded-xl border border-slate-200 p-3">
+            <div className="font-semibold text-slate-900">{rad.navn}</div>
+            <p className="text-xs text-slate-600 mt-0.5">
+              {rad.oppgaver} oppgaver · {rad.gudstjenester} gudstjenester
+              {rad.harFlereSammeDag ? " · flere samme dag" : ""}
+            </p>
+          </div>
+        ))}
+        {filtrert.length === 0 && (
+          <p className="px-2 py-6 text-sm text-slate-500 text-center">Ingen treff i dette utvalget.</p>
+        )}
+      </div>
+      <div className="hidden md:block bg-white rounded-2xl border border-slate-200 shadow-xs overflow-auto max-h-[70vh]">
         <table className="text-left text-xs border-separate border-spacing-0 min-w-full">
           <thead className="bg-slate-50 text-slate-600 font-semibold uppercase tracking-wider sticky top-0 z-20">
             <tr>

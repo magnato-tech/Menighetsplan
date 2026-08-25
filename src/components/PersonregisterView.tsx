@@ -258,7 +258,38 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-xs">
+          <div className="md:hidden space-y-2">
+            {filteredPersoner.map((person) => {
+              const personTilgang = hentTilgang(db, person.PersonID);
+              return (
+                <div key={person.PersonID} className="bg-white rounded-xl border border-slate-200 p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900">{person.Navn}</div>
+                      <p className="text-xs text-slate-500 truncate">{person.Telefon || person.Epost}</p>
+                      <p className="text-[11px] text-slate-500 mt-1">
+                        {personTilgang.isAdmin ? "Admin" : personTilgang.isLeader ? "Gruppeleder" : "Bruker"}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
+                      <IkonHandling
+                        label="Rediger person"
+                        Icon={Pencil}
+                        onClick={() => openEditPerson(person)}
+                      />
+                      <IkonHandling
+                        label="Kopier personlenke"
+                        Icon={Share2}
+                        copied={copiedPersonId === person.PersonID}
+                        onClick={() => handleCopyLink(person.PersonID)}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-x-auto shadow-xs">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold uppercase tracking-wider">
                 <tr>

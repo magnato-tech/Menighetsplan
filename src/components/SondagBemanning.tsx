@@ -22,6 +22,7 @@ import { SituasjonRad } from "./SituasjonRad";
 import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
 import { RoleDescriptionModal } from "./RoleDescriptionModal";
 import { ListeArkBryter, Planleggingsark, type ArkVisning } from "./Planleggingsark";
+import { ProgramLeserModal } from "./ProgramLeserModal";
 import {
   Users,
   Plus,
@@ -36,6 +37,10 @@ import {
   AlertCircle,
   CircleHelp,
   CheckCircle2,
+  MoreHorizontal,
+  Pencil,
+  ScrollText,
+  ChevronDown,
 } from "lucide-react";
 
 const UTEN_GRUPPE = "__uten__";
@@ -225,9 +230,26 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const [gudstjenesteKortFane, setGudstjenesteKortFane] = useState<
     Record<string, "bemanning" | "kjoreplan">
   >({});
+  const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
+  const [statusArk, setStatusArk] = useState<{
+    tildelingId: string;
+    personId: string;
+    navn: string;
+    status: "Bekreftet" | "Venter" | "Avvist";
+  } | null>(null);
 
   useEffect(() => {
-    if (guideVisning) setServicesVisning(guideVisning);
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => {
+      if (!mq.matches) {
+        setServicesVisning("liste");
+        return;
+      }
+      if (guideVisning) setServicesVisning(guideVisning);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
   }, [guideVisning]);
 
   const omfangRoller = rolleIds
@@ -335,7 +357,13 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   };
 
   const vekselDetalj = (id: string) => {
-    setVisDetalj((prev) => ({ ...prev, [id]: !prev[id] }));
+    setVisDetalj((prev) => {
+      const neste = !prev[id];
+      if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+        return neste ? { [id]: true } : {};
+      }
+      return { ...prev, [id]: neste };
+    });
   };
 
   const kommentarForSvar = (nyttSvar: "Bekreftet" | "Venter" | "Avvist") => {
@@ -525,9 +553,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             const isAvvist = status === "Avvist";
             const visningsnavn = tildelingVisningsnavn(db, t);
             return (
+              <div key={t.TildelingID} className="inline-flex items-center gap-0.5 min-w-0">
               <div
-                key={t.TildelingID}
-                className={`inline-flex items-center gap-1 pl-2 pr-1 py-0.5 rounded-xl text-xs border ${
+                className={`inline-flex items-center gap-1 pl-2 pr-2 py-0.5 rounded-xl text-xs border ${
                   uthevPersonId === t.PersonID ? "ring-2 ring-[#2d5a3f] ring-offset-1" : ""
                 } ${
                   isBekreftet
@@ -561,6 +589,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                     Ekstern
                   </span>
                 ) : null}
+                <div className="hidden md:flex items-center gap-0.5">
                 <IkonHandling
                   label="Bekreft (personen har sagt ja)"
                   Icon={Check}
@@ -600,6 +629,24 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                     handleRemoveTildeling(t.TildelingID);
                   }}
                 />
+                </div>
+              </div>
+                <button
+                  type="button"
+                  className="md:hidden inline-flex items-center justify-center min-h-11 min-w-11 rounded-lg text-slate-600 cursor-pointer"
+                  aria-label={`Handlinger for ${visningsnavn}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setStatusArk({
+                      tildelingId: t.TildelingID,
+                      personId: t.PersonID,
+                      navn: visningsnavn,
+                      status: isBekreftet ? "Bekreftet" : isAvvist ? "Avvist" : "Venter",
+                    });
+                  }}
+                >
+                  <MoreHorizontal className="w-5 h-5" />
+                </button>
               </div>
             );
           })}
@@ -614,7 +661,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                 gudstjenesteDato: gudstjeneste.Dato,
               });
             }}
-            className="p-1.5 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] rounded-lg cursor-pointer transition shadow-2xs shrink-0"
+            className="p-2 md:p-1.5 min-h-11 min-w-11 md:min-h-0 md:min-w-0 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] rounded-lg cursor-pointer transition shadow-2xs shrink-0 flex items-center justify-center"
             title="Tildel"
             aria-label="Tildel"
             data-guide="sett-opp"
@@ -653,17 +700,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       <div
         key={gudstjeneste.GudstjenesteID}
         id={`gudstjeneste-${gudstjeneste.GudstjenesteID}`}
-        role="button"
-        tabIndex={0}
-        aria-expanded={visDetaljer}
-        onClick={() => vekselDetalj(gudstjeneste.GudstjenesteID)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            vekselDetalj(gudstjeneste.GudstjenesteID);
-          }
-        }}
-        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer ${kant}${
+        className={`bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden ${kant}${
           visDetaljer ? " lg:col-span-2" : ""
         }`}
         data-guide="gudstjenester"
@@ -686,6 +723,27 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2 text-[11px] tabular-nums font-semibold shrink-0">
+            {visKjoreplanFane && (
+              <IkonHandling
+                label={
+                  selectedPersonId &&
+                  kanRedigereProgram(db, selectedPersonId, gudstjeneste.GudstjenesteID)
+                    ? "Rediger kjøreplan"
+                    : "Åpne kjøreplan"
+                }
+                Icon={
+                  selectedPersonId &&
+                  kanRedigereProgram(db, selectedPersonId, gudstjeneste.GudstjenesteID)
+                    ? Pencil
+                    : ScrollText
+                }
+                variant="sky"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLeserGudstjenesteId(gudstjeneste.GudstjenesteID);
+                }}
+              />
+            )}
             {visAlleTall ? (
               <>
                 <span className={totalt.bekreftet ? "text-emerald-700" : "text-slate-400"}>
@@ -705,6 +763,15 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             ) : (
               <span className="text-rose-800">{totalt.ledige} ledige</span>
             )}
+            <button
+              type="button"
+              onClick={() => vekselDetalj(gudstjeneste.GudstjenesteID)}
+              aria-expanded={visDetaljer}
+              aria-label={visDetaljer ? "Skjul detaljer" : "Vis detaljer"}
+              className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-slate-500 cursor-pointer"
+            >
+              <ChevronDown className={`w-5 h-5 transition ${visDetaljer ? "rotate-180" : ""}`} />
+            </button>
           </div>
         </div>
 
@@ -882,6 +949,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
 
   const visListe = !(skjulListeVedMedlemmer && oversiktFilter === "medlemmer");
   const visKpi = visKpiAlltid || servicesVisning === "liste";
+  const kpiSkjultPaMobil = skjulListeVedMedlemmer && oversiktFilter === "medlemmer";
 
   const kpiKort = (
     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
@@ -901,7 +969,30 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
           </button>
         )}
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="md:hidden flex gap-1">
+        {(
+          [
+            { id: "ledige" as const, tall: ledigeOgForfall, label: "Ledige", aktiv: oversiktFilter === "ledige" },
+            { id: "venter" as const, tall: semesterOversikt.venter, label: "Venter", aktiv: oversiktFilter === "venter" },
+            { id: "bekreftet" as const, tall: semesterOversikt.bekreftet, label: "Bekr.", aktiv: oversiktFilter === "bekreftet" },
+            { id: "medlemmer" as const, tall: medlemstall, label: "Folk", aktiv: oversiktFilter === "medlemmer" },
+          ]
+        ).map((kort) => (
+          <button
+            key={kort.id}
+            type="button"
+            onClick={() => velgOversiktFilter(kort.id)}
+            aria-pressed={kort.aktiv}
+            className={`flex-1 min-h-11 rounded-xl border text-center px-1 py-1.5 cursor-pointer ${
+              kort.aktiv ? "bg-[#2d5a3f] text-white border-[#2d5a3f]" : "bg-slate-50 border-slate-200 text-slate-800"
+            }`}
+          >
+            <div className="text-base font-bold tabular-nums leading-none">{kort.tall}</div>
+            <div className="text-[10px] font-semibold mt-0.5">{kort.label}</div>
+          </button>
+        ))}
+      </div>
+      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3">
         {(
           [
             {
@@ -977,6 +1068,10 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     </div>
   );
 
+  const kpiBlokk = visKpi ? (
+    <div className={kpiSkjultPaMobil ? "hidden md:block" : undefined}>{kpiKort}</div>
+  ) : null;
+
   const visningBryter = visListe && (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {listeTittel ? (
@@ -985,9 +1080,12 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         <span />
       )}
       <div className="flex flex-wrap items-center gap-2 ml-auto">
-        <div data-guide="liste-ark">
+        <div data-guide="liste-ark" className="hidden md:block">
           <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
         </div>
+        <p className="md:hidden text-[11px] text-slate-500 w-full">
+          Planleggingsarket er laget for større skjerm.
+        </p>
         {kanOpprettGudstjeneste && servicesVisning === "ark" && (
           <button
             type="button"
@@ -1014,7 +1112,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
           </div>
         ) : (
           <>
-            {visKpiAlltid && kpiKort}
+            {visKpiAlltid && kpiBlokk}
             {servicesVisning === "liste" && visningBryter}
             {servicesVisning === "ark" && visListe && (
               <div
@@ -1038,7 +1136,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                 {arkGudstjeneste && renderGudstjenesteKort(arkGudstjeneste)}
               </div>
             )}
-            {servicesVisning === "liste" && visKpi && !visKpiAlltid && kpiKort}
+            {servicesVisning === "liste" && !visKpiAlltid && kpiBlokk}
             {servicesVisning === "liste" && afterKpi}
             {servicesVisning === "liste" && visListe && (
               <>
@@ -1154,6 +1252,83 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                   : undefined
               }
               onClose={() => setSelectedRolleForModal(null)}
+            />
+          );
+        })()}
+
+      {statusArk && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/50 cursor-pointer"
+            aria-label="Lukk"
+            onClick={() => setStatusArk(null)}
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl border-t border-slate-200 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl">
+            <p className="text-sm font-bold text-slate-900 mb-3">{statusArk.navn}</p>
+            <div className="grid gap-2">
+              {(
+                [
+                  ["Bekreftet", "Bekreft"],
+                  ["Venter", "Forespurt / venter"],
+                  ["Avvist", "Forfall / kan ikke"],
+                ] as const
+              ).map(([verdi, label]) => (
+                <button
+                  key={verdi}
+                  type="button"
+                  onClick={() => {
+                    handleUpdatePersonStatus(statusArk.tildelingId, statusArk.personId, verdi);
+                    setStatusArk(null);
+                  }}
+                  className={`min-h-11 px-4 rounded-xl text-sm font-semibold border cursor-pointer ${
+                    statusArk.status === verdi
+                      ? "bg-[#2d5a3f] text-white border-[#2d5a3f]"
+                      : "bg-white text-slate-800 border-slate-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  handleRemoveTildeling(statusArk.tildelingId);
+                  setStatusArk(null);
+                }}
+                className="min-h-11 px-4 rounded-xl text-sm font-semibold border border-rose-200 text-rose-800 bg-rose-50 cursor-pointer"
+              >
+                Fjern tildeling
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusArk(null)}
+                className="min-h-11 px-4 rounded-xl text-sm font-semibold text-slate-600 cursor-pointer"
+              >
+                Avbryt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {leserGudstjenesteId &&
+        (() => {
+          const gud = db.gudstjenester.find((g) => g.GudstjenesteID === leserGudstjenesteId);
+          if (!gud) return null;
+          return (
+            <ProgramLeserModal
+              db={db}
+              gudstjeneste={gud}
+              selectedPersonId={selectedPersonId}
+              uthevPersonId={selectedPersonId}
+              redigerbar={
+                selectedPersonId
+                  ? kanRedigereProgram(db, selectedPersonId, gud.GudstjenesteID)
+                  : visKjoreplan === "alltid"
+              }
+              onClose={() => setLeserGudstjenesteId(null)}
+              onUpdateDb={onUpdateDb}
             />
           );
         })()}

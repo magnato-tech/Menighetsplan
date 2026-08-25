@@ -9,6 +9,7 @@ import {
   kopierMalTilGudstjeneste,
   tilbakestillProgramFraMal,
   kanRedigereProgram,
+  visProgramIkon,
   programForGudstjeneste,
   opprettProgramFraMal,
   publiserProgram,
@@ -222,6 +223,8 @@ function tomDb(): DatabaseState {
   assert.equal(erProgramPublisert(opprettet, "GUD001"), false);
   const publisert = publiserProgram(opprettet, "GUD001", "P003");
   assert.equal(erProgramPublisert(publisert, "GUD001"), true);
+  assert.equal(visProgramIkon(publisert, "P004", "GUD001"), true);
+  assert.equal(visProgramIkon(publisert, "P002", "GUD001"), true);
   assert.equal(hentPrograminstans(publisert, "GUD001")?.PublisertAv, "P003");
   const skjult = avpubliserProgram(publisert, "GUD001");
   assert.equal(erProgramPublisert(skjult, "GUD001"), false);

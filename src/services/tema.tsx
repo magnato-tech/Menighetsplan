@@ -16,6 +16,14 @@ export function anvendTema(tema: Tema): void {
   const rot = document.documentElement;
   rot.classList.toggle("dark", tema === "mork");
   rot.style.colorScheme = tema === "mork" ? "dark" : "light";
+  if (typeof document === "undefined") return;
+  let meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) {
+    meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    document.head.appendChild(meta);
+  }
+  meta.setAttribute("content", tema === "mork" ? "#0b1220" : "#ffffff");
 }
 
 export function lagreTema(tema: Tema): void {

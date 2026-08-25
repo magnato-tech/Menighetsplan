@@ -300,10 +300,31 @@ html.dark select {
   display: none;
 }
 
+.mobil-bunnmeny {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.mobil-header-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.sheet-panel {
+  height: 100dvh;
+  max-height: 100dvh;
+}
+
+.sheet-safe-bottom {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+
 @media print {
   @page {
     size: A4;
     margin: 12mm;
+  }
+
+  .mobil-bunnmeny {
+    display: none !important;
   }
 
   body.printing-program #root {

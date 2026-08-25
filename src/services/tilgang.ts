@@ -1,4 +1,4 @@
-import { Person } from "../types/database";
+import { Person, Rolle } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import { erMagiskLenkeToken, hentApiIdentitet } from "./innlogging";
 
@@ -229,6 +229,28 @@ export function startvisningForTilgang(tilgang: PersonTilgang): AppView {
   if (tilgang.isAdmin) return "admin";
   if (tilgang.isLeader) return "leader";
   return "personal";
+}
+
+/** Roller personen kan melde seg på: aktive personroller, pluss tildelte roller uten medlemskap. */
+export function hentVisningsRoller(db: DatabaseState, personId: string): Rolle[] {
+  const personensRolleIds = db.personroller
+    .filter((pr) => pr.PersonID === personId && pr.Aktiv)
+    .map((pr) => pr.RolleID);
+  const visningsRoller: Rolle[] = [];
+  const sett = new Set<string>();
+  for (const rolle of db.roller) {
+    if (!personensRolleIds.includes(rolle.RolleID) || sett.has(rolle.RolleID)) continue;
+    visningsRoller.push(rolle);
+    sett.add(rolle.RolleID);
+  }
+  for (const t of db.tildelinger) {
+    if (t.PersonID !== personId || sett.has(t.RolleID)) continue;
+    const rolle = db.roller.find((r) => r.RolleID === t.RolleID);
+    if (!rolle) continue;
+    visningsRoller.push(rolle);
+    sett.add(rolle.RolleID);
+  }
+  return visningsRoller;
 }
 
 function normaliserEpost(epost: string): string {

@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DatabaseState,
   getEffektivtBehov,
   hentSvarStatus,
+  hentVisningsRoller,
   svarPaaTildeling,
   velgDatoForPerson,
   kanRedigereProgram,
@@ -22,12 +23,15 @@ import {
   Info,
   Pencil,
   ScrollText,
+  ChevronDown,
 } from "lucide-react";
 
 interface PersonalViewProps {
   db: DatabaseState;
   selectedPersonId: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
+  datePickerRolle: Rolle | null;
+  onDatePickerRolleChange: (rolle: Rolle | null) => void;
 }
 
 type PåmeldingsFilter = "ledige" | "mine" | "alle";
@@ -91,17 +95,23 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   db,
   selectedPersonId,
   onUpdateDb,
+  datePickerRolle,
+  onDatePickerRolleChange,
 }) => {
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
-  const [showDatePickerForRolle, setShowDatePickerForRolle] = useState<Rolle | null>(null);
   const [datePickerFilter, setDatePickerFilter] = useState<"ledige" | "mine" | "alle">("alle");
   const [visHeleBemanningFor, setVisHeleBemanningFor] = useState<Record<string, boolean>>({});
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
+  const [visAlleSondager, setVisAlleSondager] = useState(false);
 
   const openDatePicker = (rolle: Rolle) => {
     setDatePickerFilter("alle");
-    setShowDatePickerForRolle(rolle);
+    onDatePickerRolleChange(rolle);
   };
+
+  useEffect(() => {
+    if (datePickerRolle) setDatePickerFilter("alle");
+  }, [datePickerRolle?.RolleID]);
 
   const person = db.personer.find((p) => p.PersonID === selectedPersonId);
 
@@ -183,43 +193,29 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
     }
   };
 
-  // Samle alle unike roller som personen enten har i personroller ELLER har tildelinger for
-  const visningsRoller: Rolle[] = [];
-  const visningsRolleIds = new Set<string>();
-
-  // Legg til personens registrerte roller først
-  personensRoller.forEach((r) => {
-    visningsRoller.push(r);
-    visningsRolleIds.add(r.RolleID);
-  });
-
-  // Legg til eventuelle roller personen er tildelt men ikke har i personroller
-  personensTildelinger.forEach((item) => {
-    if (item.rolle && !visningsRolleIds.has(item.rolle.RolleID)) {
-      visningsRoller.push(item.rolle);
-      visningsRolleIds.add(item.rolle.RolleID);
-    }
-  });
+  const visningsRoller = hentVisningsRoller(db, person.PersonID);
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 space-y-6">
       {/* 1. TOPP-KORT: Hilsen og velkomst som i referansebildet BekreftOppgave.png */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
+      <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-xs space-y-3 sm:space-y-4">
         <div>
-          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+          <span className="hidden sm:block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">
             Lillesand Misjonskirke
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+          <h2 className="text-xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
             <span>Hei {person.Fornavn}</span>
-            <span className="text-2xl sm:text-3xl">👋</span>
+            <span className="text-xl sm:text-3xl">👋</span>
           </h2>
-          <p className="text-sm text-slate-600 mt-1">
+          <p className="hidden sm:block text-sm text-slate-600 mt-1">
             Takk for at du vil bidra i menigheten. Her ser du forslagene vi har laget for deg.
+          </p>
+          <p className="sm:hidden text-sm text-slate-600 mt-1">
+            Du bidrar med {rolleNavnTekst}.
           </p>
         </div>
 
-        {/* Lys grønn infoboks */}
-        <div className="bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
+        <div className="hidden sm:block bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
           <p>
             Du har sagt ja til å bidra med{" "}
             <strong className="text-[#1e3e2b] font-bold">{rolleNavnTekst}</strong> i menigheten.
@@ -249,7 +245,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
         return (
           <div className="space-y-2">
             {visningsRoller.length > 0 && (
-              <div className="flex flex-wrap gap-2">
+              <div className="hidden md:flex flex-wrap gap-2">
                 {visningsRoller.map((rolle) => (
                   <button
                     key={rolle.RolleID}
@@ -264,7 +260,28 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
               </div>
             )}
 
-            {kommende.map((gudstjeneste) => {
+            {(() => {
+              const medOppgave = kommende.filter((g) =>
+                personensTildelinger.some((item) => item.gudstjeneste?.GudstjenesteID === g.GudstjenesteID)
+              );
+              const visGudstjenester = visAlleSondager || medOppgave.length === 0 ? kommende : medOppgave;
+              return (
+                <>
+                  {medOppgave.length > 0 && medOppgave.length < kommende.length && (
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <p className="text-xs font-semibold text-slate-500">
+                        {visAlleSondager ? "Alle kommende gudstjenester" : "Dine oppgaver"}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setVisAlleSondager((v) => !v)}
+                        className="text-xs font-semibold text-[#2d5a3f] min-h-11 px-2 cursor-pointer"
+                      >
+                        {visAlleSondager ? "Vis bare mine" : `Vis alle (${kommende.length})`}
+                      </button>
+                    </div>
+                  )}
+                  {visGudstjenester.map((gudstjeneste) => {
               const mine = personensTildelinger.filter(
                 (item) => item.gudstjeneste?.GudstjenesteID === gudstjeneste.GudstjenesteID
               );
@@ -279,20 +296,10 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
               return (
                 <div
                   key={gudstjeneste.GudstjenesteID}
-                  role="button"
-                  tabIndex={0}
-                  aria-expanded={visHele}
-                  onClick={vekselKort}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      vekselKort();
-                    }
-                  }}
-                  className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden cursor-pointer hover:bg-slate-50/50 text-left"
+                  className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden text-left"
                 >
                   <div className="px-4 sm:px-5 pt-2.5 pb-1.5 flex items-start justify-between gap-2">
-                    <p className="text-xs sm:text-sm text-slate-700 truncate min-w-0">
+                    <p className="text-xs sm:text-sm text-slate-700 min-w-0">
                       <span className="font-semibold text-[#2d5a3f]">
                         {formatDato(gudstjeneste.Dato)}
                         {gudstjeneste.Tid ? ` · kl. ${gudstjeneste.Tid}` : ""}
@@ -305,6 +312,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                         <span className="text-slate-500"> · {gudstjeneste.Sted}</span>
                       ) : null}
                     </p>
+                    <div className="flex items-center gap-1 shrink-0">
                     {visProgramIkon(db, person.PersonID, gudstjeneste.GudstjenesteID) && (
                       <IkonHandling
                         label={
@@ -318,12 +326,19 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                             : ScrollText
                         }
                         variant="sky"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLeserGudstjenesteId(gudstjeneste.GudstjenesteID);
-                        }}
+                        onClick={() => setLeserGudstjenesteId(gudstjeneste.GudstjenesteID)}
                       />
                     )}
+                    <button
+                      type="button"
+                      onClick={vekselKort}
+                      aria-expanded={visHele}
+                      aria-label={visHele ? "Skjul bemanning" : "Vis bemanning"}
+                      className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-slate-500 cursor-pointer"
+                    >
+                      <ChevronDown className={`w-5 h-5 transition ${visHele ? "rotate-180" : ""}`} />
+                    </button>
+                    </div>
                   </div>
 
                   {!visHele && mine.length > 0 && (
@@ -351,40 +366,74 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                               </span>
                             </button>
                             <span className="text-sm font-semibold text-slate-800 inline-flex items-center gap-1.5 min-w-[4rem] shrink-0">
-                              {isAvvist ? null : (
-                                <>
-                                  <span
-                                    className={`w-2 h-2 rounded-full shrink-0 ${
-                                      isBekreftet ? "bg-emerald-500" : "bg-amber-400"
-                                    }`}
-                                    title={isBekreftet ? "Bekreftet" : "Forespurt"}
-                                    aria-hidden
-                                  />
-                                  {person.Fornavn || person.Navn}
-                                </>
-                              )}
+                              <span
+                                className={`w-2 h-2 rounded-full shrink-0 ${
+                                  isBekreftet
+                                    ? "bg-emerald-500"
+                                    : isAvvist
+                                    ? "bg-rose-500"
+                                    : "bg-amber-400"
+                                }`}
+                                aria-hidden
+                              />
+                              <span className={isAvvist ? "line-through opacity-75" : ""}>
+                                {person.Fornavn || person.Navn}
+                              </span>
                             </span>
                             <div className="flex items-center gap-1 ml-auto shrink-0">
-                            <IkonHandling
-                              label={isBekreftet ? "Sett tilbake til forespurt" : "Dette passer"}
-                              Icon={Check}
-                              variant="confirm"
-                              active={isBekreftet}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleBekreft(item.tildeling.TildelingID, isBekreftet);
-                              }}
-                            />
-                            <IkonHandling
-                              label={isAvvist ? "Meldt forfall" : "Kan ikke"}
-                              variant="decline"
-                              Icon={X}
-                              active={isAvvist}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleAvkreft(item.tildeling.TildelingID);
-                              }}
-                            />
+                              {isBekreftet ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBekreft(item.tildeling.TildelingID, true)}
+                                  className="md:hidden inline-flex items-center gap-1 px-3 py-2 min-h-11 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-600 cursor-pointer"
+                                >
+                                  Trekk tilbake
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => handleBekreft(item.tildeling.TildelingID, false)}
+                                  className="md:hidden inline-flex items-center gap-1 px-3 py-2 min-h-11 rounded-xl text-xs font-semibold border cursor-pointer bg-white border-slate-200 text-slate-700"
+                                >
+                                  <Check className="w-4 h-4" />
+                                  Dette passer
+                                </button>
+                              )}
+                              {!isAvvist && (
+                              <button
+                                type="button"
+                                onClick={() => handleAvkreft(item.tildeling.TildelingID)}
+                                className="md:hidden inline-flex items-center gap-1 px-3 py-2 min-h-11 rounded-xl text-xs font-semibold border cursor-pointer bg-white border-slate-200 text-slate-700"
+                              >
+                                <X className="w-4 h-4" />
+                                Kan ikke
+                              </button>
+                              )}
+                              {isAvvist && (
+                                <span className="md:hidden text-xs font-semibold text-rose-800">Forfall</span>
+                              )}
+                              <div className="hidden md:flex items-center gap-1">
+                                <IkonHandling
+                                  label={isBekreftet ? "Sett tilbake til forespurt" : "Dette passer"}
+                                  Icon={Check}
+                                  variant="confirm"
+                                  active={isBekreftet}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleBekreft(item.tildeling.TildelingID, isBekreftet);
+                                  }}
+                                />
+                                <IkonHandling
+                                  label={isAvvist ? "Meldt forfall" : "Kan ikke"}
+                                  variant="decline"
+                                  Icon={X}
+                                  active={isAvvist}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleAvkreft(item.tildeling.TildelingID);
+                                  }}
+                                />
+                              </div>
                             </div>
                           </div>
                         );
@@ -393,10 +442,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                   )}
 
                   {visHele && (
-                    <div
-                      className="px-4 sm:px-5 pb-2.5 pt-1"
-                      onClick={(e) => e.stopPropagation()}
-                    >
+                    <div className="px-4 sm:px-5 pb-2.5 pt-1">
                       <GudstjenesteRolleOversikt
                         db={db}
                         gudstjenesteId={gudstjeneste.GudstjenesteID}
@@ -411,21 +457,24 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                 </div>
               );
             })}
+                </>
+              );
+            })()}
           </div>
         );
       })()}
 
       {/* Påmelding: nesten fullskjerm */}
-      {showDatePickerForRolle && (
+      {datePickerRolle && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="bg-white w-full h-full sm:h-auto sm:max-h-[100dvh] sm:max-w-5xl sm:my-4 sm:rounded-3xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden">
+          <div className="bg-white w-full sheet-panel sm:h-auto sm:max-h-[100dvh] sm:max-w-5xl sm:my-4 sm:rounded-3xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
               <div>
                 <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
                   Meld deg på
                 </span>
                 <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {showDatePickerForRolle.Rollenavn}
+                  {datePickerRolle.Rollenavn}
                 </h3>
                 <p className="text-sm text-slate-600 mt-1">
                   Se ledige og dine søndager. Behovstallet er veiledende — du kan melde deg på selv om det er nok folk.
@@ -433,7 +482,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
               </div>
               <button
                 type="button"
-                onClick={() => setShowDatePickerForRolle(null)}
+                onClick={() => onDatePickerRolleChange(null)}
                 className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer shrink-0"
                 aria-label="Lukk"
               >
@@ -442,7 +491,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             </div>
 
             {(() => {
-              const rader = byggPåmeldingsrader(db, person.PersonID, showDatePickerForRolle);
+              const rader = byggPåmeldingsrader(db, person.PersonID, datePickerRolle);
               const antallLedige = rader.filter((r) => r.status === "ledig").length;
               const antallMine = rader.filter(
                 (r) => r.status === "min-venter" || r.status === "min-bekreftet"
@@ -554,7 +603,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    handleVelgAnnenDato(g.GudstjenesteID, showDatePickerForRolle)
+                                    handleVelgAnnenDato(g.GudstjenesteID, datePickerRolle)
                                   }
                                   className="w-full sm:w-auto px-5 py-3 bg-[#2d5a3f] hover:bg-[#1e3e2b] text-white text-sm font-semibold rounded-2xl shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
                                 >
@@ -583,10 +632,10 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                     )}
                   </div>
 
-                  <div className="px-4 sm:px-6 py-3 border-t border-slate-100 flex justify-end shrink-0">
+                  <div className="px-4 sm:px-6 py-3 border-t border-slate-100 flex justify-end shrink-0 sheet-safe-bottom">
                     <button
                       type="button"
-                      onClick={() => setShowDatePickerForRolle(null)}
+                      onClick={() => onDatePickerRolleChange(null)}
                       className="px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
                     >
                       Ferdig

@@ -8,6 +8,7 @@ import {
   Check,
   ChevronDown,
   Church,
+  MoreVertical,
 } from "lucide-react";
 import { IkonHandling } from "./IkonHandling";
 import { TemaBryter } from "./TemaBryter";
@@ -36,7 +37,9 @@ export const Header: React.FC<HeaderProps> = ({
   onLoggUt,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [copyFeil, setCopyFeil] = useState(false);
   const [showPersonDropdown, setShowPersonDropdown] = useState(false);
+  const [showMer, setShowMer] = useState(false);
   const selectedPerson = db.personer.find((p) => p.PersonID === selectedPersonId);
   const tilgang = hentTilgang(db, selectedPersonId);
   const canSwitchPerson = isAdminUser || import.meta.env.DEV;
@@ -44,25 +47,30 @@ export const Header: React.FC<HeaderProps> = ({
   const handleCopyLink = () => {
     const link = genererPersonligLenke(selectedPersonId, db);
     navigator.clipboard.writeText(link).then(() => {
+      setCopyFeil(false);
       setCopied(true);
       setTimeout(() => setCopied(false), 2500);
+    }).catch(() => {
+      setCopied(false);
+      setCopyFeil(true);
+      setTimeout(() => setCopyFeil(false), 3500);
     });
   };
 
   return (
-    <header className="bg-white border-b border-slate-200/90 sticky top-0 z-30 shadow-xs">
+    <header className="mobil-header-safe bg-white border-b border-slate-200/90 sticky top-0 z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 gap-4">
+        <div className="flex items-center justify-between h-12 md:h-16 gap-2 md:gap-4">
           {/* Logo & Tittel som i referansebildet */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#eef5f1] border border-[#d2e8d9] text-[#2d5a3f] flex items-center justify-center shadow-2xs shrink-0">
-              <Church className="w-5 h-5" />
+            <div className="w-8 h-8 md:w-10 md:h-10 rounded-xl bg-[#eef5f1] border border-[#d2e8d9] text-[#2d5a3f] flex items-center justify-center shadow-2xs shrink-0">
+              <Church className="w-4 h-4 md:w-5 md:h-5" />
             </div>
-            <div>
-              <div className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+            <div className="min-w-0">
+              <div className="hidden sm:block text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                 Lillesand Misjonskirke
               </div>
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 leading-tight">
+              <h1 className="text-sm md:text-base sm:text-lg font-bold text-slate-900 leading-tight truncate">
                 Menighetsplan
               </h1>
             </div>
@@ -157,6 +165,7 @@ export const Header: React.FC<HeaderProps> = ({
               )
             )}
 
+            <div className="hidden md:flex items-center gap-2">
             <TemaBryter kompakt />
             <IkonHandling
               label="Kopier min lenke"
@@ -174,11 +183,54 @@ export const Header: React.FC<HeaderProps> = ({
                 Logg ut
               </button>
             )}
+            </div>
+            <div className="relative md:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMer((v) => !v);
+                  setShowPersonDropdown(false);
+                }}
+                className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl border border-slate-200 bg-white text-slate-700 cursor-pointer"
+                aria-label="Mer"
+                aria-expanded={showMer}
+              >
+                <MoreVertical className="w-5 h-5" />
+              </button>
+              {showMer && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-slate-200 py-2 z-50">
+                  <div className="px-3 py-2">
+                    <TemaBryter />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCopyLink();
+                    }}
+                    className="w-full text-left px-3 py-3 min-h-11 text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                  >
+                    {copied ? "Lenke kopiert" : copyFeil ? "Kunne ikke kopiere" : "Kopier min lenke"}
+                  </button>
+                  {onLoggUt && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMer(false);
+                        onLoggUt();
+                      }}
+                      className="w-full text-left px-3 py-3 min-h-11 text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
+                    >
+                      Logg ut
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Hovednavigasjon / Faner etter referansebildet med mørkegrønn aktiv knapp */}
-        <nav className="flex space-x-1 border-t border-slate-100 py-2 overflow-x-auto">
+        <nav className="hidden md:flex space-x-1 border-t border-slate-100 py-2 overflow-x-auto">
           <button
             onClick={() => setActiveView("personal")}
             className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold whitespace-nowrap transition cursor-pointer ${
