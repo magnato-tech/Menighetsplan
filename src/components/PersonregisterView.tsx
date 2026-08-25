@@ -9,6 +9,7 @@ import {
   oppdaterPersonIRegister,
   saveDatabase,
   hentTilgang,
+  tilgangsnivaaForPerson,
 } from "../services/dataService";
 import { Person } from "../types/database";
 import { IkonHandling } from "./IkonHandling";
@@ -48,6 +49,9 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
   const [editEpost, setEditEpost] = useState("");
   const [editTelefon, setEditTelefon] = useState("");
   const [editAktiv, setEditAktiv] = useState(true);
+  const [editTilgangsnivaa, setEditTilgangsnivaa] = useState<
+    NonNullable<Person["Tilgangsnivå"]>
+  >("bruker");
   const [newFornavn, setNewFornavn] = useState("");
   const [newPersonSlots, setNewPersonSlots] = useState<UkjentImportSlot[]>([]);
   const [newPersonGudstjenesteId, setNewPersonGudstjenesteId] = useState("");
@@ -111,6 +115,7 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
     setEditEpost(person.Epost || "");
     setEditTelefon(person.Telefon || "");
     setEditAktiv(person.Aktiv !== false);
+    setEditTilgangsnivaa(tilgangsnivaaForPerson(db, person.PersonID));
   };
 
   const handleSaveEditPerson = () => {
@@ -120,6 +125,7 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
       Epost: editEpost,
       Telefon: editTelefon,
       Aktiv: editAktiv,
+      Tilgangsnivå: editTilgangsnivaa,
     });
     saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
@@ -258,7 +264,7 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                 <tr>
                   <th className="p-3">Navn</th>
                   <th className="p-3">Kontaktinfo</th>
-                  <th className="p-3">Tilgang & Lederansvar</th>
+                  <th className="p-3">Tilgangsnivå</th>
                   <th className="p-3">Personroller (Godkjente)</th>
                   <th className="p-3">Gruppe</th>
                   <th className="p-3 text-right">Handling</th>
@@ -300,20 +306,20 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                           {personTilgang.isAdmin && (
                             <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-200">
                               <Shield className="w-3 h-3" />
-                              Administrator
+                              Admin
                             </span>
                           )}
-                          {personTilgang.isLeader && (
+                          {personTilgang.isLeader && !personTilgang.isAdmin && (
                             <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-800 text-[10px] font-semibold px-2 py-0.5 rounded-full border border-amber-200">
                               <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
-                              Tjenestegruppeleder
+                              Gruppeleder
                               {lederGrupper.length > 0 &&
                                 ` (${lederGrupper.map((g) => g.gruppe.Gruppenavn).join(", ")})`}
                             </span>
                           )}
                           {!personTilgang.isAdmin && !personTilgang.isLeader && (
                             <span className="inline-flex items-center text-slate-500 text-[11px]">
-                              Medlem (Min side)
+                              Bruker
                             </span>
                           )}
                         </div>
@@ -494,6 +500,25 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                   onChange={(e) => setEditTelefon(e.target.value)}
                   className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
                 />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Tilgangsnivå</label>
+                <select
+                  value={editTilgangsnivaa}
+                  onChange={(e) =>
+                    setEditTilgangsnivaa(
+                      e.target.value as NonNullable<Person["Tilgangsnivå"]>
+                    )
+                  }
+                  className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
+                >
+                  <option value="bruker">Bruker</option>
+                  <option value="gruppeleder">Gruppeleder</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  Styrer fanene i appen. Tjenesteroller (taler, lyd, …) settes under Personroller.
+                </p>
               </div>
               <label className="flex items-center gap-2 font-semibold text-slate-600 cursor-pointer">
                 <input

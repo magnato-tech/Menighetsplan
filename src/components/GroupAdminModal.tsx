@@ -9,6 +9,7 @@ import {
   saveDatabase,
   sikreGruppemedlemskap,
   synkGruppeledergruppe,
+  synkTilgangsnivaaEtterGruppeledere,
 } from "../services/dataService";
 
 interface GroupAdminModalProps {
@@ -237,7 +238,8 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
       );
     }
 
-    const updated = synkGruppeledergruppe({
+    const updated = synkTilgangsnivaaEtterGruppeledere(
+      synkGruppeledergruppe({
       ...db,
       grupper: db.grupper.map((g) =>
         g.GruppeID === gruppeId
@@ -254,7 +256,8 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
           : g
       ),
       gruppemedlemmer,
-    });
+    })
+    );
 
     saveDatabase(updated);
     onUpdateDb(updated);

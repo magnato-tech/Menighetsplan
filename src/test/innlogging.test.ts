@@ -15,6 +15,7 @@ import {
   visningErTillatt,
   loadLocalDatabase,
   oppdaterPersonIRegister,
+  tilgangsnivaaForPerson,
 } from "../services/dataService";
 import { epostFraGoogleJwt, tolkInnlimtLenke, erMagiskLenkeToken, lesMagiskTokenFraUrl, lagreMagiskToken, slettMagiskToken, hentApiIdentitet } from "../services/innlogging";
 
@@ -108,10 +109,8 @@ const leder = db.personer.find((p) => {
 });
 assert.ok(leder, "mock-data skal ha en tjenestegruppeleder");
 assert.equal(hentTilgang(db, "P009").isAdmin, false);
-assert.ok(db.roller.some((r) => String(r.Rollenavn).toLowerCase() === "administrator"));
-assert.ok(
-  db.personroller.some((pr) => pr.PersonID === admin!.PersonID && pr.RolleID === "R013" && pr.Aktiv)
-);
+assert.equal(admin!.Tilgangsnivå, "admin");
+assert.equal(tilgangsnivaaForPerson(db, admin!.PersonID), "admin");
 
 const lederUtenKontakt = rensPersondataForKlient(db, leder!.PersonID, false);
 function iLedersGrupper(personId: string): boolean {
@@ -145,7 +144,7 @@ assert.equal(meg?.Epost, leder!.Epost);
 assert.equal(rensPersondataForKlient(db, admin!.PersonID, true).personer[0].Epost, db.personer[0].Epost);
 const lederTilgang = hentTilgang(db, leder!.PersonID);
 assert.deepEqual(lederTilgang.views, ["personal", "leader"]);
-assert.equal(startvisningForTilgang(lederTilgang), "personal");
+assert.equal(startvisningForTilgang(lederTilgang), "leader");
 assert.equal(visningErTillatt(lederTilgang, "admin"), false);
 
 const medlem = db.personer.find((p) => {
@@ -180,13 +179,15 @@ assert.equal(redigertPerson?.Epost, "magnar.test@example.com");
 assert.equal(redigertPerson?.Telefon, "11111111");
 assert.equal(finnAdministratorMedEpost(redigert, "magnar.test@example.com")?.PersonID, admin!.PersonID);
 
-const utenAdminRolle = {
+const utenAdminNivaa = {
   ...db,
-  personroller: db.personroller.filter((pr) => pr.PersonID !== admin!.PersonID),
+  personer: db.personer.map((p) =>
+    p.PersonID === admin!.PersonID ? { ...p, Tilgangsnivå: "bruker" as const } : p
+  ),
 };
-assert.equal(finnAdministratorMedEpost(utenAdminRolle, admin!.Epost), undefined);
+assert.equal(finnAdministratorMedEpost(utenAdminNivaa, admin!.Epost), undefined);
 assert.equal(
-  finnPersonForGoogleSesjon(utenAdminRolle, admin!.Epost)?.PersonID,
+  finnPersonForGoogleSesjon(utenAdminNivaa, admin!.Epost)?.PersonID,
   admin!.PersonID
 );
 const tomtRegister = { ...db, personer: [] as typeof db.personer, personroller: [] };

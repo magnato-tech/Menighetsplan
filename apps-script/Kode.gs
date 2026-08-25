@@ -10,6 +10,7 @@
  */
 
 var SPREADSHEET_ID = "15RPvcvccYA3yO8-8v_H1OatSgyx8WzXGqq0N4cJI0dU";
+var SPREADSHEET_NAVN = "Menighetsplan";
 
 var MASTER_SHEETS = {
   gruppetyper: {
@@ -22,7 +23,7 @@ var MASTER_SHEETS = {
     columns: [
       "PersonID", "Navn", "Fornavn", "Etternavn", "Epost", "Telefon", "BildeURL",
       "Fødselsår", "Fødselsdato", "Kjønn", "Adresse", "Postnummer", "Poststed",
-      "Notat", "SikkerhetsToken", "Aktiv", "OpprettetDato", "SistEndret",
+      "Notat", "SikkerhetsToken", "Tilgangsnivå", "Aktiv", "OpprettetDato", "SistEndret",
     ],
     booleans: ["Aktiv"],
     numbers: ["Fødselsår"],
@@ -203,15 +204,12 @@ function emailsEquivalent_(a, b) {
   return Boolean(na && nb && na === nb);
 }
 
-function findAdminRole_(state) {
-  var roller = state.roller || [];
-  var i;
-  for (i = 0; i < roller.length; i++) {
-    if (roller[i].Aktiv !== false && String(roller[i].Rollenavn || "").trim().toLowerCase() === "administrator") {
-      return roller[i];
-    }
-  }
-  return null;
+function normalizeTilgangsnivaa_(verdi) {
+  var v = String(verdi || "").trim().toLowerCase();
+  if (v === "admin" || v === "administrator") return "admin";
+  if (v === "gruppeleder") return "gruppeleder";
+  if (v === "bruker" || v === "medlem") return "bruker";
+  return "";
 }
 
 function isAdministrator_(state, personId) {
@@ -225,84 +223,13 @@ function isAdministrator_(state, personId) {
     }
   }
   if (!person || person.Aktiv === false) return false;
-
-  var adminRolle = findAdminRole_(state);
-  if (!adminRolle) return false;
-  var pr = state.personroller || [];
-  for (i = 0; i < pr.length; i++) {
-    if (pr[i].Aktiv !== false && pr[i].PersonID === personId && pr[i].RolleID === adminRolle.RolleID) {
-      return true;
-    }
-  }
-  return false;
+  return normalizeTilgangsnivaa_(person.Tilgangsnivå) === "admin";
 }
 
 function looksLikeLegacyAdminName_(person) {
   var navn = String(person.Navn || "").trim().toLowerCase();
   var fornavn = String(person.Fornavn || "").trim().toLowerCase();
   return fornavn === "magnar" || navn === "magnar" || navn.indexOf("magnar ") === 0;
-}
-
-/** Oppretter Administrator-rollen og knytter tidligere Magnar-unntak til den. */
-function ensureAdministratorRole_(state) {
-  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Oslo", "yyyy-MM-dd");
-  var roller = state.roller || [];
-  var adminRolle = findAdminRole_(state);
-  var changed = false;
-  if (!adminRolle) {
-    adminRolle = {
-      RolleID: "R013",
-      Rollenavn: "Administrator",
-      Beskrivelse: "Full administrativ tilgang til planleggeren.",
-      Aktiv: true,
-      Behov: 0,
-      GruppeID: "",
-      OpprettetDato: today,
-      SistEndret: today,
-    };
-    roller.push(adminRolle);
-    state.roller = roller;
-    changed = true;
-  }
-
-  var personroller = state.personroller || [];
-  var personer = state.personer || [];
-  var i;
-  var maxPr = 0;
-  for (i = 0; i < personroller.length; i++) {
-    var n = parseInt(String(personroller[i].PersonRolleID || "").replace(/\D/g, ""), 10);
-    if (n > maxPr) maxPr = n;
-  }
-  for (i = 0; i < personer.length; i++) {
-    var p = personer[i];
-    if (!p || p.Aktiv === false) continue;
-    if (!looksLikeLegacyAdminName_(p)) continue;
-    var har = false;
-    var j;
-    for (j = 0; j < personroller.length; j++) {
-      if (personroller[j].Aktiv !== false && personroller[j].PersonID === p.PersonID && personroller[j].RolleID === adminRolle.RolleID) {
-        har = true;
-        break;
-      }
-    }
-    if (har) continue;
-    maxPr += 1;
-    var prId = "PR" + ("000" + maxPr).slice(-3);
-    personroller.push({
-      PersonRolleID: prId,
-      PersonID: p.PersonID,
-      RolleID: adminRolle.RolleID,
-      Aktiv: true,
-      FraDato: today,
-      TilDato: "",
-      Notat: "Tildelt ved overgang fra navnebasert admin",
-      OpprettetDato: today,
-      SistEndret: today,
-    });
-    changed = true;
-  }
-  state.personroller = personroller;
-  return changed;
 }
 
 function findPersonByMagicToken_(state, token) {
@@ -379,7 +306,7 @@ function bindGoogleEmailToLegacyAdmin_(state, email) {
 }
 
 /**
- * Sikrer at Magnar finnes i Personer med magnar.totland@gmail.com og admin-rolle.
+ * Sikrer at Magnar finnes i Personer med magnar.totland@gmail.com og Tilgangsnivå admin.
  * Skriver bare enkeltceller / nye rader — tømmer ikke fanen.
  */
 function sikreMagnarGoogleKonto_(state) {
@@ -399,6 +326,7 @@ function sikreMagnarGoogleKonto_(state) {
       Epost: MAGNAR_GOOGLE_EPOST,
       Telefon: "",
       Notat: "",
+      Tilgangsnivå: "admin",
       Aktiv: true,
       OpprettetDato: today,
       SistEndret: today,
@@ -409,11 +337,10 @@ function sikreMagnarGoogleKonto_(state) {
     appendSheetRecord_(ss, MASTER_SHEETS.personer, p);
   } else {
     p.Epost = MAGNAR_GOOGLE_EPOST;
-    setPersonEmailCell_(p.PersonID, MAGNAR_GOOGLE_EPOST);
+    p.Tilgangsnivå = "admin";
+    setPersonColumnCell_(p.PersonID, "Epost", MAGNAR_GOOGLE_EPOST);
+    setPersonColumnCell_(p.PersonID, "Tilgangsnivå", "admin");
   }
-
-  ensureAdministratorRole_(state);
-  persistAdministratorPersonrolle_(ss, state, p.PersonID);
   return p;
 }
 
@@ -422,40 +349,6 @@ function sikreMagnarGoogleKonto() {
   var state = loadDatabase();
   var p = sikreMagnarGoogleKonto_(state);
   return p ? p.PersonID + " " + p.Navn + " " + p.Epost : "ingen";
-}
-
-function persistAdministratorPersonrolle_(ss, state, personId) {
-  var adminRolle = findAdminRole_(state);
-  if (!adminRolle || !personId) return;
-  var personroller = readSheet_(ss, MASTER_SHEETS.personroller);
-  var i;
-  for (i = 0; i < personroller.length; i++) {
-    if (
-      personroller[i].Aktiv !== false &&
-      personroller[i].PersonID === personId &&
-      personroller[i].RolleID === adminRolle.RolleID
-    ) {
-      state.personroller = state.personroller || personroller;
-      return;
-    }
-  }
-  var ids = [];
-  for (i = 0; i < personroller.length; i++) ids.push(personroller[i].PersonRolleID);
-  var today = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || "Europe/Oslo", "yyyy-MM-dd");
-  var rad = {
-    PersonRolleID: nesteNummerertId_("PR", ids),
-    PersonID: personId,
-    RolleID: adminRolle.RolleID,
-    Aktiv: true,
-    FraDato: today,
-    TilDato: "",
-    Notat: "Google-innlogging Magnar",
-    OpprettetDato: today,
-    SistEndret: today,
-  };
-  personroller.push(rad);
-  state.personroller = personroller;
-  appendSheetRecord_(ss, MASTER_SHEETS.personroller, rad);
 }
 
 function appendSheetRecord_(ss, spec, rec) {
@@ -487,7 +380,7 @@ function appendSheetRecord_(ss, spec, rec) {
   sheet.appendRow(row);
 }
 
-function setPersonEmailCell_(personId, email) {
+function setPersonColumnCell_(personId, columnName, value) {
   var ss = getSpreadsheet_();
   var spec = MASTER_SHEETS.personer;
   var sheet = ss.getSheetByName(spec.name);
@@ -499,16 +392,20 @@ function setPersonEmailCell_(personId, email) {
   var headerRow = findHeaderRow_(values, spec.columns[0]);
   var headers = values[headerRow] || [];
   var idIdx = headerIndex_(headers, "PersonID");
-  var emailIdx = headerIndex_(headers, "Epost");
-  if (idIdx < 0 || emailIdx < 0) return false;
+  var colIdx = headerIndex_(headers, columnName);
+  if (idIdx < 0 || colIdx < 0) return false;
   var i;
   for (i = headerRow + 1; i < values.length; i++) {
     if (String(values[i][idIdx] || "").trim() === String(personId || "").trim()) {
-      sheet.getRange(i + 1, emailIdx + 1).setValue(email);
+      sheet.getRange(i + 1, colIdx + 1).setValue(value);
       return true;
     }
   }
   return false;
+}
+
+function setPersonEmailCell_(personId, email) {
+  return setPersonColumnCell_(personId, "Epost", email);
 }
 
 function verifyGoogleIdToken_(idToken) {
@@ -561,12 +458,12 @@ function doGet(e) {
 
     if (action === "ui") {
       return HtmlService.createHtmlOutputFromFile("Bruker")
-        .setTitle("Gudstjenesteplanlegger 2.0 — API")
+        .setTitle("Menighetsplan — API")
         .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
     }
 
     if (action === "ping") {
-      return json_({ ok: true, service: "Gudstjenesteplanlegger2.0" });
+      return json_({ ok: true, service: "Menighetsplan" });
     }
 
     if (action === "inspectImport") {
@@ -687,6 +584,7 @@ function sanitizeStateForViewer_(state, personId, isAdmin) {
 }
 
 function loadDatabase() {
+  ensureSchema_();
   var ss = getSpreadsheet_();
   var state = {};
   var key;
@@ -703,11 +601,67 @@ function loadDatabase() {
     // Innlogging skal ikke feile fordi token-fylling feilet.
   }
   try {
+    fillEmptyTilgangsnivaaCells_(ss, state);
+  } catch (nivaaErr) {
+    // Innlogging skal ikke feile fordi tilgangsnivå-fylling feilet.
+  }
+  try {
     sikreMagnarGoogleKonto_(state);
   } catch (magnarErr) {
-    ensureAdministratorRole_(state);
+    // Innlogging skal ikke feile om Magnar-cellen ikke kan oppdateres.
   }
   return state;
+}
+
+/** Fyller tomme Tilgangsnivå-celler én og én. Tømmer ikke fanen. */
+function fillEmptyTilgangsnivaaCells_(ss, state) {
+  var spec = MASTER_SHEETS.personer;
+  var sheet = ss.getSheetByName(spec.name);
+  var personer = state.personer || [];
+  if (!sheet || !personer.length) return;
+  var lastRow = sheet.getLastRow();
+  var lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return;
+  var values = sheet.getRange(1, 1, lastRow, lastCol).getDisplayValues();
+  var headerRow = findHeaderRow_(values, spec.columns[0]);
+  var headers = values[headerRow] || [];
+  var idIdx = headerIndex_(headers, "PersonID");
+  var nivaaIdx = headerIndex_(headers, "Tilgangsnivå");
+  if (idIdx < 0 || nivaaIdx < 0) return;
+  var lederIds = {};
+  var grupper = state.grupper || [];
+  var g;
+  for (g = 0; g < grupper.length; g++) {
+    if (grupper[g].Aktiv === false) continue;
+    var leder = String(grupper[g].GruppelederID || "").trim();
+    var nest = String(grupper[g].NestlederID || "").trim();
+    if (leder) lederIds[leder] = true;
+    if (nest) lederIds[nest] = true;
+  }
+  var byId = {};
+  var i;
+  for (i = 0; i < personer.length; i++) {
+    byId[String(personer[i].PersonID || "").trim()] = personer[i];
+  }
+  for (i = headerRow + 1; i < values.length; i++) {
+    var id = String(values[i][idIdx] || "").trim();
+    if (!id) continue;
+    var p = byId[id];
+    if (!p) continue;
+    var existing = normalizeTilgangsnivaa_(values[i][nivaaIdx]);
+    if (existing) {
+      p.Tilgangsnivå = existing;
+      continue;
+    }
+    var nivaa = "bruker";
+    if (looksLikeLegacyAdminName_(p) || emailsEquivalent_(p.Epost, MAGNAR_GOOGLE_EPOST)) {
+      nivaa = "admin";
+    } else if (lederIds[id]) {
+      nivaa = "gruppeleder";
+    }
+    p.Tilgangsnivå = nivaa;
+    sheet.getRange(i + 1, nivaaIdx + 1).setValue(nivaa);
+  }
 }
 
 /** Fyller tomme SikkerhetsToken-celler én og én. Tømmer ikke fanen. */
@@ -783,7 +737,15 @@ function mergePersonTokens_(incoming, existing) {
 }
 
 function getSpreadsheet_() {
-  return SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  try {
+    if (ss.getName() !== SPREADSHEET_NAVN) {
+      ss.rename(SPREADSHEET_NAVN);
+    }
+  } catch (renameErr) {
+    // Innlogging skal ikke feile om omdøping er sperret.
+  }
+  return ss;
 }
 
 function ensureSchema_() {

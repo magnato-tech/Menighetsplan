@@ -1194,6 +1194,7 @@ export function opprettPersonIRegister(
     Epost: "",
     Telefon: "",
     Notat: "",
+    Tilgangsnivå: "bruker",
     Aktiv: true,
     OpprettetDato: now,
     SistEndret: now,
@@ -1270,7 +1271,13 @@ export function opprettPersonIRegister(
 export function oppdaterPersonIRegister(
   db: DatabaseState,
   personId: string,
-  input: { Navn: string; Epost: string; Telefon: string; Aktiv: boolean }
+  input: {
+    Navn: string;
+    Epost: string;
+    Telefon: string;
+    Aktiv: boolean;
+    Tilgangsnivå?: Person["Tilgangsnivå"];
+  }
 ): DatabaseState {
   const navn = splittVisningsnavn(input.Navn);
   if (!navn.Navn) return db;
@@ -1289,6 +1296,7 @@ export function oppdaterPersonIRegister(
             Epost: epost,
             Telefon: telefon,
             Aktiv: input.Aktiv,
+            Tilgangsnivå: input.Tilgangsnivå || p.Tilgangsnivå || "bruker",
             SistEndret: now,
           }
         : p

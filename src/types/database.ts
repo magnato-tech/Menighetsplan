@@ -11,6 +11,8 @@ export interface Person {
   Epost: string;
   Telefon: string;
   SikkerhetsToken?: string; // Tilfeldig magisk-lenke-token, lagres i arket
+  /** App-tilgang. Ikke det samme som tjenesterolle i fanen Roller. */
+  Tilgangsnivå?: "bruker" | "gruppeleder" | "admin";
   BildeURL?: string;
   Fødselsår?: number;
   Fødselsdato?: string;

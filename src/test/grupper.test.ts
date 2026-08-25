@@ -121,7 +121,7 @@ assert.equal(kilder[0].gruppenavn, "Lovsang");
 assert.equal(kilder[0].rolle, "Leder");
 
 assert.equal(hentTilgang(synket, "P001").isLeader, true);
-assert.equal(hentTilgang(synket, "P090").isLeader, false);
+assert.equal(hentTilgang(synket, "P090").isLeader, true);
 assert.equal(finnGrupperForGruppeleder(synket, "P090").length, 0);
 assert.equal(finnGrupperSomLederEllerNestleder(synket, "P001").length, 1);
 assert.equal(finnGrupperSomLederEllerNestleder(synket, "P001")[0].Gruppenavn, "Lovsang");

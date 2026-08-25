@@ -1,7 +1,8 @@
 import { Person } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import { erMagiskLenkeToken, hentApiIdentitet } from "./innlogging";
-import { finnGrupperForGruppeleder } from "./grupper";
+
+export type Tilgangsnivå = NonNullable<Person["Tilgangsnivå"]>;
 
 /**
  * Tilfeldig magisk-lenke-token. Kan ikke regnes ut fra PersonID eller navn.
@@ -134,26 +135,87 @@ function erAktivRad(verdi: unknown): boolean {
   return verdi !== false && verdi !== "FALSE" && verdi !== "false";
 }
 
+export const MAGNAR_GOOGLE_EPOST = "magnar.totland@gmail.com";
+
+function serUtSomMagnar(person: Person): boolean {
+  const navn = String(person.Navn || "").trim().toLowerCase();
+  const fornavn = String(person.Fornavn || "").trim().toLowerCase();
+  return fornavn === "magnar" || navn === "magnar" || navn.startsWith("magnar ");
+}
+
+export function lesTilgangsnivaa(verdi: unknown): Tilgangsnivå | "" {
+  const v = String(verdi || "").trim().toLowerCase();
+  if (v === "admin" || v === "administrator") return "admin";
+  if (v === "gruppeleder") return "gruppeleder";
+  if (v === "bruker" || v === "medlem") return "bruker";
+  return "";
+}
+
+export function lederPersonIder(db: DatabaseState): Set<string> {
+  const ids = new Set<string>();
+  for (const g of db.grupper || []) {
+    if (!erAktivRad(g.Aktiv)) continue;
+    const leder = String(g.GruppelederID || "").trim();
+    const nest = String(g.NestlederID || "").trim();
+    if (leder) ids.add(leder);
+    if (nest) ids.add(nest);
+  }
+  return ids;
+}
+
+/** Lagret verdi, eller utledet når cellen er tom (før arket er fylt). */
+export function tilgangsnivaaForPerson(db: DatabaseState, personID: string): Tilgangsnivå {
+  const person = db.personer.find((p) => p.PersonID === personID);
+  if (!person || !erAktivRad(person.Aktiv)) return "bruker";
+  const lagret = lesTilgangsnivaa(person.Tilgangsnivå);
+  if (lagret) return lagret;
+  if (serUtSomMagnar(person) || eposterMatcher(person.Epost, MAGNAR_GOOGLE_EPOST)) return "admin";
+  if (lederPersonIder(db).has(person.PersonID)) return "gruppeleder";
+  return "bruker";
+}
+
+export function fyllManglendeTilgangsnivaa(db: DatabaseState): DatabaseState {
+  const ledere = lederPersonIder(db);
+  let endret = false;
+  const personer = db.personer.map((p) => {
+    if (lesTilgangsnivaa(p.Tilgangsnivå)) return p;
+    let neste: Tilgangsnivå = "bruker";
+    if (serUtSomMagnar(p) || eposterMatcher(p.Epost, MAGNAR_GOOGLE_EPOST)) neste = "admin";
+    else if (ledere.has(p.PersonID)) neste = "gruppeleder";
+    endret = true;
+    return { ...p, Tilgangsnivå: neste };
+  });
+  return endret ? { ...db, personer } : db;
+}
+
+/** Oppgrader/nedgrader bruker↔gruppeleder etter Grupper. Rører ikke admin. */
+export function synkTilgangsnivaaEtterGruppeledere(db: DatabaseState): DatabaseState {
+  const ledere = lederPersonIder(db);
+  return {
+    ...db,
+    personer: db.personer.map((p) => {
+      const nivå = lesTilgangsnivaa(p.Tilgangsnivå) || tilgangsnivaaForPerson(db, p.PersonID);
+      if (nivå === "admin") return { ...p, Tilgangsnivå: "admin" };
+      const neste: Tilgangsnivå = ledere.has(p.PersonID) ? "gruppeleder" : "bruker";
+      if (nivå === neste && p.Tilgangsnivå === neste) return p;
+      return { ...p, Tilgangsnivå: neste };
+    }),
+  };
+}
+
 export function erAdministrator(db: DatabaseState, personID: string): boolean {
   const person = db.personer.find((p) => p.PersonID === personID);
   if (!person || !erAktivRad(person.Aktiv)) return false;
-
-  const adminRolle = (db.roller || []).find(
-    (r) =>
-      erAktivRad(r.Aktiv) && String(r.Rollenavn || "").trim().toLowerCase() === "administrator"
-  );
-  if (!adminRolle) return false;
-  return (db.personroller || []).some(
-    (pr) => erAktivRad(pr.Aktiv) && pr.PersonID === personID && pr.RolleID === adminRolle.RolleID
-  );
+  return tilgangsnivaaForPerson(db, personID) === "admin";
 }
 
 /** Tilgang for aktiv person: vanlige brukere, gruppeledere og administrator. */
 export function hentTilgang(db: DatabaseState, personID: string): PersonTilgang {
-  const isAdmin = erAdministrator(db, personID);
-  const isLeader = finnGrupperForGruppeleder(db, personID).length > 0;
+  const nivå = tilgangsnivaaForPerson(db, personID);
+  const isAdmin = nivå === "admin";
+  const isLeader = nivå === "gruppeleder" || isAdmin;
   const views: AppView[] = ["personal"];
-  if (isLeader || isAdmin) views.push("leader");
+  if (isLeader) views.push("leader");
   if (isAdmin) views.push("admin");
   return { isLeader, isAdmin, views };
 }
@@ -165,6 +227,7 @@ export function visningErTillatt(tilgang: PersonTilgang, view: AppView): boolean
 /** Første visning etter innlogging. Faner ellers styres av tilgang. */
 export function startvisningForTilgang(tilgang: PersonTilgang): AppView {
   if (tilgang.isAdmin) return "admin";
+  if (tilgang.isLeader) return "leader";
   return "personal";
 }
 
@@ -192,14 +255,6 @@ function eposterMatcher(a: string, b: string): boolean {
   return Boolean(na && nb && na === nb);
 }
 
-export const MAGNAR_GOOGLE_EPOST = "magnar.totland@gmail.com";
-
-function serUtSomMagnar(person: Person): boolean {
-  const navn = String(person.Navn || "").trim().toLowerCase();
-  const fornavn = String(person.Fornavn || "").trim().toLowerCase();
-  return fornavn === "magnar" || navn === "magnar" || navn.startsWith("magnar ");
-}
-
 /** Person som matcher Google-sesjonen — uten å kreve at admin-rollen allerede ligger i arket. */
 export function finnPersonForGoogleSesjon(
   db: DatabaseState,
@@ -224,13 +279,6 @@ export function finnPersonForGoogleSesjon(
   return undefined;
 }
 
-function adminRolleIDb(db: DatabaseState) {
-  return (db.roller || []).find(
-    (r) =>
-      erAktivRad(r.Aktiv) && String(r.Rollenavn || "").trim().toLowerCase() === "administrator"
-  );
-}
-
 /** Sørg for at Magnars Google-konto kan åpne appen selv om arket mangler e-post eller admin-rad. */
 export function sikreMagnarGoogleAdminIMinne(
   db: DatabaseState,
@@ -251,64 +299,22 @@ export function sikreMagnarGoogleAdminIMinne(
       Etternavn: "Totland",
       Epost: MAGNAR_GOOGLE_EPOST,
       Telefon: "",
+      Tilgangsnivå: "admin",
       Aktiv: true,
       OpprettetDato: now,
       SistEndret: now,
     };
     neste = { ...neste, personer: [...neste.personer, person] };
-  } else if (!eposterMatcher(person.Epost, MAGNAR_GOOGLE_EPOST)) {
-    person = { ...person, Epost: MAGNAR_GOOGLE_EPOST, SistEndret: now };
+  } else {
+    person = {
+      ...person,
+      Epost: MAGNAR_GOOGLE_EPOST,
+      Tilgangsnivå: "admin",
+      SistEndret: now,
+    };
     neste = {
       ...neste,
       personer: neste.personer.map((p) => (p.PersonID === person!.PersonID ? person! : p)),
-    };
-  }
-
-  let roller = neste.roller || [];
-  let adminRolle = adminRolleIDb(neste);
-  if (!adminRolle) {
-    adminRolle = {
-      RolleID: "R013",
-      Rollenavn: "Administrator",
-      Beskrivelse: "Full administrativ tilgang til planleggeren.",
-      Aktiv: true,
-      Behov: 0,
-      GruppeID: "",
-      OpprettetDato: now,
-      SistEndret: now,
-    };
-    roller = [...roller, adminRolle];
-    neste = { ...neste, roller };
-  }
-  const harRolle = (neste.personroller || []).some(
-    (pr) =>
-      erAktivRad(pr.Aktiv) &&
-      pr.PersonID === person.PersonID &&
-      pr.RolleID === adminRolle!.RolleID
-  );
-  if (!harRolle) {
-    const n = Math.max(
-      0,
-      ...(neste.personroller || []).map(
-        (pr) => parseInt(String(pr.PersonRolleID || "").replace(/\D/g, ""), 10) || 0
-      )
-    );
-    neste = {
-      ...neste,
-      personroller: [
-        ...(neste.personroller || []),
-        {
-          PersonRolleID: `PR${String(n + 1).padStart(3, "0")}`,
-          PersonID: person.PersonID,
-          RolleID: adminRolle.RolleID,
-          Aktiv: true,
-          FraDato: now,
-          TilDato: "",
-          Notat: "Google-innlogging Magnar",
-          OpprettetDato: now,
-          SistEndret: now,
-        },
-      ],
     };
   }
   return { db: neste, person };

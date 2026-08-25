@@ -19,7 +19,7 @@ import {
   initialMalaktiviteter,
 } from "../data/initialData";
 import { hentApiIdentitet, lagreAdminSesjonPersonId } from "./innlogging";
-import { sikreSikkerhetsTokens, rensLastetPersondata } from "./tilgang";
+import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa } from "./tilgang";
 import { synkGruppeledergruppe } from "./grupper";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
@@ -398,14 +398,14 @@ async function fetchJson(url: string, init?: RequestInit): Promise<string> {
 function applyLoadedState(state: DatabaseState): DatabaseState {
   const personer = sikreSikkerhetsTokens(state.personer);
   let endret = personer.some((p, i) => p.SikkerhetsToken !== state.personer[i]?.SikkerhetsToken);
-  let fixed: DatabaseState = {
+  let fixed: DatabaseState = fyllManglendeTilgangsnivaa({
     ...state,
     personer,
     gudstjenester: (state.gudstjenester || []).map((g) => {
       const Sted = rensSted(g.Sted);
       return Sted === g.Sted ? g : { ...g, Sted };
     }),
-  };
+  });
   const lydBilde = korrigerLydBildeTilRigg(fixed);
   fixed = lydBilde.state;
   if (lydBilde.endret) endret = true;

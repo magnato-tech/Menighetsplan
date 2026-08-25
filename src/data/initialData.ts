@@ -80,6 +80,7 @@ export const initialPersoner: Person[] = [
     Postnummer: "5000",
     Poststed: "Bergen",
     Notat: "Hovedadministrator og gruppeleder for Gudstjenesteledere.",
+    Tilgangsnivå: "admin",
     Aktiv: true,
     OpprettetDato: "2026-01-01",
     SistEndret: "2026-01-01",
@@ -540,15 +541,6 @@ export const initialRoller: Rolle[] = [
     OpprettetDato: "2026-01-10",
     SistEndret: "2026-01-10",
   },
-  {
-    RolleID: "R013",
-    Rollenavn: "Administrator",
-    Beskrivelse: "Full administrativ tilgang til planleggeren. Ikke en gudstjenesterolle.",
-    Aktiv: true,
-    Behov: 0,
-    OpprettetDato: "2026-01-10",
-    SistEndret: "2026-01-10",
-  },
 ];
 
 export const initialPersonroller: Personrolle[] = [
@@ -556,8 +548,7 @@ export const initialPersonroller: Personrolle[] = [
   { PersonRolleID: "PR001", PersonID: "P001", RolleID: "R001", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { PersonRolleID: "PR002", PersonID: "P001", RolleID: "R002", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { PersonRolleID: "PR003", PersonID: "P001", RolleID: "R008", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
-  { PersonRolleID: "PR031", PersonID: "P001", RolleID: "R013", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
-  
+   
   // Ingrid Hansen
   { PersonRolleID: "PR004", PersonID: "P002", RolleID: "R005", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { PersonRolleID: "PR005", PersonID: "P002", RolleID: "R001", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },

@@ -57,22 +57,13 @@ function tomDb(): DatabaseState {
     gruppetyper: [],
     personer: [
       person({ PersonID: "P001", Navn: "Line Lovsang", Fornavn: "Line" }),
-      person({ PersonID: "P002", Navn: "Gruppe Leder", Fornavn: "Gruppe" }),
-      person({ PersonID: "P003", Navn: "Admin Person", Fornavn: "Magnar" }),
+      person({ PersonID: "P002", Navn: "Gruppe Leder", Fornavn: "Gruppe", Tilgangsnivå: "gruppeleder" }),
+      person({ PersonID: "P003", Navn: "Admin Person", Fornavn: "Magnar", Tilgangsnivå: "admin" }),
       person({ PersonID: "P004", Navn: "Vanlig Deltaker", Fornavn: "Vanlig" }),
     ],
     grupper: [gruppe],
     gruppemedlemmer: [],
-    personroller: [
-      {
-        PersonRolleID: "PR-ADM",
-        PersonID: "P003",
-        RolleID: "R013",
-        Aktiv: true,
-        OpprettetDato: "2026-01-01",
-        SistEndret: "2026-01-01",
-      },
-    ],
+    personroller: [],
     roller: [
       moteleder,
       {
@@ -82,15 +73,6 @@ function tomDb(): DatabaseState {
         Aktiv: true,
         Behov: 1,
         GruppeID: "G001",
-        OpprettetDato: "2026-01-01",
-        SistEndret: "2026-01-01",
-      },
-      {
-        RolleID: "R013",
-        Rollenavn: "Administrator",
-        Beskrivelse: "",
-        Aktiv: true,
-        Behov: 0,
         OpprettetDato: "2026-01-01",
         SistEndret: "2026-01-01",
       },
