@@ -721,11 +721,11 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                     )}
                   </div>
 
-                  <div className="px-4 sm:px-6 py-3 border-t border-slate-100 flex justify-end shrink-0 sheet-safe-bottom">
+                  <div className="px-4 sm:px-6 py-3 border-t border-slate-100 flex shrink-0 sheet-safe-bottom bg-white/95">
                     <button
                       type="button"
                       onClick={() => onDatePickerRolleChange(null)}
-                      className="px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+                      className="min-h-11 w-full px-4 bg-[#2d5a3f] hover:bg-[#234731] text-white text-sm font-semibold rounded-xl transition cursor-pointer"
                     >
                       Ferdig
                     </button>
