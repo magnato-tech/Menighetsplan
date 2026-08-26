@@ -268,7 +268,7 @@ await testAsync("saveDatabase: localStorage med en gang, remote én in-flight og
     inflight += 1;
     maxInflight = Math.max(maxInflight, inflight);
     const body = JSON.parse(String(init?.body || "{}")) as { data?: DatabaseState };
-    const antall = body.data?.personer.length ?? 0;
+    const antall = body.data?.personer?.length ?? 0;
     if (mottatt.length === 0) await førsteLås;
     mottatt.push(antall);
     inflight -= 1;
@@ -296,7 +296,7 @@ await testAsync("saveDatabase: localStorage med en gang, remote én in-flight og
     await whenRemoteSaveIdle();
     assert.equal(maxInflight, 1);
     assert.ok(mottatt.length >= 1);
-    assert.equal(mottatt[mottatt.length - 1], db2.personer.length);
+    assert.equal(mottatt[mottatt.length - 1], 0);
   } finally {
     globalThis.fetch = origFetch;
     slettMagiskToken();

@@ -28,9 +28,29 @@ const DEV_SOURCE_KEY = "gudstjenesteplanlegger_dev_data_source";
 const SCRIPT_URL_STORAGE_KEY = "gudstjenesteplanlegger_apps_script_url";
 
 let sisteLastetPersonId: string | null = null;
+/** True når siste load fra server var admin (full persondata, ikke renset). */
+let sisteLastHaddeFullPersondata = false;
 
 export function hentSisteLastetPersonId(): string | null {
   return sisteLastetPersonId;
+}
+
+function noterPersondataFraServer(isAdmin: unknown): void {
+  sisteLastHaddeFullPersondata = isAdmin === true;
+}
+
+/**
+ * Ikke-admin får renset Personer (tom e-post). Den staten skal aldri skrives tilbake.
+ * Admin som lastet full data får med personer.
+ */
+export function stateForRemoteSave(
+  state: DatabaseState,
+  harFullPersondata = sisteLastHaddeFullPersondata
+): DatabaseState {
+  if (harFullPersondata) return state;
+  const neste = { ...state } as DatabaseState & { personer?: DatabaseState["personer"] };
+  delete neste.personer;
+  return neste;
 }
 
 export const DEFAULT_REMOTE_SCRIPT_URL =
@@ -540,6 +560,7 @@ export async function loadDatabase(): Promise<DatabaseState> {
     });
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
+      noterPersondataFraServer(payload.isAdmin);
       const state = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
       if (payload.personId) {
         sisteLastetPersonId = String(payload.personId);
@@ -599,6 +620,7 @@ export async function forceSyncFromGoogleSheets(customUrl?: string): Promise<{ s
 
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
+      noterPersondataFraServer(payload.isAdmin);
       const normalized = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
       // Lagre til lokal database slik at dataene sitter fast
       saveCustomScriptUrl(targetUrl);
@@ -638,7 +660,7 @@ export async function uploadToGoogleSheets(state: DatabaseState, customUrl?: str
     const response = await fetch(postUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", data: state, ...requireRemoteAuth() }),
+      body: JSON.stringify({ action: "save", data: stateForRemoteSave(state), ...requireRemoteAuth() }),
     });
     const payload = await response.json().catch(() => null);
     if (payload?.ok) {
@@ -759,7 +781,7 @@ async function pumpRemoteSave(): Promise<void> {
     const response = await fetch(base, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", data: state, ...ident }),
+      body: JSON.stringify({ action: "save", data: stateForRemoteSave(state), ...ident }),
     });
     const payload = await response.json().catch(() => null);
     if (!payload?.ok) {

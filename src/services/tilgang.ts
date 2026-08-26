@@ -119,7 +119,8 @@ export function rensLastetPersondata(db: DatabaseState): DatabaseState {
   if (!token) return db;
   const meg = finnPersonMedMagiskToken(db, token);
   if (!meg) return db;
-  if (hentTilgang(db, meg.PersonID).isAdmin) return db;
+  // Kun eksplisitt Tilgangsnivå i arket — ikke navne-fallback (ellers ser Magnar ut som admin med renset state).
+  if (lesTilgangsnivaa(meg.Tilgangsnivå) === "admin") return db;
   return rensPersondataForKlient(db, meg.PersonID, false);
 }
 
@@ -169,7 +170,7 @@ export function tilgangsnivaaForPerson(db: DatabaseState, personID: string): Til
   if (!person || !erAktivRad(person.Aktiv)) return "bruker";
   const lagret = lesTilgangsnivaa(person.Tilgangsnivå);
   if (lagret) return lagret;
-  if (serUtSomMagnar(person) || eposterMatcher(person.Epost, MAGNAR_GOOGLE_EPOST)) return "admin";
+  if (eposterMatcher(person.Epost, MAGNAR_GOOGLE_EPOST)) return "admin";
   if (lederPersonIder(db).has(person.PersonID)) return "gruppeleder";
   return "bruker";
 }
@@ -180,7 +181,7 @@ export function fyllManglendeTilgangsnivaa(db: DatabaseState): DatabaseState {
   const personer = db.personer.map((p) => {
     if (lesTilgangsnivaa(p.Tilgangsnivå)) return p;
     let neste: Tilgangsnivå = "bruker";
-    if (serUtSomMagnar(p) || eposterMatcher(p.Epost, MAGNAR_GOOGLE_EPOST)) neste = "admin";
+    if (eposterMatcher(p.Epost, MAGNAR_GOOGLE_EPOST)) neste = "admin";
     else if (ledere.has(p.PersonID)) neste = "gruppeleder";
     endret = true;
     return { ...p, Tilgangsnivå: neste };

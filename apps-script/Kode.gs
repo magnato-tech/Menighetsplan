@@ -380,6 +380,16 @@ function appendSheetRecord_(ss, spec, rec) {
   sheet.appendRow(row);
 }
 
+/** Legger til manglende overskrift i Personer og returnerer 0-basert kolonneindeks. */
+function ensurePersonHeaderColumn_(sheet, headerRow, headers, columnName) {
+  var colIdx = headerIndex_(headers, columnName);
+  if (colIdx >= 0) return colIdx;
+  var newCol = sheet.getLastColumn() + 1;
+  sheet.getRange(headerRow + 1, newCol).setValue(columnName);
+  headers[newCol - 1] = columnName;
+  return newCol - 1;
+}
+
 function setPersonColumnCell_(personId, columnName, value) {
   var ss = getSpreadsheet_();
   var spec = MASTER_SHEETS.personer;
@@ -392,8 +402,8 @@ function setPersonColumnCell_(personId, columnName, value) {
   var headerRow = findHeaderRow_(values, spec.columns[0]);
   var headers = values[headerRow] || [];
   var idIdx = headerIndex_(headers, "PersonID");
-  var colIdx = headerIndex_(headers, columnName);
-  if (idIdx < 0 || colIdx < 0) return false;
+  if (idIdx < 0) return false;
+  var colIdx = ensurePersonHeaderColumn_(sheet, headerRow, headers, columnName);
   var i;
   for (i = headerRow + 1; i < values.length; i++) {
     if (String(values[i][idIdx] || "").trim() === String(personId || "").trim()) {
@@ -626,8 +636,8 @@ function fillEmptyTilgangsnivaaCells_(ss, state) {
   var headerRow = findHeaderRow_(values, spec.columns[0]);
   var headers = values[headerRow] || [];
   var idIdx = headerIndex_(headers, "PersonID");
-  var nivaaIdx = headerIndex_(headers, "Tilgangsnivå");
-  if (idIdx < 0 || nivaaIdx < 0) return;
+  if (idIdx < 0) return;
+  var nivaaIdx = ensurePersonHeaderColumn_(sheet, headerRow, headers, "Tilgangsnivå");
   var lederIds = {};
   var grupper = state.grupper || [];
   var g;
@@ -711,7 +721,11 @@ function saveDatabase(state, isAdmin) {
   ensureSchema_();
   var ss = getSpreadsheet_();
   if (isAdmin !== false && state.personer) {
-    mergePersonTokens_(state.personer, readSheet_(ss, MASTER_SHEETS.personer));
+    var existingPersoner = readSheet_(ss, MASTER_SHEETS.personer);
+    mergePersonTokens_(state.personer, existingPersoner);
+    // Klient kan ha fått persondata uten e-post/telefon (personvern-rensing).
+    // Tomme felt i innkommende state skal ikke slette verdier som allerede ligger i arket.
+    mergePersonKontaktFelt_(state.personer, existingPersoner);
     ensurePersonTokens_(state.personer);
   }
   var key;
@@ -733,6 +747,32 @@ function mergePersonTokens_(incoming, existing) {
     if (isUsableStoredToken_(incoming[i].SikkerhetsToken)) continue;
     var prev = byId[incoming[i].PersonID];
     if (isUsableStoredToken_(prev)) incoming[i].SikkerhetsToken = prev;
+  }
+}
+
+/** Bevarer kontaktfelt og Tilgangsnivå når klient sender tomme verdier (etter sanitize). */
+function mergePersonKontaktFelt_(incoming, existing) {
+  var felter = [
+    "Epost", "Telefon", "Adresse", "Postnummer", "Poststed",
+    "Fødselsår", "Fødselsdato", "Kjønn", "Notat", "Tilgangsnivå", "BildeURL",
+  ];
+  var byId = {};
+  var i;
+  var f;
+  for (i = 0; i < (existing || []).length; i++) {
+    byId[existing[i].PersonID] = existing[i];
+  }
+  for (i = 0; i < (incoming || []).length; i++) {
+    var prev = byId[incoming[i].PersonID];
+    if (!prev) continue;
+    for (f = 0; f < felter.length; f++) {
+      var key = felter[f];
+      var ny = incoming[i][key];
+      var gammel = prev[key];
+      var nyTom = ny === null || ny === undefined || String(ny).trim() === "";
+      var gammelHarVerdi = gammel !== null && gammel !== undefined && String(gammel).trim() !== "";
+      if (nyTom && gammelHarVerdi) incoming[i][key] = gammel;
+    }
   }
 }
 

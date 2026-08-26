@@ -16,6 +16,7 @@ import {
   loadLocalDatabase,
   oppdaterPersonIRegister,
   tilgangsnivaaForPerson,
+  stateForRemoteSave,
 } from "../services/dataService";
 import { epostFraGoogleJwt, tolkInnlimtLenke, erMagiskLenkeToken, lesMagiskTokenFraUrl, lagreMagiskToken, slettMagiskToken, hentApiIdentitet } from "../services/innlogging";
 
@@ -195,5 +196,22 @@ const sikret = sikreMagnarGoogleAdminIMinne(tomtRegister, "magnar.totland@gmail.
 assert.equal(sikret.person.Fornavn, "Magnar");
 assert.equal(sikret.person.Epost, "magnar.totland@gmail.com");
 assert.equal(hentTilgang(sikret.db, sikret.person.PersonID).isAdmin, true);
+
+const utenEpost: DatabaseState = {
+  ...db,
+  personer: db.personer.map((p) => ({ ...p, Epost: "", Tilgangsnivå: undefined })),
+};
+const lagretUtenAdmin = stateForRemoteSave(utenEpost, false);
+assert.equal("personer" in lagretUtenAdmin, false);
+const lagretSomAdmin = stateForRemoteSave(utenEpost, true);
+assert.equal(lagretSomAdmin.personer.length, utenEpost.personer.length);
+
+const magnarUtenNivaa = {
+  ...db,
+  personer: db.personer.map((p) =>
+    p.PersonID === admin!.PersonID ? { ...p, Tilgangsnivå: undefined, Epost: "" } : p
+  ),
+};
+assert.notEqual(tilgangsnivaaForPerson(magnarUtenNivaa, admin!.PersonID), "admin");
 
 console.log("innlogging.test.ts: alle tester ok");
