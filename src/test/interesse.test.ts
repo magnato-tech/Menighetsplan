@@ -207,7 +207,7 @@ test("bekreftelseKonsekvensTekst har tre modus", () => {
     forlaterGruppenavn: ["Teknikk"],
     blirMedITjenestegruppe: true,
   });
-  assert.match(bytte, /Du bytter fra Teknikk til Barnekirke/);
+  assert.match(bytte, /Du bytter fra Teknikk til Barnekirke.*trekkes tilbake/);
 
   const slutter = bekreftelseKonsekvensTekst({
     varMedITjenestegruppe: true,
@@ -215,7 +215,7 @@ test("bekreftelseKonsekvensTekst har tre modus", () => {
     forlaterGruppenavn: ["Teknikk"],
     blirMedITjenestegruppe: false,
   });
-  assert.match(slutter, /Du går ut av Teknikk.*ikke med i noen tjenestegruppe/);
+  assert.match(slutter, /Du går ut av Teknikk.*ikke med i noen tjenestegruppe.*trekkes tilbake/);
 });
 
 test("tildeling eller personrolle uten gruppemedlemskap gir ikke påmelding", () => {
@@ -251,6 +251,132 @@ test("velkomstForGrupper viser gruppeleders navn", () => {
   const teknikk = db.grupper.find((g) => g.GruppeID === "G003")!;
   const velkomst = velkomstForGrupper(db, [teknikk]);
   assert.equal(velkomst[0].lederNavn, "Leder Person");
+});
+
+test("går ut av gruppe avlyser kommende oppgaver, ikke historikk", () => {
+  let db = settPersonroller(tomDb(), "P001", ["R006", "R007"]);
+  db = {
+    ...db,
+    gudstjenester: [
+      {
+        GudstjenesteID: "GUD-FORTID",
+        Dato: "2020-01-05",
+        Tid: "11:00",
+        Sted: "",
+        Tema: "",
+      },
+      {
+        GudstjenesteID: "GUD-FREMTID",
+        Dato: "2026-12-06",
+        Tid: "11:00",
+        Sted: "",
+        Tema: "",
+      },
+    ],
+    tildelinger: [
+      {
+        TildelingID: "T-FORTID",
+        GudstjenesteID: "GUD-FORTID",
+        RolleID: "R006",
+        PersonID: "P001",
+        OpprettetDato: "2020-01-01",
+        SistEndret: "2020-01-01",
+      },
+      {
+        TildelingID: "T-FREMTID",
+        GudstjenesteID: "GUD-FREMTID",
+        RolleID: "R006",
+        PersonID: "P001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        TildelingID: "T-BILDE",
+        GudstjenesteID: "GUD-FREMTID",
+        RolleID: "R007",
+        PersonID: "P001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    svar: [
+      {
+        SvarID: "S-FORTID",
+        TildelingID: "T-FORTID",
+        PersonID: "P001",
+        Svar: "Bekreftet",
+        SvartDato: "2020-01-02",
+      },
+      {
+        SvarID: "S-FREMTID",
+        TildelingID: "T-FREMTID",
+        PersonID: "P001",
+        Svar: "Bekreftet",
+        SvartDato: "2026-01-02",
+      },
+    ],
+  };
+  db = settPersonroller(db, "P001", []);
+  const fortid = db.svar.find((s) => s.TildelingID === "T-FORTID");
+  const fremtid = db.svar.find((s) => s.TildelingID === "T-FREMTID");
+  const bilde = db.svar.find((s) => s.TildelingID === "T-BILDE");
+  assert.equal(fortid?.Svar, "Bekreftet");
+  assert.equal(fremtid?.Svar, "Avvist");
+  assert.equal(fremtid?.Kommentar, "Gått ut av tjenestegruppe");
+  assert.equal(bilde?.Svar, "Avvist");
+});
+
+test("huk av én rolle avlyser bare den oppgaven", () => {
+  let db = settPersonroller(tomDb(), "P001", ["R006", "R007"]);
+  db = {
+    ...db,
+    gudstjenester: [
+      {
+        GudstjenesteID: "GUD-FREMTID",
+        Dato: "2026-12-06",
+        Tid: "11:00",
+        Sted: "",
+        Tema: "",
+      },
+    ],
+    tildelinger: [
+      {
+        TildelingID: "T-LYD",
+        GudstjenesteID: "GUD-FREMTID",
+        RolleID: "R006",
+        PersonID: "P001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        TildelingID: "T-BILDE",
+        GudstjenesteID: "GUD-FREMTID",
+        RolleID: "R007",
+        PersonID: "P001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    svar: [
+      {
+        SvarID: "S-LYD",
+        TildelingID: "T-LYD",
+        PersonID: "P001",
+        Svar: "Venter",
+        SvartDato: "2026-01-02",
+      },
+      {
+        SvarID: "S-BILDE",
+        TildelingID: "T-BILDE",
+        PersonID: "P001",
+        Svar: "Bekreftet",
+        SvartDato: "2026-01-02",
+      },
+    ],
+  };
+  db = settPersonroller(db, "P001", ["R007"]);
+  assert.equal(db.svar.find((s) => s.TildelingID === "T-LYD")?.Svar, "Avvist");
+  assert.equal(db.svar.find((s) => s.TildelingID === "T-BILDE")?.Svar, "Bekreftet");
 });
 
 if (failed > 0) {

@@ -1,8 +1,10 @@
-import { Gruppe, Personrolle, Rolle } from "../types/database";
+import { Gruppe, Personrolle, Rolle, Svar } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 import { erTjenestegruppe, sikreGruppemedlemskap } from "./grupper";
 import { saveDatabase } from "./persistens";
+
+const AVLYST_UTMELDING = "Gått ut av tjenestegruppe";
 
 export type RolleEndringLinje = {
   rolleId: string;
@@ -151,7 +153,7 @@ export function bekreftelseKonsekvensTekst(input: BekreftelseKonsekvens): string
   const forlater = unikeNavn(input.forlaterGruppenavn);
 
   if (forlater.length > 0 && !input.blirMedITjenestegruppe) {
-    return `Du går ut av ${joinerNavn(forlater)}. Du er da ikke med i noen tjenestegruppe.`;
+    return `Du går ut av ${joinerNavn(forlater)}. Du er da ikke med i noen tjenestegruppe. Kommende oppgaver i gruppen trekkes tilbake.`;
   }
 
   if (!input.varMedITjenestegruppe && nye.length > 0) {
@@ -164,7 +166,7 @@ export function bekreftelseKonsekvensTekst(input: BekreftelseKonsekvens): string
   if (forlater.length > 0 && nye.length > 0) {
     const til =
       nye.length === 1 ? `tjenestegruppen ${nye[0]}` : "disse tjenestegruppene";
-    return `Du bytter fra ${joinerNavn(forlater)} til ${joinerNavn(nye)}. Nå kan du velge oppgaver fra ${til}.`;
+    return `Du bytter fra ${joinerNavn(forlater)} til ${joinerNavn(nye)}. Kommende oppgaver i ${joinerNavn(forlater)} trekkes tilbake. Nå kan du velge oppgaver fra ${til}.`;
   }
 
   if (nye.length > 0) {
@@ -174,10 +176,78 @@ export function bekreftelseKonsekvensTekst(input: BekreftelseKonsekvens): string
   }
 
   if (forlater.length > 0) {
-    return `Du går ut av ${joinerNavn(forlater)}.`;
+    return `Du går ut av ${joinerNavn(forlater)}. Kommende oppgaver i gruppen trekkes tilbake.`;
   }
 
   return "";
+}
+
+function svarForTildeling(db: DatabaseState, tildelingId: string): string {
+  return db.svar.find((s) => s.TildelingID === tildelingId)?.Svar || "Venter";
+}
+
+/** Kommende tildelinger for gitte roller settes til Avvist. Lagrer ikke selv. */
+export function avlysKommendeTildelingerForRoller(
+  db: DatabaseState,
+  personId: string,
+  rolleIds: string[],
+  kommentar = AVLYST_UTMELDING
+): DatabaseState {
+  const trekk = new Set(rolleIds.filter(Boolean));
+  if (trekk.size === 0) return db;
+  const iDagStr = iDag();
+  const kommendeGud = new Set(
+    (db.gudstjenester || [])
+      .filter((g) => String(g.Dato || "") >= iDagStr)
+      .map((g) => g.GudstjenesteID)
+  );
+  const berorte = (db.tildelinger || []).filter(
+    (t) =>
+      t.PersonID === personId &&
+      trekk.has(t.RolleID) &&
+      kommendeGud.has(t.GudstjenesteID) &&
+      svarForTildeling(db, t.TildelingID) !== "Avvist"
+  );
+  if (berorte.length === 0) return db;
+
+  let svar = [...(db.svar || [])];
+  for (const t of berorte) {
+    const idx = svar.findIndex((s) => s.TildelingID === t.TildelingID && s.PersonID === personId);
+    if (idx >= 0) {
+      svar[idx] = {
+        ...svar[idx],
+        Svar: "Avvist",
+        Kommentar: kommentar,
+        SvartDato: iDagStr,
+      };
+      continue;
+    }
+    const ny: Svar = {
+      SvarID: nesteNummerertId(svar, "SvarID", "S"),
+      TildelingID: t.TildelingID,
+      PersonID: personId,
+      Svar: "Avvist",
+      Kommentar: kommentar,
+      SvartDato: iDagStr,
+    };
+    svar = [...svar, ny];
+  }
+  return { ...db, svar };
+}
+
+function rolleIdsSomSkalAvlyses(
+  db: DatabaseState,
+  personId: string,
+  nesteRolleIds: string[]
+): string[] {
+  const opps = oppsummerRolleendring(db, personId, nesteRolleIds);
+  const ids = new Set(opps.fjernet.map((l) => l.rolleId));
+  for (const gruppe of opps.forlaterGrupper) {
+    for (const rolle of tjenesteRoller(db)) {
+      if (rolle.GruppeID === gruppe.gruppeId) ids.add(rolle.RolleID);
+    }
+  }
+  return Array.from(ids);
 }
 
 export function settPersonroller(
@@ -186,6 +256,7 @@ export function settPersonroller(
   rolleIds: string[]
 ): DatabaseState {
   const now = iDag();
+  const avlysRolleIds = rolleIdsSomSkalAvlyses(db, personId, rolleIds);
   const valgte = new Set(rolleIds);
   const tjenesteIds = new Set(tjenesteRoller(db).map((r) => r.RolleID));
   let personroller = [...(db.personroller || [])];
@@ -248,7 +319,8 @@ export function settPersonroller(
     gruppemedlemmer = sikreGruppemedlemskap(gruppemedlemmer, rolle.GruppeID, personId, "Medlem");
   }
 
-  const updatedDb: DatabaseState = { ...db, personroller, gruppemedlemmer };
+  const medMedlemskap: DatabaseState = { ...db, personroller, gruppemedlemmer };
+  const updatedDb = avlysKommendeTildelingerForRoller(medMedlemskap, personId, avlysRolleIds);
   saveDatabase(updatedDb);
   return updatedDb;
 }
