@@ -2,16 +2,13 @@ import { Gruppetype, Gruppe, Gruppemedlem, Person, Rolle } from "../types/databa
 import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 
-/** Aktive tjenestegrupper der personen er GruppelederID eller NestlederID. */
+/** Aktive grupper der personen er GruppelederID eller NestlederID. */
 export function finnGrupperSomLederEllerNestleder(
   db: DatabaseState,
   personID: string
 ): Gruppe[] {
   return (db.grupper || []).filter(
-    (g) =>
-      g.Aktiv &&
-      (g.GruppelederID === personID || g.NestlederID === personID) &&
-      erTjenestegruppe(db, g)
+    (g) => g.Aktiv && (g.GruppelederID === personID || g.NestlederID === personID)
   );
 }
 
@@ -61,7 +58,7 @@ export function finnGrupperForGruppeleder(
     }
   }
 
-  return Array.from(grupperMap.values()).filter((g) => erTjenestegruppe(db, g));
+  return Array.from(grupperMap.values());
 }
 
 export interface PersonGruppeTilknytning {

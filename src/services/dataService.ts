@@ -5,6 +5,7 @@ export type { DatabaseState } from "../types/database";
 export * from "./ids";
 export * from "./tilgang";
 export * from "./grupper";
+export * from "./roller";
 export * from "./interesse";
 export * from "./bemanning";
 export * from "./program";

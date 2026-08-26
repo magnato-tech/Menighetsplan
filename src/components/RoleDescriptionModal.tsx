@@ -13,7 +13,14 @@ interface RoleDescriptionModalProps {
   editable?: boolean;
   grupper?: Gruppe[];
   antallKvalifiserte?: number;
-  onUpdateRolle?: (patch: { GruppeID?: string; Behov?: number; MaksAntall?: number | null }) => void;
+  onUpdateRolle?: (patch: {
+    Rollenavn?: string;
+    Beskrivelse?: string;
+    GruppeID?: string;
+    Behov?: number;
+    MaksAntall?: number | null;
+    Aktiv?: boolean;
+  }) => void;
   onSaveInstruks?: (tekst: string) => void;
 }
 
@@ -92,12 +99,16 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
   const [redigererInstruks, setRedigererInstruks] = useState(false);
   const [utkastInstruks, setUtkastInstruks] = useState(gjeldendeTekst);
   const [visBekreftInstruks, setVisBekreftInstruks] = useState(false);
+  const [utkastNavn, setUtkastNavn] = useState(rolle?.Rollenavn || "");
+  const [utkastBeskrivelse, setUtkastBeskrivelse] = useState(rolle?.Beskrivelse || "");
 
   useEffect(() => {
     setRedigererInstruks(false);
     setUtkastInstruks(gjeldendeTekst);
     setVisBekreftInstruks(false);
-  }, [rolle?.RolleID, gjeldendeTekst]);
+    setUtkastNavn(rolle?.Rollenavn || "");
+    setUtkastBeskrivelse(rolle?.Beskrivelse || "");
+  }, [rolle?.RolleID, gjeldendeTekst, rolle?.Rollenavn, rolle?.Beskrivelse]);
 
   if (!rolle) return null;
 
@@ -131,7 +142,25 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
               <span className="text-xs font-semibold uppercase tracking-wider text-[#2d5a3f]">
                 Rolle
               </span>
-              <h2 className="text-xl font-bold text-slate-900">{rolle.Rollenavn}</h2>
+              {editable && onUpdateRolle ? (
+                <input
+                  type="text"
+                  value={utkastNavn}
+                  onChange={(e) => setUtkastNavn(e.target.value)}
+                  onBlur={() => {
+                    const navn = utkastNavn.trim();
+                    if (!navn || navn === rolle.Rollenavn) {
+                      setUtkastNavn(rolle.Rollenavn);
+                      return;
+                    }
+                    onUpdateRolle({ Rollenavn: navn });
+                  }}
+                  className="block w-full text-xl font-bold text-slate-900 border border-slate-200 rounded-lg px-2 py-1 mt-0.5 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
+                  aria-label="Rollenavn"
+                />
+              ) : (
+                <h2 className="text-xl font-bold text-slate-900">{rolle.Rollenavn}</h2>
+              )}
             </div>
           </div>
           <button
@@ -264,8 +293,36 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
           </p>
         )}
 
-        {rolle.Beskrivelse && (
-          <p className="text-sm text-slate-600 leading-relaxed mb-4">{rolle.Beskrivelse}</p>
+        {editable && onUpdateRolle && (
+          <label className="flex items-center gap-2 mb-4 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={rolle.Aktiv}
+              onChange={(e) => onUpdateRolle({ Aktiv: e.target.checked })}
+              className="rounded border-slate-300"
+            />
+            Aktiv (vises i påmelding og bemanning når den hører til en tjenestegruppe)
+          </label>
+        )}
+
+        {editable && onUpdateRolle ? (
+          <label className="block mb-4">
+            <span className="text-xs font-semibold text-slate-500">Kort beskrivelse</span>
+            <textarea
+              value={utkastBeskrivelse}
+              onChange={(e) => setUtkastBeskrivelse(e.target.value)}
+              onBlur={() => {
+                if (utkastBeskrivelse.trim() === (rolle.Beskrivelse || "").trim()) return;
+                onUpdateRolle({ Beskrivelse: utkastBeskrivelse.trim() });
+              }}
+              rows={2}
+              className="mt-1 w-full text-sm text-slate-700 border border-slate-200 rounded-xl p-2.5 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
+            />
+          </label>
+        ) : (
+          rolle.Beskrivelse && (
+            <p className="text-sm text-slate-600 leading-relaxed mb-4">{rolle.Beskrivelse}</p>
+          )
         )}
 
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5">

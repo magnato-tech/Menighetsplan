@@ -258,13 +258,18 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             Du bidrar med {rolleNavnTekst}.
           </p>
         </div>
+        {visningsRoller.length > 0 && (
+          <p className="sm:hidden text-sm text-slate-600">
+            Velg dato ved å klikke på fanene nederst.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {visningsRoller.map((rolle) => (
             <button
               key={rolle.RolleID}
               type="button"
               onClick={() => openDatePicker(rolle)}
-              className="min-h-11 flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer shadow-xs"
+              className="hidden sm:inline-flex min-h-11 flex-1 sm:flex-none items-center justify-center gap-1.5 px-4 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4 shrink-0" />
               <span>
@@ -277,7 +282,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           <button
             type="button"
             onClick={() => onOppgaverArkChange?.(true)}
-            className="min-h-11 px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer"
+            className="min-h-11 w-full sm:w-auto px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer"
           >
             {personensRoller.length === 0 ? "Velg oppgaver" : "Mine oppgaver"}
           </button>
@@ -287,8 +292,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           <p>
             Du har sagt ja til å bidra med{" "}
             <strong className="text-[#1e3e2b] font-bold">{rolleNavnTekst}</strong> i menigheten.
-            Vi har satt opp et forslag til datoer ut fra gudstjenesteplanen, men forslagene er ikke
-            bindende. Det er helt opp til deg å vurdere hvilke datoer som passer.
+            Du kan sette deg opp der det passer.
           </p>
         </div>
       </div>
@@ -388,7 +392,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                       aria-label={visHele ? "Skjul bemanning" : "Vis bemanning"}
                       className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-slate-500 cursor-pointer"
                     >
-                      <ChevronDown className={`w-5 h-5 transition ${visHele ? "rotate-180" : ""}`} />
+                      <ChevronDown className={`w-5 h-5 transition ${visHele ? "" : "rotate-180"}`} />
                     </button>
                     </div>
                   </div>
@@ -401,7 +405,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                         return (
                           <div
                             key={item.tildeling.TildelingID}
-                            className="flex items-center gap-2 py-1.5 border-t border-slate-100 overflow-x-auto"
+                            className="flex items-center gap-2 py-1.5 border-t border-slate-100 min-w-0"
                           >
                             <button
                               type="button"
@@ -410,14 +414,14 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                                 item.rolle && setSelectedRolleForModal(item.rolle);
                               }}
                               title="Se instruks"
-                              className="flex items-center gap-2 shrink-0 text-left cursor-pointer rounded-lg hover:bg-slate-50 px-0.5 py-0.5"
+                              className="flex items-center gap-2 min-w-0 flex-1 text-left cursor-pointer rounded-lg hover:bg-slate-50 px-0.5 py-0.5"
                             >
                               <RolleIkon rollenavn={item.rolle?.Rollenavn || ""} />
-                              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 truncate">
                                 {item.rolle?.Rollenavn}
                               </span>
                             </button>
-                            <span className="text-sm font-semibold text-slate-800 inline-flex items-center gap-1.5 min-w-[4rem] shrink-0">
+                            <span className="text-sm font-semibold text-slate-800 inline-flex items-center gap-1.5 shrink-0">
                               <span
                                 className={`w-2 h-2 rounded-full shrink-0 ${
                                   isBekreftet
@@ -432,60 +436,27 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                                 {person.Fornavn || person.Navn}
                               </span>
                             </span>
-                            <div className="flex items-center gap-1 ml-auto shrink-0">
-                              {isBekreftet ? (
-                                <button
-                                  type="button"
-                                  onClick={() => handleBekreft(item.tildeling.TildelingID, true)}
-                                  className="md:hidden inline-flex items-center gap-1 px-3 py-2 min-h-11 rounded-xl text-xs font-semibold border border-slate-200 bg-white text-slate-600 cursor-pointer"
-                                >
-                                  Trekk tilbake
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => handleBekreft(item.tildeling.TildelingID, false)}
-                                  className="md:hidden inline-flex items-center gap-1 px-3 py-2 min-h-11 rounded-xl text-xs font-semibold border cursor-pointer bg-white border-slate-200 text-slate-700"
-                                >
-                                  <Check className="w-4 h-4" />
-                                  Dette passer
-                                </button>
-                              )}
-                              {!isAvvist && (
-                              <button
-                                type="button"
-                                onClick={() => handleAvkreft(item.tildeling.TildelingID)}
-                                className="md:hidden inline-flex items-center gap-1 px-3 py-2 min-h-11 rounded-xl text-xs font-semibold border cursor-pointer bg-white border-slate-200 text-slate-700"
-                              >
-                                <X className="w-4 h-4" />
-                                Kan ikke
-                              </button>
-                              )}
-                              {isAvvist && (
-                                <span className="md:hidden text-xs font-semibold text-rose-800">Forfall</span>
-                              )}
-                              <div className="hidden md:flex items-center gap-1">
-                                <IkonHandling
-                                  label={isBekreftet ? "Sett tilbake til forespurt" : "Dette passer"}
-                                  Icon={Check}
-                                  variant="confirm"
-                                  active={isBekreftet}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleBekreft(item.tildeling.TildelingID, isBekreftet);
-                                  }}
-                                />
-                                <IkonHandling
-                                  label={isAvvist ? "Meldt forfall" : "Kan ikke"}
-                                  variant="decline"
-                                  Icon={X}
-                                  active={isAvvist}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleAvkreft(item.tildeling.TildelingID);
-                                  }}
-                                />
-                              </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <IkonHandling
+                                label={isBekreftet ? "Trekk tilbake" : "Dette passer"}
+                                Icon={Check}
+                                variant="confirm"
+                                active={isBekreftet}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleBekreft(item.tildeling.TildelingID, isBekreftet);
+                                }}
+                              />
+                              <IkonHandling
+                                label={isAvvist ? "Meldt forfall" : "Kan ikke"}
+                                variant="decline"
+                                Icon={X}
+                                active={isAvvist}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAvkreft(item.tildeling.TildelingID);
+                                }}
+                              />
                             </div>
                           </div>
                         );
@@ -528,13 +499,11 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                 <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
                   {datePickerRolle.Rollenavn}
                 </h3>
-                <p className="text-sm text-slate-600 mt-1">
-                  {getMaksAntall(datePickerRolle) != null
-                    ? `Maks ${getMaksAntall(datePickerRolle)} ${
-                        getMaksAntall(datePickerRolle) === 1 ? "person" : "personer"
-                      } på denne rollen. Når den er full, kan du ikke melde deg på.`
-                    : "Se ledige og dine søndager. Behovstallet er veiledende — du kan melde deg på selv om det er nok folk."}
-                </p>
+                {getMaksAntall(datePickerRolle) != null && (
+                  <p className="text-sm text-slate-600 mt-1">
+                    {datePickerRolle.Behov} av maks {getMaksAntall(datePickerRolle)}
+                  </p>
+                )}
                 {(() => {
                   const gruppe = datePickerRolle.GruppeID
                     ? db.grupper.find((g) => g.GruppeID === datePickerRolle.GruppeID)
@@ -546,8 +515,8 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                   return (
                     <p className="text-sm text-slate-600 mt-2 leading-relaxed">
                       {lederNavn
-                        ? `Gruppeleder ${lederNavn} får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen — du er ikke alene.`
-                        : "Gruppeleder får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen — du er ikke alene."}
+                        ? `Gruppeleder ${lederNavn} får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen.`
+                        : "Gruppeleder får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen."}
                     </p>
                   );
                 })()}

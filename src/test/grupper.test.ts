@@ -124,10 +124,28 @@ assert.equal(kilder[0].rolle, "Leder");
 
 assert.equal(hentTilgang(synket, "P001").isLeader, true);
 assert.equal(hentTilgang(synket, "P090").isLeader, true);
-assert.equal(finnGrupperForGruppeleder(synket, "P090").length, 0);
-assert.equal(finnGrupperSomLederEllerNestleder(synket, "P001").length, 1);
-assert.equal(finnGrupperSomLederEllerNestleder(synket, "P001")[0].Gruppenavn, "Lovsang");
-assert.equal(finnGrupperSomLederEllerNestleder(synket, "P090").length, 0);
+assert.equal(finnGrupperForGruppeleder(synket, "P090").length, 1);
+assert.equal(finnGrupperForGruppeleder(synket, "P090")[0].Gruppenavn, "Husgruppe Sentrum");
+assert.deepEqual(
+  finnGrupperSomLederEllerNestleder(synket, "P001")
+    .map((g) => g.Gruppenavn)
+    .sort(),
+  ["Lederskap", "Lovsang"]
+);
+assert.equal(finnGrupperSomLederEllerNestleder(synket, "P090").length, 1);
+assert.equal(finnGrupperSomLederEllerNestleder(synket, "P090")[0].Gruppenavn, "Husgruppe Sentrum");
+
+const forumMedLeder = {
+  ...synket,
+  grupper: synket.grupper.map((g) =>
+    g.GruppeID === forum!.GruppeID ? { ...g, GruppelederID: "P099" } : g
+  ),
+};
+assert.equal(finnGrupperSomLederEllerNestleder(forumMedLeder, "P099").length, 1);
+assert.equal(
+  finnGrupperSomLederEllerNestleder(forumMedLeder, "P099")[0].Gruppenavn,
+  "Gruppelederteam"
+);
 assert.ok(!finnTjenestegrupperForPerson(synket, "P001").some((t) => t.gruppe.GruppeID === forum!.GruppeID));
 
 const igjen = synkGruppeledergruppe(synket);
@@ -225,6 +243,21 @@ assert.equal(lastet.grupper.find((g) => g.GruppeID === "G007")?.GruppelederID, "
 assert.equal(
   finnGrupperForGruppeleder(lastet, "P021").some((g) => g.GruppeID === "G007"),
   false
+);
+
+const medSmagruppe = applyLoadedState(tomDb());
+assert.ok(
+  medSmagruppe.roller.some((r) => r.Rollenavn === "Smågruppeleder"),
+  "skal legge inn smågruppeleder-rollen"
+);
+assert.equal(
+  medSmagruppe.roller.find((r) => r.Rollenavn === "Smågruppeleder")?.GruppeID,
+  "G008"
+);
+const igjenSmagruppe = applyLoadedState(medSmagruppe);
+assert.equal(
+  igjenSmagruppe.roller.filter((r) => r.Rollenavn === "Smågruppeleder").length,
+  1
 );
 
 console.log("grupper.test.ts: alle tester ok");

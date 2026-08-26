@@ -183,11 +183,12 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-xs text-center">
           <Shield className="w-12 h-12 text-slate-400 mx-auto mb-3" />
           <h2 className="text-xl font-bold text-slate-900">
-            {person?.Navn || "Valgt person"} er ikke registrert som tjenestegruppeleder
+            {person?.Navn || "Valgt person"} er ikke registrert som gruppeleder
           </h2>
           <p className="text-slate-600 text-sm mt-1 max-w-md mx-auto">
-            I Menighetsplan får gruppeledere tilgang til sin tjenestegruppe, gruppemedlemmer og
-            bemanning for tilknyttede roller.
+            I Menighetsplan får gruppeledere tilgang til gruppen de leder, medlemmene og
+            bemanning for tilknyttede roller. Sett personen som leder eller nestleder på
+            gruppekortet under Administrator.
           </p>
           <div className="mt-6 pt-6 border-t border-slate-100 max-w-lg mx-auto">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-3">

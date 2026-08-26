@@ -36,6 +36,7 @@ const FALLBACK: RolleUtseende[] = [
 ];
 
 const KJENTE: { treff: string[]; utseende: RolleUtseende }[] = [
+  { treff: ["smågruppe", "smagruppe", "husgruppe"], utseende: { Icon: Users, wrap: "bg-rose-100", icon: "text-rose-500" } },
   { treff: ["husgruppe"], utseende: { Icon: Heart, wrap: "bg-rose-100", icon: "text-rose-500" } },
   { treff: ["lederskap", "ledergruppe"], utseende: { Icon: UserRound, wrap: "bg-violet-100", icon: "text-violet-500" } },
   { treff: ["gruppelederteam", "gruppeledergruppe"], utseende: { Icon: Users, wrap: "bg-amber-100", icon: "text-amber-600" } },

@@ -11,6 +11,7 @@ import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 import { saveDatabase } from "./persistens";
 import { finnTjenestegrupperForPerson } from "./grupper";
+import { erGudstjenesteBemanningRolle } from "./roller";
 import { hentPåmeldingsRoller } from "./interesse";
 
 /**
@@ -165,6 +166,7 @@ export function arkRoller(db: DatabaseState, rolleIds?: string[]): Rolle[] {
   return db.roller
     .filter((r) => r.Aktiv)
     .filter((r) => !erAdministratorRolle(r))
+    .filter((r) => erGudstjenesteBemanningRolle(db, r))
     .filter((r) => !tillat || tillat.has(r.RolleID))
     .slice()
     .sort(
@@ -181,7 +183,12 @@ export function situasjonRollerForGudstjeneste(
   rolleIds?: string[]
 ) {
   const tillat = rolleIds ? new Set(rolleIds) : null;
-  const aktive = db.roller.filter((r) => r.Aktiv && (!tillat || tillat.has(r.RolleID)));
+  const aktive = db.roller.filter(
+    (r) =>
+      r.Aktiv &&
+      erGudstjenesteBemanningRolle(db, r) &&
+      (!tillat || tillat.has(r.RolleID))
+  );
   return aktive
     .slice()
     .sort(

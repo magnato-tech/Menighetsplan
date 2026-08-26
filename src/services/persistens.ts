@@ -21,6 +21,7 @@ import {
 import { hentApiIdentitet, lagreAdminSesjonPersonId } from "./innlogging";
 import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa } from "./tilgang";
 import { synkGruppeledergruppe } from "./grupper";
+import { sikreSmagruppelederRolle } from "./roller";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
 const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
@@ -464,6 +465,12 @@ export function applyLoadedState(state: DatabaseState): DatabaseState {
   const synket = synkGruppeledergruppe(fixed);
   if (synket !== fixed) {
     fixed = synket;
+    endret = true;
+  }
+
+  const medSmagruppe = sikreSmagruppelederRolle(fixed);
+  if (medSmagruppe !== fixed) {
+    fixed = medSmagruppe;
     endret = true;
   }
 

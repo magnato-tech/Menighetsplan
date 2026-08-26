@@ -781,7 +781,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
               aria-label={visDetaljer ? "Skjul detaljer" : "Vis detaljer"}
               className="inline-flex items-center justify-center min-h-11 min-w-11 rounded-xl text-slate-500 cursor-pointer"
             >
-              <ChevronDown className={`w-5 h-5 transition ${visDetaljer ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-5 h-5 transition ${visDetaljer ? "" : "rotate-180"}`} />
             </button>
           </div>
         </div>

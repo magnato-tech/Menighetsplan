@@ -555,6 +555,17 @@ export const initialRoller: Rolle[] = [
     OpprettetDato: "2026-01-10",
     SistEndret: "2026-01-10",
   },
+  {
+    RolleID: "R014",
+    Rollenavn: "Smågruppeleder",
+    Beskrivelse: "Leder en smågruppe i menigheten med samling, bønn og oppfølging av medlemmene.",
+    Aktiv: true,
+    Behov: 0,
+    MaksAntall: 0,
+    GruppeID: "G008",
+    OpprettetDato: "2026-01-10",
+    SistEndret: "2026-01-10",
+  },
 ];
 
 export const initialPersonroller: Personrolle[] = [
@@ -705,6 +716,14 @@ export const initialRollebeskrivelser: Rollebeskrivelse[] = [
   {
     RolleID: "R013",
     Rollebeskrivelse: "Pynting: Sett frem blomster og pynt nattverdbord og foajé før gudstjenesten. Rydd pynt etter kirkekaffen.",
+    Aktiv: true,
+    OpprettetDato: "2026-01-10",
+    SistEndret: "2026-01-10",
+  },
+  {
+    RolleID: "R014",
+    Rollebeskrivelse:
+      "Forberede og lede smågruppesamlingen. Følge opp deltakerne mellom samlingene. Være bindeledd mot menigheten og gruppelederteamet.",
     Aktiv: true,
     OpprettetDato: "2026-01-10",
     SistEndret: "2026-01-10",

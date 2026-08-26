@@ -172,6 +172,53 @@ test("arkRoller skjuler Administrator og sorterer tjenesteroller", () => {
   );
 });
 
+test("arkRoller skjuler smågruppeleder knyttet til husgruppe", () => {
+  const db = tomDb();
+  db.gruppetyper = [
+    {
+      GruppetypeID: "GT001",
+      Navn: "Tjenestegruppe",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+    {
+      GruppetypeID: "GT004",
+      Navn: "Husgruppe",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.grupper = [
+    {
+      GruppeID: "G005",
+      Gruppenavn: "Møtevert",
+      GruppetypeID: "GT001",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+    {
+      GruppeID: "G008",
+      Gruppenavn: "Husgruppe Sentrum",
+      GruppetypeID: "GT004",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.roller = [
+    rolle("R008", "Møtevert", 2, "G005"),
+    rolle("R014", "Smågruppeleder", 0, "G008"),
+  ];
+  assert.deepEqual(arkRoller(db).map((r) => r.Rollenavn), ["Møtevert"]);
+});
+
 test("unikt fornavn: Astrid treffer, to Astrid er tvetydig", () => {
   const db = tomDb();
   assert.equal(finnPersonMedVisningsnavn(db, "Astrid")?.PersonID, "P002");
