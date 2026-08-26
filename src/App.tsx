@@ -17,6 +17,7 @@ import {
   switchDevDataSource,
   getDevDataSource,
   setDevDataSource,
+  erMedITjenestegruppe,
   type DevDataSource,
 } from "./services/dataService";
 import {
@@ -470,6 +471,7 @@ export default function App() {
             onDatePickerRolleChange={setDatePickerRolle}
             visOppgaverArk={visOppgaverArk}
             onOppgaverArkChange={setVisOppgaverArk}
+            onAvbrytLanding={handleLoggUt}
           />
         )}
 
@@ -508,7 +510,7 @@ export default function App() {
           </div>
         </div>
       </footer>
-      {!datePickerRolle && (
+      {!datePickerRolle && erMedITjenestegruppe(db, selectedPersonId) && (
         <MobilBunnmeny
           db={db}
           personId={selectedPersonId}

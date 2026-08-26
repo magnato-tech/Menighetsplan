@@ -21,6 +21,8 @@ interface InteresseSkjemaProps {
   personId: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   onFerdig?: () => void;
+  /** Landing: forlat uten å lagre (f.eks. tilbake til startsiden). */
+  onAvbryt?: () => void;
   landing?: boolean;
 }
 
@@ -35,6 +37,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
   personId,
   onUpdateDb,
   onFerdig,
+  onAvbryt,
   landing = false,
 }) => {
   const person = db.personer.find((p) => p.PersonID === personId);
@@ -61,8 +64,22 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
     );
   };
 
-  const visBekreft = () => {
+  const gåFraVelg = () => {
     if (!kanGaVidere) return;
+
+    if (landing) {
+      const grupper = grupperAFølge(db, personId, valgte);
+      if (grupper.length > 0) {
+        setVelkomst(velkomstForGrupper(db, grupper));
+        setSteg("velkomst");
+        return;
+      }
+      const etter = settPersonroller(db, personId, valgte);
+      onUpdateDb(etter);
+      onFerdig?.();
+      return;
+    }
+
     if (uendret && grupperUtenMedlemskap.length > 0) {
       const etter = settPersonroller(db, personId, valgte);
       onUpdateDb(etter);
@@ -74,7 +91,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
     setSteg("bekreft");
   };
 
-  const lagreOgOnskVelkommen = () => {
+  const lagreEtterBekreft = () => {
     const nyeRolleIds = (oppsummering?.lagtTil || []).map((linje) => linje.rolleId);
     const nyeGrupper = grupperAFølge(
       db,
@@ -91,6 +108,19 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
     setSteg("velkomst");
   };
 
+  const tilbakeFraVelkomst = () => {
+    setVelkomst([]);
+    setSteg("velg");
+  };
+
+  const fortsettFraVelkomst = () => {
+    if (landing) {
+      const etter = settPersonroller(db, personId, valgte);
+      onUpdateDb(etter);
+    }
+    onFerdig?.();
+  };
+
   const innhold = (
     <>
       {steg === "velg" && (
@@ -102,18 +132,20 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
                 <span className="text-2xl">👋</span>
               </h2>
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Takk for at du vil bidra i menigheten. Velg hvilke oppgaver du kan tenke deg i
-                gudstjenesten. Du kan endre dette senere.
+                Velkommen til Lillesand Misjonskirke. Huk av en oppgave du kan tenke deg. Da
+                hører du til den gruppen, og gruppeleder tar kontakt.
               </p>
             </div>
           )}
           {!landing && (
             <h2 className="text-lg font-bold text-slate-900 mb-1">Mine oppgaver</h2>
           )}
+          {!landing && (
           <p className="text-xs text-slate-500 mb-4">
             Huk av minst én oppgave i tjenestegruppen du vil bidra i. Du kan siden velge alle
             oppgavene som hører til den gruppen.
           </p>
+          )}
           <div className="space-y-5">
             {grupper.map(({ gruppe, roller }) => (
               <section key={gruppe.GruppeID}>
@@ -158,53 +190,53 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
         </>
       )}
 
-      {steg === "bekreft" && oppsummering && (
-        <div className="space-y-3">
-          <h2 className="text-lg font-bold text-slate-900">Vil du lagre endringene?</h2>
-          {oppsummering.lagtTil.length > 0 && (
-            <p className="text-sm text-slate-600">
-              {bekreftelseKonsekvensTekst(
-                new Set(oppsummering.lagtTil.map((linje) => linje.gruppeId).filter(Boolean)).size
-              )}
-            </p>
-          )}
-          {oppsummering.lagtTil.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
-                Legges til
-              </p>
-              <ul className="text-sm text-slate-800 space-y-1">
-                {oppsummering.lagtTil.map((linje) => (
-                  <li key={linje.rolleId}>
-                    {linje.rollenavn}
-                    {linje.gruppenavn ? ` (${linje.gruppenavn})` : ""}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {oppsummering.fjernet.length > 0 && (
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 mb-1">
-                Fjernes
-              </p>
-              <ul className="text-sm text-slate-800 space-y-1">
-                {oppsummering.fjernet.map((linje) => (
-                  <li key={linje.rolleId}>
-                    {linje.rollenavn}
-                    {linje.gruppenavn ? ` (${linje.gruppenavn})` : ""}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          {oppsummering.forlaterGrupper.length > 0 && (
-            <p className="text-sm text-slate-700">
-              Du forlater {oppsummering.forlaterGrupper.map((g) => g.gruppenavn).join(", ")}.
-            </p>
-          )}
-        </div>
-      )}
+      {steg === "bekreft" && oppsummering && (() => {
+        const konsekvens = bekreftelseKonsekvensTekst({
+          varMedITjenestegruppe: erMedITjenestegruppe(db, personId),
+          nyeGruppenavn: grupperUtenMedlemskap.map((g) => g.Gruppenavn),
+          forlaterGruppenavn: oppsummering.forlaterGrupper.map((g) => g.gruppenavn),
+          blirMedITjenestegruppe:
+            grupperUtenMedlemskap.length > 0 ||
+            (erMedITjenestegruppe(db, personId) && valgte.length > 0),
+        });
+        return (
+          <div className="space-y-3">
+            {konsekvens && (
+              <p className="text-lg font-semibold text-slate-900 leading-snug">{konsekvens}</p>
+            )}
+            {oppsummering.lagtTil.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                  Legges til
+                </p>
+                <ul className="text-sm text-slate-800 space-y-1">
+                  {oppsummering.lagtTil.map((linje) => (
+                    <li key={linje.rolleId}>
+                      {linje.rollenavn}
+                      {linje.gruppenavn ? ` (${linje.gruppenavn})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {oppsummering.fjernet.length > 0 && (
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-rose-700 mb-1">
+                  Fjernes
+                </p>
+                <ul className="text-sm text-slate-800 space-y-1">
+                  {oppsummering.fjernet.map((linje) => (
+                    <li key={linje.rolleId}>
+                      {linje.rollenavn}
+                      {linje.gruppenavn ? ` (${linje.gruppenavn})` : ""}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {steg === "velkomst" && (
         <div className="space-y-4">
@@ -221,7 +253,9 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
                 {lederNavn
                   ? `Gruppeleder er ${lederNavn}.`
                   : "Gruppen har foreløpig ingen registrert gruppeleder."}{" "}
-                Du kan nå velge oppgaver fra denne tjenestegruppen.
+                {landing
+                  ? "Trykk Fortsett for å bli med i gruppen."
+                  : "Du kan nå velge oppgaver fra denne tjenestegruppen."}
               </p>
             </div>
           ))}
@@ -231,10 +265,18 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
   );
 
   const handlinger = (
-    <div className="flex flex-wrap justify-end gap-2 pt-4 sheet-safe-bottom">
+    <div className={`flex gap-2 ${landing ? "w-full" : "flex-wrap justify-end pt-4 sheet-safe-bottom"}`}>
       {steg === "velg" && (
         <>
-          {!landing && (
+          {landing ? (
+            <button
+              type="button"
+              onClick={() => onAvbryt?.()}
+              className="min-h-11 flex-1 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+            >
+              Tilbake
+            </button>
+          ) : (
             <button
               type="button"
               onClick={() => onFerdig?.()}
@@ -245,9 +287,11 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
           )}
           <button
             type="button"
-            onClick={visBekreft}
+            onClick={gåFraVelg}
             disabled={!kanGaVidere}
-            className="min-h-11 px-4 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl cursor-pointer inline-flex items-center gap-1.5"
+            className={`min-h-11 px-4 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl cursor-pointer inline-flex items-center justify-center gap-1.5 ${
+              landing ? "flex-1" : ""
+            }`}
           >
             <Check className="w-4 h-4" />
             Lagre
@@ -265,31 +309,50 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
           </button>
           <button
             type="button"
-            onClick={lagreOgOnskVelkommen}
+            onClick={lagreEtterBekreft}
             className="min-h-11 px-4 bg-[#2d5a3f] hover:bg-[#234731] text-white text-sm font-semibold rounded-xl cursor-pointer"
           >
-            Ja, endre
+            Bekreft
           </button>
         </>
       )}
       {steg === "velkomst" && (
-        <button
-          type="button"
-          onClick={() => onFerdig?.()}
-          className="min-h-11 px-4 bg-[#2d5a3f] hover:bg-[#234731] text-white text-sm font-semibold rounded-xl cursor-pointer"
-        >
-          Fortsett
-        </button>
+        <>
+          {landing && (
+            <button
+              type="button"
+              onClick={tilbakeFraVelkomst}
+              className="min-h-11 flex-1 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
+            >
+              Tilbake
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={fortsettFraVelkomst}
+            className={`min-h-11 px-4 bg-[#2d5a3f] hover:bg-[#234731] text-white text-sm font-semibold rounded-xl cursor-pointer ${
+              landing ? "flex-1" : ""
+            }`}
+          >
+            Fortsett
+          </button>
+        </>
       )}
     </div>
   );
 
   if (landing) {
     return (
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
-        <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-xs">
-          {innhold}
-          {handlinger}
+      <div className="flex flex-col min-h-[calc(100dvh-4rem)]">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 pb-28">
+          <div className="max-w-4xl mx-auto bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-xs">
+            {innhold}
+          </div>
+        </div>
+        <div className="fixed bottom-0 inset-x-0 z-40 md:static md:max-w-4xl md:mx-auto md:px-6 md:pb-6">
+          <div className="bg-white/95 border-t border-slate-200 shadow-[0_-4px_16px_rgba(15,23,42,0.06)] md:shadow-none md:border md:border-slate-200 md:rounded-2xl px-4 py-3 sheet-safe-bottom">
+            {handlinger}
+          </div>
         </div>
       </div>
     );

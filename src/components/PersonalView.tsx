@@ -38,6 +38,7 @@ interface PersonalViewProps {
   onDatePickerRolleChange: (rolle: Rolle | null) => void;
   visOppgaverArk?: boolean;
   onOppgaverArkChange?: (apen: boolean) => void;
+  onAvbrytLanding?: () => void;
 }
 
 type PåmeldingsFilter = "ledige" | "mine" | "alle";
@@ -121,6 +122,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   onDatePickerRolleChange,
   visOppgaverArk = false,
   onOppgaverArkChange,
+  onAvbrytLanding,
 }) => {
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
   const [datePickerFilter, setDatePickerFilter] = useState<"ledige" | "mine" | "alle">("alle");
@@ -232,6 +234,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           setHoldLandingVelkomst(false);
           onOppgaverArkChange?.(false);
         }}
+        onAvbryt={onAvbrytLanding}
       />
     );
   }
@@ -531,6 +534,22 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                       } på denne rollen. Når den er full, kan du ikke melde deg på.`
                     : "Se ledige og dine søndager. Behovstallet er veiledende — du kan melde deg på selv om det er nok folk."}
                 </p>
+                {(() => {
+                  const gruppe = datePickerRolle.GruppeID
+                    ? db.grupper.find((g) => g.GruppeID === datePickerRolle.GruppeID)
+                    : undefined;
+                  const leder = gruppe?.GruppelederID
+                    ? db.personer.find((p) => p.PersonID === gruppe.GruppelederID)
+                    : undefined;
+                  const lederNavn = leder?.Fornavn || leder?.Navn;
+                  return (
+                    <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                      {lederNavn
+                        ? `Gruppeleder ${lederNavn} får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen — du er ikke alene.`
+                        : "Gruppeleder får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen — du er ikke alene."}
+                    </p>
+                  );
+                })()}
               </div>
               <button
                 type="button"

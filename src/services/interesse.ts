@@ -129,11 +129,55 @@ export function oppsummerRolleendring(
   return { lagtTil, fjernet, forlaterGrupper };
 }
 
-export function bekreftelseKonsekvensTekst(nyeGruppeantall: number): string {
-  if (nyeGruppeantall <= 1) {
-    return "Nye oppgaver plasserer deg i tilhørende tjenestegruppe. Du kan nå velge oppgaver fra denne tjenestegruppen.";
+function unikeNavn(navn: string[]): string[] {
+  return [...new Set(navn.map((n) => n.trim()).filter(Boolean))];
+}
+
+function joinerNavn(navn: string[]): string {
+  if (navn.length <= 1) return navn[0] || "";
+  if (navn.length === 2) return `${navn[0]} og ${navn[1]}`;
+  return `${navn.slice(0, -1).join(", ")} og ${navn[navn.length - 1]}`;
+}
+
+export type BekreftelseKonsekvens = {
+  varMedITjenestegruppe: boolean;
+  nyeGruppenavn: string[];
+  forlaterGruppenavn: string[];
+  blirMedITjenestegruppe: boolean;
+};
+
+export function bekreftelseKonsekvensTekst(input: BekreftelseKonsekvens): string {
+  const nye = unikeNavn(input.nyeGruppenavn);
+  const forlater = unikeNavn(input.forlaterGruppenavn);
+
+  if (forlater.length > 0 && !input.blirMedITjenestegruppe) {
+    return `Du går ut av ${joinerNavn(forlater)}. Du er da ikke med i noen tjenestegruppe.`;
   }
-  return "Nye oppgaver plasserer deg i tilhørende tjenestegrupper. Du kan nå velge oppgaver i disse tjenestegruppene.";
+
+  if (!input.varMedITjenestegruppe && nye.length > 0) {
+    if (nye.length === 1) {
+      return `Velkommen til ${nye[0]}. Nå kan du velge oppgaver fra tjenestegruppen ${nye[0]}.`;
+    }
+    return `Velkommen til ${joinerNavn(nye)}. Nå kan du velge oppgaver fra disse tjenestegruppene.`;
+  }
+
+  if (forlater.length > 0 && nye.length > 0) {
+    const til =
+      nye.length === 1 ? `tjenestegruppen ${nye[0]}` : "disse tjenestegruppene";
+    return `Du bytter fra ${joinerNavn(forlater)} til ${joinerNavn(nye)}. Nå kan du velge oppgaver fra ${til}.`;
+  }
+
+  if (nye.length > 0) {
+    const til =
+      nye.length === 1 ? `tjenestegruppen ${nye[0]}` : "disse tjenestegruppene";
+    return `Du blir med i ${joinerNavn(nye)}. Nå kan du velge oppgaver fra ${til}.`;
+  }
+
+  if (forlater.length > 0) {
+    return `Du går ut av ${joinerNavn(forlater)}.`;
+  }
+
+  return "";
 }
 
 export function settPersonroller(

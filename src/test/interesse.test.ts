@@ -192,9 +192,30 @@ test("oppsummerRolleendring nevner gruppe man forlater", () => {
   assert.equal(opps.forlaterGrupper.map((g) => g.gruppeId).join(), "G003");
 });
 
-test("bekreftelseKonsekvensTekst skiller én og flere grupper", () => {
-  assert.match(bekreftelseKonsekvensTekst(1), /fra denne tjenestegruppen/);
-  assert.match(bekreftelseKonsekvensTekst(2), /i disse tjenestegruppene/);
+test("bekreftelseKonsekvensTekst har tre modus", () => {
+  const ny = bekreftelseKonsekvensTekst({
+    varMedITjenestegruppe: false,
+    nyeGruppenavn: ["Barnekirke"],
+    forlaterGruppenavn: [],
+    blirMedITjenestegruppe: true,
+  });
+  assert.match(ny, /Velkommen til Barnekirke.*tjenestegruppen Barnekirke/);
+
+  const bytte = bekreftelseKonsekvensTekst({
+    varMedITjenestegruppe: true,
+    nyeGruppenavn: ["Barnekirke"],
+    forlaterGruppenavn: ["Teknikk"],
+    blirMedITjenestegruppe: true,
+  });
+  assert.match(bytte, /Du bytter fra Teknikk til Barnekirke/);
+
+  const slutter = bekreftelseKonsekvensTekst({
+    varMedITjenestegruppe: true,
+    nyeGruppenavn: [],
+    forlaterGruppenavn: ["Teknikk"],
+    blirMedITjenestegruppe: false,
+  });
+  assert.match(slutter, /Du går ut av Teknikk.*ikke med i noen tjenestegruppe/);
 });
 
 test("tildeling eller personrolle uten gruppemedlemskap gir ikke påmelding", () => {
