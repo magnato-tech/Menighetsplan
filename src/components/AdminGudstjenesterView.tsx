@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   DatabaseState,
-  genererPersonligLenke,
   opprettPersonIRegister,
   rensSted,
   saveDatabase,
@@ -9,59 +8,32 @@ import {
   personHarAktivTildeling,
   finnPersonMedVisningsnavn,
   AppView,
-  gruppetypeNokkel,
 } from "../services/dataService";
 import { Gudstjeneste, Person } from "../types/database";
-import { IkonHandling } from "./IkonHandling";
 import {
   SondagBemanning,
-  gruppeRaderForGudstjeneste,
   type OversiktFilter,
   type TildelForesporsel,
 } from "./SondagBemanning";
-import { Share2, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 interface AdminGudstjenesterViewProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   vis: boolean;
-  onByttTilGrupper: (gruppetypeId: string) => void;
   hoppTil?: { gudstjenesteId: string; personId: string } | null;
   onSelectPerson: (personId: string, view?: AppView) => void;
   selectedPersonId?: string;
-}
-
-function iDagIso(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function unikeTjenestemedlemmer(db: DatabaseState): number {
-  const gruppeIds = new Set(
-    db.roller.filter((r) => r.Aktiv && r.GruppeID).map((r) => r.GruppeID as string)
-  );
-  const ids = new Set<string>();
-  for (const gruppe of db.grupper) {
-    if (!gruppeIds.has(gruppe.GruppeID)) continue;
-    for (const gm of db.gruppemedlemmer) {
-      if (gm.GruppeID === gruppe.GruppeID && gm.Aktiv) ids.add(gm.PersonID);
-    }
-    if (gruppe.GruppelederID) ids.add(gruppe.GruppelederID);
-    if (gruppe.NestlederID) ids.add(gruppe.NestlederID);
-  }
-  return ids.size;
 }
 
 export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
   db,
   onUpdateDb,
   vis,
-  onByttTilGrupper,
   hoppTil = null,
   onSelectPerson,
   selectedPersonId,
 }) => {
-  const [copiedPersonId, setCopiedPersonId] = useState<string | null>(null);
   const [newServiceModal, setNewServiceModal] = useState(false);
   const [newServiceData, setNewServiceData] = useState<Partial<Gudstjeneste>>({
     Dato: "",
@@ -75,45 +47,9 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
   const [assignNewFornavn, setAssignNewFornavn] = useState("");
   const [assignModal, setAssignModal] = useState<TildelForesporsel | null>(null);
   const [personToAssign, setPersonToAssign] = useState("");
-  const [folgOppLederId, setFolgOppLederId] = useState<string | null>(null);
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
   const [filterGruppeId, setFilterGruppeId] = useState("");
   const [assignSok, setAssignSok] = useState("");
-
-  const iDag = iDagIso();
-  const kommendeGudstjenester = db.gudstjenester.filter((g) => g.Dato >= iDag);
-
-  const lederOppfolging = (() => {
-    const perLeder = new Map<
-      string,
-      { personId: string; fornavn: string; navn: string; sondager: Set<string> }
-    >();
-    for (const gud of kommendeGudstjenester) {
-      for (const rad of gruppeRaderForGudstjeneste(db, gud.GudstjenesteID)) {
-        if (rad.tall.ledige <= 0 || !rad.lederId) continue;
-        const eksisterende = perLeder.get(rad.lederId);
-        if (eksisterende) {
-          eksisterende.sondager.add(gud.GudstjenesteID);
-        } else {
-          perLeder.set(rad.lederId, {
-            personId: rad.lederId,
-            fornavn: rad.lederFornavn || rad.lederNavn || "Leder",
-            navn: rad.lederNavn || rad.lederFornavn || "Leder",
-            sondager: new Set([gud.GudstjenesteID]),
-          });
-        }
-      }
-    }
-    return Array.from(perLeder.values()).sort((a, b) => b.sondager.size - a.sondager.size);
-  })();
-
-  const handleCopyLink = (personId: string) => {
-    const link = genererPersonligLenke(personId, db);
-    navigator.clipboard.writeText(link).then(() => {
-      setCopiedPersonId(personId);
-      setTimeout(() => setCopiedPersonId(null), 2500);
-    });
-  };
 
   const handleSaveNewService = () => {
     if (!newServiceData.Dato || !newServiceData.Tema) return;
@@ -218,29 +154,11 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
   useEffect(() => {
     if (!hoppTil) return;
     setOversiktFilter(null);
-    setFolgOppLederId(null);
   }, [hoppTil]);
 
   return (
     <>
       <div className={vis ? undefined : "hidden"} hidden={!vis}>
-      <div className="mb-3">
-        <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tjenestegruppe</label>
-        <select
-          value={filterGruppeId}
-          onChange={(e) => setFilterGruppeId(e.target.value)}
-          className="mt-1 w-full sm:max-w-xs text-sm border border-slate-300 rounded-xl px-3 py-2.5 bg-white"
-        >
-          <option value="">Alle grupper</option>
-          {db.grupper
-            .filter((g) => g.Aktiv !== false)
-            .map((g) => (
-              <option key={g.GruppeID} value={g.GruppeID}>
-                {g.Gruppenavn}
-              </option>
-            ))}
-        </select>
-      </div>
       <SondagBemanning
         db={db}
         onUpdateDb={onUpdateDb}
@@ -251,82 +169,44 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
         }
         gruppeId={filterGruppeId || undefined}
         skjulGruppehode={Boolean(filterGruppeId)}
-        medlemstall={unikeTjenestemedlemmer(db)}
-        kpiTittel="Semesteret totalt"
-        kpiBeskrivelse="Alle tjenestegrupper på kommende gudstjenester. Trykk et kort for å filtrere."
+        medlemstall={0}
+        visMedlemmerKpi={false}
+        kpiTetthet="kompakt"
+        verktoyVenstre={
+          <div className="min-w-0">
+            <label htmlFor="admin-tjenestegruppe" className="sr-only">
+              Tjenestegruppe
+            </label>
+            <select
+              id="admin-tjenestegruppe"
+              value={filterGruppeId}
+              onChange={(e) => setFilterGruppeId(e.target.value)}
+              className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 bg-white h-10"
+            >
+              <option value="">Alle grupper</option>
+              {db.grupper
+                .filter((g) => g.Aktiv !== false)
+                .map((g) => (
+                  <option key={g.GruppeID} value={g.GruppeID}>
+                    {g.Gruppenavn}
+                  </option>
+                ))}
+            </select>
+          </div>
+        }
         kanOpprettGudstjeneste
         onNyGudstjeneste={() => setNewServiceModal(true)}
-        kanSeSomLeder
         visKjoreplan="alltid"
         visBibeltekst
         oversiktFilter={oversiktFilter}
         onOversiktFilter={setOversiktFilter}
-        onMedlemmer={() => {
-          const tjeneste = db.gruppetyper.find(
-            (gt) => gruppetypeNokkel(gt.Navn) === "tjenestegruppe"
-          );
-          onByttTilGrupper(tjeneste?.GruppetypeID || "alle");
-        }}
-        folgOppLederId={folgOppLederId}
         hoppTil={hoppTil}
         vis={vis}
         onSelectPerson={onSelectPerson}
         selectedPersonId={selectedPersonId}
         onTildel={setAssignModal}
-        onCopyLink={handleCopyLink}
-        copiedPersonId={copiedPersonId}
         statusAktor="administrator"
         rolleInstruksRedigerbar
-        afterKpi={
-          lederOppfolging.length > 0 ? (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
-                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider shrink-0">
-                  Følg opp
-                </span>
-                {lederOppfolging.map((leder) => {
-                  const valgt = folgOppLederId === leder.personId;
-                  return (
-                    <span
-                      key={leder.personId}
-                      className={`inline-flex items-center gap-1 rounded-lg pl-1.5 pr-0.5 py-0.5 ${
-                        valgt ? "bg-[#eef5f1] ring-2 ring-[#2d5a3f]/35" : ""
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFolgOppLederId((prev) =>
-                            prev === leder.personId ? null : leder.personId
-                          )
-                        }
-                        aria-pressed={valgt}
-                        title={
-                          valgt
-                            ? "Vis alle kommende gudstjenester"
-                            : `Vis søndager der ${leder.navn} har ledige plasser`
-                        }
-                        className="text-sm font-semibold text-slate-900 cursor-pointer hover:text-[#2d5a3f]"
-                      >
-                        {leder.fornavn}
-                        <span className="text-slate-500 font-medium"> ({leder.sondager.size})</span>
-                      </button>
-                      <IkonHandling
-                        label={`Kopier personlenke til ${leder.navn}`}
-                        Icon={Share2}
-                        variant="sky"
-                        copied={copiedPersonId === leder.personId}
-                        onClick={() => handleCopyLink(leder.personId)}
-                      />
-                    </span>
-                  );
-                })}
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-500">Alle grupper er dekket på kommende søndager.</p>
-          )
-        }
       />
       </div>
 

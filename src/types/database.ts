@@ -65,7 +65,9 @@ export interface Rolle {
   Rollenavn: string; // e.g. "Møteleder", "Taler", "Forbønn", "Barnekirke", "Lovsang", "Lyd", "Bilde", "Møtevert", "Rigging", "Kjøkken"
   Beskrivelse: string;
   Aktiv: boolean;
-  Behov: number; // Standardbehov for rollen per gudstjeneste
+  Behov: number; // Standardbehov for rollen per gudstjeneste (veiledende)
+  /** Hard øvre grense. null/udefinert = standard for rollenavn; 0 = ubegrenset overbooking; ≥1 = maks. */
+  MaksAntall?: number | null;
   GruppeID?: string; // Ref: Grupper.GruppeID (Ansvarlig tjenestegruppe)
   OpprettetDato: string;
   SistEndret: string;

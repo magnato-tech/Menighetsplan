@@ -15,7 +15,7 @@ export const RollerAdminView: React.FC<RollerAdminViewProps> = ({ db, onUpdateDb
 
   const handleOppdaterRolle = (
     rolleId: string,
-    patch: { GruppeID?: string; Behov?: number }
+    patch: { GruppeID?: string; Behov?: number; MaksAntall?: number | null }
   ) => {
     const now = new Date().toISOString().split("T")[0];
     const updatedDb: DatabaseState = {
@@ -26,6 +26,7 @@ export const RollerAdminView: React.FC<RollerAdminViewProps> = ({ db, onUpdateDb
               ...r,
               ...("GruppeID" in patch ? { GruppeID: patch.GruppeID || undefined } : {}),
               ...("Behov" in patch && patch.Behov !== undefined ? { Behov: patch.Behov } : {}),
+              ...("MaksAntall" in patch ? { MaksAntall: patch.MaksAntall } : {}),
               SistEndret: now,
             }
           : r

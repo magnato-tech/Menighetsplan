@@ -18,6 +18,8 @@ import {
   belastningForSemester,
   situasjonRollerForGudstjeneste,
   getEffektivtBehov,
+  getMaksAntall,
+  erRolleHardFull,
 } from "../services/dataService";
 import { personerIRolle } from "../components/GudstjenesteRolleOversikt";
 import { Rolle, Person, Tildeling, Svar } from "../types/database";
@@ -97,7 +99,7 @@ function tomDb(): DatabaseState {
     gudstjenester: [
       {
         GudstjenesteID: "GUD001",
-        Dato: "2026-08-23",
+        Dato: "2027-01-10",
         Tid: "11:00",
         Sted: "",
         Tema: "Test",
@@ -252,6 +254,42 @@ test("B: meldPaaFrivillig tillater overbooking", "B", () => {
   const result = meldPaaFrivillig(db, "P001", "GUD001", "R009");
   assert.equal(result.success, true, result.message);
   assert.equal(result.updatedDb!.personer.length, db.personer.length);
+});
+
+test("B: getMaksAntall default 1 for Taler, null for Rigging", "B", () => {
+  assert.equal(getMaksAntall({ ...rolle(), Rollenavn: "Taler", MaksAntall: undefined }), 1);
+  assert.equal(getMaksAntall({ ...rolle(), Rollenavn: "Rigging", MaksAntall: undefined }), null);
+  assert.equal(getMaksAntall({ ...rolle(), Rollenavn: "Taler", MaksAntall: 0 }), null);
+  assert.equal(getMaksAntall({ ...rolle(), Rollenavn: "Forbønn", MaksAntall: 3 }), 3);
+});
+
+test("B: velgDatoForPerson blokkerer når hard maks er nådd", "B", () => {
+  let db = tomDb();
+  db = {
+    ...db,
+    roller: db.roller.map((r) =>
+      r.RolleID === "R009" ? { ...r, Rollenavn: "Taler", Behov: 1, MaksAntall: 1 } : r
+    ),
+  };
+  db = tildel(db, "T1", "P001", "Bekreftet");
+  assert.equal(erRolleHardFull(db, "GUD001", db.roller[0]), true);
+  const result = velgDatoForPerson(db, "P003", "GUD001", "R009");
+  assert.equal(result.success, false);
+  assert.match(result.message, /full/i);
+});
+
+test("B: meldPaaFrivillig blokkerer når hard maks er nådd", "B", () => {
+  let db = tomDb();
+  db = {
+    ...db,
+    roller: db.roller.map((r) =>
+      r.RolleID === "R009" ? { ...r, Rollenavn: "Lyd", Behov: 1, MaksAntall: 1 } : r
+    ),
+  };
+  db = tildel(db, "T1", "P002", "Bekreftet");
+  const result = meldPaaFrivillig(db, "P001", "GUD001", "R009");
+  assert.equal(result.success, false);
+  assert.match(result.message, /full/i);
 });
 
 test("C: settDeltakelseForPerson gjenbruker rad og lager ikke dublett", "C", () => {

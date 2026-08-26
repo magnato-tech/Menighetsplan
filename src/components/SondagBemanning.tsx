@@ -4,6 +4,8 @@ import {
   Bemanningstall,
   DatabaseState,
   getEffektivtBehov,
+  getMaksAntall,
+  erRolleHardFull,
   hentSvarStatus,
   nesteNummerertId,
   plusBemanningstall,
@@ -27,11 +29,9 @@ import {
   Users,
   Plus,
   Trash2,
-  Share2,
   Check,
   Sliders,
   Clock,
-  Eye,
   X,
   UserPlus,
   AlertCircle,
@@ -144,12 +144,18 @@ export interface SondagBemanningProps {
   rolleIds?: string[];
   gruppeId?: string;
   medlemstall: number;
-  kpiTittel: string;
-  kpiBeskrivelse: string;
+  /** Etikett på KPI-kortet (leder: «Medlemmer»). */
+  medlemmerKpiLabel?: string;
+  kpiTittel?: string;
+  kpiBeskrivelse?: string;
   kpiFotnote?: string;
+  /** Skjul Medlemmer/Tjenestegrupper-kortet. Admin bruker Grupper-fanen i stedet. */
+  visMedlemmerKpi?: boolean;
+  kpiTetthet?: "kompakt" | "romslig";
+  /** Venstre del av topplinjen (f.eks. gruppedropdown). Samler Kort/Ark og Ny på samme rad. */
+  verktoyVenstre?: React.ReactNode;
   kanOpprettGudstjeneste?: boolean;
   onNyGudstjeneste?: () => void;
-  kanSeSomLeder?: boolean;
   visKjoreplan: "alltid" | "programrett";
   visBibeltekst?: boolean;
   skjulGruppehode?: boolean;
@@ -159,15 +165,11 @@ export interface SondagBemanningProps {
   oversiktFilter: OversiktFilter;
   onOversiktFilter: (filter: OversiktFilter) => void;
   onMedlemmer?: () => void;
-  folgOppLederId?: string | null;
-  afterKpi?: React.ReactNode;
   hoppTil?: { gudstjenesteId: string; personId: string } | null;
   vis?: boolean;
   onSelectPerson: (personId: string, view?: AppView) => void;
   selectedPersonId?: string;
   onTildel: (foresporsel: TildelForesporsel) => void;
-  onCopyLink: (personId: string) => void;
-  copiedPersonId: string | null;
   statusAktor: "administrator" | "gruppeleder";
   rolleInstruksRedigerbar?: boolean;
   guideVisning?: ArkVisning;
@@ -180,12 +182,15 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   rolleIds,
   gruppeId,
   medlemstall,
+  medlemmerKpiLabel = "Medlemmer",
   kpiTittel,
   kpiBeskrivelse,
   kpiFotnote,
+  visMedlemmerKpi = true,
+  kpiTetthet = "romslig",
+  verktoyVenstre,
   kanOpprettGudstjeneste = false,
   onNyGudstjeneste,
-  kanSeSomLeder = false,
   visKjoreplan,
   visBibeltekst = false,
   skjulGruppehode = false,
@@ -195,15 +200,11 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   oversiktFilter,
   onOversiktFilter,
   onMedlemmer,
-  folgOppLederId = null,
-  afterKpi,
   hoppTil = null,
   vis = true,
   onSelectPerson,
   selectedPersonId,
   onTildel,
-  onCopyLink,
-  copiedPersonId,
   statusAktor,
   rolleInstruksRedigerbar = false,
   guideVisning,
@@ -282,12 +283,6 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const visKommendeGudstjenester = kommendeGudstjenester.filter((gud) => {
     const rader = gruppeRaderForGudstjeneste(db, gud.GudstjenesteID, false, rolleIds);
     const totalt = summerGruppeRader(rader);
-    if (folgOppLederId) {
-      const lederTreff = rader.some(
-        (rad) => rad.lederId === folgOppLederId && rad.tall.ledige > 0
-      );
-      if (!lederTreff) return false;
-    }
     return trefferOversiktFilter(totalt, oversiktFilter);
   });
 
@@ -353,7 +348,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const velgOversiktFilter = (neste: Exclude<OversiktFilter, null>) => {
     const aktiv: OversiktFilter = oversiktFilter === neste ? null : neste;
     onOversiktFilter(aktiv);
-    if (aktiv === "medlemmer") onMedlemmer?.();
+    if (aktiv === "medlemmer" && visMedlemmerKpi) onMedlemmer?.();
   };
 
   const vekselDetalj = (id: string) => {
@@ -436,7 +431,10 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     setEditNeedModal(null);
   };
 
-  const handleOppdaterRolle = (rolleId: string, patch: { GruppeID?: string; Behov?: number }) => {
+  const handleOppdaterRolle = (
+    rolleId: string,
+    patch: { GruppeID?: string; Behov?: number; MaksAntall?: number | null }
+  ) => {
     const now = new Date().toISOString().split("T")[0];
     const updatedDb: DatabaseState = {
       ...db,
@@ -446,6 +444,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
               ...r,
               ...("GruppeID" in patch ? { GruppeID: patch.GruppeID || undefined } : {}),
               ...("Behov" in patch && patch.Behov !== undefined ? { Behov: patch.Behov } : {}),
+              ...("MaksAntall" in patch ? { MaksAntall: patch.MaksAntall } : {}),
               SistEndret: now,
             }
           : r
@@ -493,7 +492,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     const antallBekreftet = tildelinger.filter(
       (t) => hentSvarStatus(db, t.TildelingID) === "Bekreftet"
     ).length;
-    const erFull = antallBekreftet >= effektivtBehov;
+    const maks = getMaksAntall(rolle);
+    const hardFull = erRolleHardFull(db, gudstjenesteId, rolle);
+    const erFull = hardFull || antallBekreftet >= effektivtBehov;
 
     return (
       <div
@@ -527,7 +528,11 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
               });
               setCustomNeedInput(effektivtBehov);
             }}
-            title="Veiledende antall. Overbooking er greit."
+            title={
+              maks != null
+                ? `Maks ${maks}. Hard grense — overbooking er stengt.`
+                : "Veiledende antall. Overbooking er greit."
+            }
             className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 cursor-pointer transition shrink-0 ${
               erFull
                 ? "bg-emerald-100 text-emerald-800 hover:bg-emerald-200"
@@ -535,7 +540,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             }`}
           >
             <span>
-              {antallBekreftet} / {effektivtBehov}
+              {antallBekreftet} / {maks != null ? `maks ${maks}` : effektivtBehov}
             </span>
             <Sliders className="w-2.5 h-2.5 opacity-60" />
           </button>
@@ -652,8 +657,10 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
           })}
           <button
             type="button"
+            disabled={hardFull}
             onClick={(e) => {
               e.stopPropagation();
+              if (hardFull) return;
               onTildel({
                 gudstjenesteId,
                 rolleId: rolle.RolleID,
@@ -661,9 +668,13 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                 gudstjenesteDato: gudstjeneste.Dato,
               });
             }}
-            className="p-2 md:p-1.5 min-h-11 min-w-11 md:min-h-0 md:min-w-0 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] rounded-lg cursor-pointer transition shadow-2xs shrink-0 flex items-center justify-center"
-            title="Tildel"
-            aria-label="Tildel"
+            className={`p-2 md:p-1.5 min-h-11 min-w-11 md:min-h-0 md:min-w-0 border rounded-lg transition shadow-2xs shrink-0 flex items-center justify-center ${
+              hardFull
+                ? "bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed"
+                : "bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border-[#d2e8d9] cursor-pointer"
+            }`}
+            title={hardFull ? `Rollen er full (maks ${maks})` : "Tildel"}
+            aria-label={hardFull ? `Rollen er full (maks ${maks})` : "Tildel"}
             data-guide="sett-opp"
           >
             <UserPlus className="w-3.5 h-3.5" />
@@ -895,32 +906,6 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                                 {rad.tall.ledige} ledige
                               </span>
                             </span>
-                            <div className="flex items-center gap-1 ml-auto">
-                              {rad.lederId && (
-                                <>
-                                  <IkonHandling
-                                    label="Kopier personlenke"
-                                    Icon={Share2}
-                                    variant="sky"
-                                    copied={copiedPersonId === rad.lederId}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onCopyLink(rad.lederId!);
-                                    }}
-                                  />
-                                  {kanSeSomLeder && (
-                                    <IkonHandling
-                                      label="Se som denne lederen"
-                                      Icon={Eye}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onSelectPerson(rad.lederId!, "leader");
-                                      }}
-                                    />
-                                  )}
-                                </>
-                              )}
-                            </div>
                           </div>
                         )}
                         {visRoller.length > 0 && (
@@ -950,89 +935,134 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const visListe = !(skjulListeVedMedlemmer && oversiktFilter === "medlemmer");
   const visKpi = visKpiAlltid || servicesVisning === "liste";
   const kpiSkjultPaMobil = skjulListeVedMedlemmer && oversiktFilter === "medlemmer";
+  const kompakt = kpiTetthet === "kompakt";
 
-  const kpiKort = (
+  const kompaktKnapper: {
+    id: Exclude<OversiktFilter, null>;
+    tall: number;
+    label: string;
+    aktiv: boolean;
+  }[] = [
+    { id: "ledige", tall: ledigeOgForfall, label: "Ledige", aktiv: oversiktFilter === "ledige" },
+    { id: "venter", tall: semesterOversikt.venter, label: "Venter", aktiv: oversiktFilter === "venter" },
+    {
+      id: "bekreftet",
+      tall: semesterOversikt.bekreftet,
+      label: kompakt ? `Bekr. (${bekreftetProsent}%)` : "Bekr.",
+      aktiv: oversiktFilter === "bekreftet",
+    },
+    ...(visMedlemmerKpi
+      ? [
+          {
+            id: "medlemmer" as const,
+            tall: medlemstall,
+            label: medlemmerKpiLabel === "Tjenestegrupper" ? "Grupper" : "Folk",
+            aktiv: oversiktFilter === "medlemmer",
+          },
+        ]
+      : []),
+  ];
+
+  const storeKort = [
+    {
+      id: "ledige" as const,
+      tall: ledigeOgForfall,
+      label: "Ledige slotter / Forfall",
+      Icon: AlertCircle,
+      wrap: "bg-rose-50 border-rose-100 text-rose-950",
+      icon: "text-rose-500",
+      aktiv: "ring-2 ring-rose-400",
+    },
+    {
+      id: "venter" as const,
+      tall: semesterOversikt.venter,
+      label: "Venter på svar",
+      Icon: CircleHelp,
+      wrap: "bg-amber-50 border-amber-100 text-amber-950",
+      icon: "text-amber-500",
+      aktiv: "ring-2 ring-amber-400",
+    },
+    {
+      id: "bekreftet" as const,
+      tall: semesterOversikt.bekreftet,
+      label: `Bekreftet (${bekreftetProsent}%)`,
+      Icon: CheckCircle2,
+      wrap: "bg-emerald-50 border-emerald-100 text-emerald-900",
+      icon: "text-emerald-600",
+      aktiv: "ring-2 ring-emerald-400",
+    },
+    ...(visMedlemmerKpi
+      ? [
+          {
+            id: "medlemmer" as const,
+            tall: medlemstall,
+            label: medlemmerKpiLabel,
+            Icon: Users,
+            wrap: "bg-sky-50 border-sky-100 text-sky-950",
+            icon: "text-sky-600",
+            aktiv: "ring-2 ring-sky-300",
+          },
+        ]
+      : []),
+  ];
+
+  const filterFotnote =
+    oversiktFilter && oversiktFilter !== "medlemmer" ? (
+      <p className="text-[11px] text-slate-500">
+        Viser{" "}
+        {oversiktFilter === "bekreftet"
+          ? "søndager med bekreftede oppgaver"
+          : oversiktFilter === "venter"
+            ? "søndager der noen venter på å svare"
+            : "søndager med ledige plasser"}
+        . Trykk tallet igjen for å vise alle.
+      </p>
+    ) : null;
+
+  const kompaktStatusRad = (
+    <div className="flex gap-1">
+      {kompaktKnapper.map((kort) => (
+        <button
+          key={kort.id}
+          type="button"
+          onClick={() => velgOversiktFilter(kort.id)}
+          aria-pressed={kort.aktiv}
+          className={`flex-1 min-h-11 rounded-xl border text-center px-1 py-1.5 cursor-pointer ${
+            kort.aktiv ? "bg-[#2d5a3f] text-white border-[#2d5a3f]" : "bg-slate-50 border-slate-200 text-slate-800"
+          }`}
+        >
+          <div className="text-base font-bold tabular-nums leading-none">{kort.tall}</div>
+          <div className="text-[10px] font-semibold mt-0.5">{kort.label}</div>
+        </button>
+      ))}
+    </div>
+  );
+
+  const kpiKort = kompakt ? (
+    <div className="space-y-1.5">
+      {kompaktStatusRad}
+      {kpiFotnote && <p className="text-[11px] text-slate-500">{kpiFotnote}</p>}
+      {filterFotnote}
+    </div>
+  ) : (
     <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{kpiTittel}</p>
-          <p className="text-sm text-slate-600">{kpiBeskrivelse}</p>
+      {(kpiTittel || kpiBeskrivelse) && (
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            {kpiTittel && (
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{kpiTittel}</p>
+            )}
+            {kpiBeskrivelse && <p className="text-sm text-slate-600">{kpiBeskrivelse}</p>}
+          </div>
         </div>
-        {kanOpprettGudstjeneste && servicesVisning === "liste" && (
-          <button
-            type="button"
-            onClick={onNyGudstjeneste}
-            className="px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Ny gudstjeneste</span>
-          </button>
-        )}
-      </div>
-      <div className="md:hidden flex gap-1">
-        {(
-          [
-            { id: "ledige" as const, tall: ledigeOgForfall, label: "Ledige", aktiv: oversiktFilter === "ledige" },
-            { id: "venter" as const, tall: semesterOversikt.venter, label: "Venter", aktiv: oversiktFilter === "venter" },
-            { id: "bekreftet" as const, tall: semesterOversikt.bekreftet, label: "Bekr.", aktiv: oversiktFilter === "bekreftet" },
-            { id: "medlemmer" as const, tall: medlemstall, label: "Folk", aktiv: oversiktFilter === "medlemmer" },
-          ]
-        ).map((kort) => (
-          <button
-            key={kort.id}
-            type="button"
-            onClick={() => velgOversiktFilter(kort.id)}
-            aria-pressed={kort.aktiv}
-            className={`flex-1 min-h-11 rounded-xl border text-center px-1 py-1.5 cursor-pointer ${
-              kort.aktiv ? "bg-[#2d5a3f] text-white border-[#2d5a3f]" : "bg-slate-50 border-slate-200 text-slate-800"
-            }`}
-          >
-            <div className="text-base font-bold tabular-nums leading-none">{kort.tall}</div>
-            <div className="text-[10px] font-semibold mt-0.5">{kort.label}</div>
-          </button>
-        ))}
-      </div>
-      <div className="hidden md:grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {(
-          [
-            {
-              id: "ledige" as const,
-              tall: ledigeOgForfall,
-              label: "Ledige slotter / Forfall",
-              Icon: AlertCircle,
-              wrap: "bg-rose-50 border-rose-100 text-rose-950",
-              icon: "text-rose-500",
-              aktiv: "ring-2 ring-rose-400",
-            },
-            {
-              id: "venter" as const,
-              tall: semesterOversikt.venter,
-              label: "Venter på svar",
-              Icon: CircleHelp,
-              wrap: "bg-amber-50 border-amber-100 text-amber-950",
-              icon: "text-amber-500",
-              aktiv: "ring-2 ring-amber-400",
-            },
-            {
-              id: "bekreftet" as const,
-              tall: semesterOversikt.bekreftet,
-              label: `Bekreftet (${bekreftetProsent}%)`,
-              Icon: CheckCircle2,
-              wrap: "bg-emerald-50 border-emerald-100 text-emerald-900",
-              icon: "text-emerald-600",
-              aktiv: "ring-2 ring-emerald-400",
-            },
-            {
-              id: "medlemmer" as const,
-              tall: medlemstall,
-              label: "Medlemmer",
-              Icon: Users,
-              wrap: "bg-sky-50 border-sky-100 text-sky-950",
-              icon: "text-sky-600",
-              aktiv: "ring-2 ring-sky-300",
-            },
-          ]
-        ).map((kort) => {
+      )}
+      <div className="md:hidden">{kompaktStatusRad}</div>
+      <div
+        className={`hidden md:grid gap-3 ${
+          visMedlemmerKpi ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-3"
+        }`}
+      >
+        {storeKort.map((kort) => {
           const valgt = oversiktFilter === kort.id;
           return (
             <button
@@ -1054,17 +1084,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         })}
       </div>
       {kpiFotnote && <p className="text-[11px] text-slate-500">{kpiFotnote}</p>}
-      {oversiktFilter && oversiktFilter !== "medlemmer" && (
-        <p className="text-[11px] text-slate-500">
-          Viser{" "}
-          {oversiktFilter === "bekreftet"
-            ? "søndager med bekreftede oppgaver"
-            : oversiktFilter === "venter"
-              ? "søndager der noen venter på å svare"
-              : "søndager med ledige plasser"}
-          . Trykk kortet igjen for å vise alle.
-        </p>
-      )}
+      {filterFotnote}
     </div>
   );
 
@@ -1072,7 +1092,19 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     <div className={kpiSkjultPaMobil ? "hidden md:block" : undefined}>{kpiKort}</div>
   ) : null;
 
-  const visningBryter = visListe && (
+  const nyGudstjenesteKnapp = kanOpprettGudstjeneste && (
+    <button
+      type="button"
+      onClick={onNyGudstjeneste}
+      title="Ny gudstjeneste"
+      aria-label="Ny gudstjeneste"
+      className="inline-flex items-center justify-center w-10 h-10 bg-[#2d5a3f] hover:bg-[#234731] text-white rounded-xl shadow-xs transition cursor-pointer shrink-0"
+    >
+      <Plus className="w-5 h-5" />
+    </button>
+  );
+
+  const visningBryter = visListe && !verktoyVenstre && (
     <div className="flex flex-wrap items-center justify-between gap-2">
       {listeTittel ? (
         <h3 className="text-sm font-bold text-slate-900">{listeTittel}</h3>
@@ -1086,23 +1118,27 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         <p className="md:hidden text-[11px] text-slate-500 w-full">
           Planleggingsarket er laget for større skjerm.
         </p>
-        {kanOpprettGudstjeneste && servicesVisning === "ark" && (
-          <button
-            type="button"
-            onClick={onNyGudstjeneste}
-            className="px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-1.5 cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Ny gudstjeneste</span>
-          </button>
-        )}
+        {kanOpprettGudstjeneste && servicesVisning === "ark" && nyGudstjenesteKnapp}
       </div>
     </div>
   );
 
+  const samletVerktoy = verktoyVenstre ? (
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="min-w-0 flex-1">{verktoyVenstre}</div>
+      <div className="flex items-center gap-1.5 shrink-0">
+        <div data-guide="liste-ark" className="hidden md:block">
+          <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
+        </div>
+        {nyGudstjenesteKnapp}
+      </div>
+    </div>
+  ) : null;
+
   return (
     <>
       <div className="space-y-4">
+        {samletVerktoy}
         {omfangRoller.length === 0 ? (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center">
             <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
@@ -1137,7 +1173,6 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
               </div>
             )}
             {servicesVisning === "liste" && !visKpiAlltid && kpiBlokk}
-            {servicesVisning === "liste" && afterKpi}
             {servicesVisning === "liste" && visListe && (
               <>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
@@ -1145,8 +1180,8 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                 </div>
                 {visKommendeGudstjenester.length === 0 && (
                   <p className="text-sm text-slate-500 bg-white rounded-2xl border border-slate-200 px-4 py-6 text-center">
-                    {folgOppLederId || oversiktFilter
-                      ? "Ingen treff for dette filteret. Trykk kortet eller navnet igjen for å vise alle."
+                    {oversiktFilter
+                      ? "Ingen treff for dette filteret. Trykk tallet igjen for å vise alle."
                       : "Ingen kommende gudstjenester."}
                   </p>
                 )}

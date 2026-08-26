@@ -60,7 +60,7 @@ interface GroupOverviewProps {
   onGroupTypeFilter: (id: string) => void;
   copiedPersonId: string | null;
   onCopyLink: (personId: string) => void;
-  onOpenDetail: (gruppeId: string) => void;
+  onOpenEdit: (gruppeId: string) => void;
   onNewGroup: () => void;
   onSelectPerson: (personId: string, view?: AppView) => void;
 }
@@ -71,7 +71,7 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
   onGroupTypeFilter,
   copiedPersonId,
   onCopyLink,
-  onOpenDetail,
+  onOpenEdit,
   onNewGroup,
   onSelectPerson,
 }) => {
@@ -215,7 +215,7 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
             const isCopiedLeder = leder && copiedPersonId === leder.PersonID;
             const visLederknapp = Boolean(leder && erTjenestegruppe(db, gruppe));
 
-            const apne = () => onOpenDetail(gruppe.GruppeID);
+            const apne = () => onOpenEdit(gruppe.GruppeID);
             const tast = (e: React.KeyboardEvent) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
@@ -248,7 +248,7 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-slate-700 min-w-[140px]">
                     <Star className="w-3.5 h-3.5 fill-sky-500 text-sky-500 shrink-0" />
-                    <span className="truncate">{nestleder ? nestleder.Navn : "—"}</span>
+                    <span className="truncate">{nestleder ? nestleder.Navn : "Ingen nestleder"}</span>
                   </div>
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 border-l border-slate-200 pl-2.5 shrink-0">
                     {medlemstall} MEDL.
@@ -303,23 +303,49 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                   {gruppe.Beskrivelse?.trim() || "Ingen beskrivelse tilgjengelig"}
                 </p>
                 <div className="flex items-end justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
-                    {medlemstall} MEDL.
-                  </span>
-                  <div className="text-right space-y-0.5 min-w-0">
-                    <div className="flex items-center justify-end gap-1 text-xs text-slate-800">
+                  <div className="min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-1 text-xs text-slate-800">
                       <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
-                      <span className="truncate font-medium">{leder ? leder.Fornavn || leder.Navn : "—"}</span>
+                      <span className="truncate font-medium">
+                        {leder ? leder.Fornavn || leder.Navn : "Ingen leder"}
+                      </span>
                     </div>
-                    {nestleder && (
-                      <div className="flex items-center justify-end gap-1 text-[11px] text-slate-600">
-                        <Star className="w-3 h-3 fill-sky-500 text-sky-500 shrink-0" />
-                        <span className="truncate">
-                          {nestleder.Fornavn || nestleder.Navn} (Nestleder)
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1 text-[11px] text-slate-600">
+                      <Star className="w-3 h-3 fill-sky-500 text-sky-500 shrink-0" />
+                      <span className="truncate">
+                        {nestleder
+                          ? `${nestleder.Fornavn || nestleder.Navn} (Nestleder)`
+                          : "Ingen nestleder"}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                      {medlemstall} MEDL.
+                    </span>
                   </div>
+                  {leder && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <IkonHandling
+                        label="Kopier personlenke"
+                        Icon={Share2}
+                        variant="sky"
+                        copied={Boolean(isCopiedLeder)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onCopyLink(leder.PersonID);
+                        }}
+                      />
+                      {visLederknapp && (
+                        <IkonHandling
+                          label="Se som denne lederen"
+                          Icon={Eye}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectPerson(leder.PersonID, "leader");
+                          }}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             );

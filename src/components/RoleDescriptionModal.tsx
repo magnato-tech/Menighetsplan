@@ -3,6 +3,7 @@ import { Rolle, Rollebeskrivelse, Gruppe } from "../types/database";
 import { RolleIkon } from "./RolleIkon";
 import { AlertTriangle, Clock, Pencil, Users, X } from "lucide-react";
 import { IkonHandling } from "./IkonHandling";
+import { getMaksAntall } from "../services/dataService";
 
 interface RoleDescriptionModalProps {
   rolle: Rolle | null;
@@ -12,7 +13,7 @@ interface RoleDescriptionModalProps {
   editable?: boolean;
   grupper?: Gruppe[];
   antallKvalifiserte?: number;
-  onUpdateRolle?: (patch: { GruppeID?: string; Behov?: number }) => void;
+  onUpdateRolle?: (patch: { GruppeID?: string; Behov?: number; MaksAntall?: number | null }) => void;
   onSaveInstruks?: (tekst: string) => void;
 }
 
@@ -142,7 +143,7 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
             <div className="text-xs text-slate-500 flex items-center gap-1.5 mb-1">
               <Users className="w-3.5 h-3.5 text-emerald-600" />
@@ -197,6 +198,60 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
             ) : (
               <div className="font-semibold text-slate-900 text-sm">
                 {rolle.Behov} {rolle.Behov === 1 ? "person" : "personer"}
+              </div>
+            )}
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="text-xs text-slate-500 flex items-center gap-1.5 mb-1">
+              <Users className="w-3.5 h-3.5 text-[#2d5a3f]" />
+              <span>Maks antall</span>
+            </div>
+            {editable && onUpdateRolle ? (
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={20}
+                    placeholder="∞"
+                    value={
+                      rolle.MaksAntall === undefined || rolle.MaksAntall === null
+                        ? getMaksAntall(rolle) ?? ""
+                        : rolle.MaksAntall === 0
+                        ? ""
+                        : rolle.MaksAntall
+                    }
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      if (raw === "") {
+                        onUpdateRolle({ MaksAntall: 0 });
+                        return;
+                      }
+                      const n = Number(raw);
+                      if (!Number.isFinite(n) || n < 0) return;
+                      onUpdateRolle({ MaksAntall: Math.round(n) });
+                    }}
+                    className="w-20 text-sm font-semibold text-slate-900 border border-slate-200 rounded-lg p-1.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
+                  />
+                  <span className="text-xs text-slate-500">
+                    {getMaksAntall(rolle) == null
+                      ? "ubegrenset (overbooking OK)"
+                      : getMaksAntall(rolle) === 1
+                      ? "person (hard grense)"
+                      : "personer (hard grense)"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Tomt felt = ubegrenset. Sett 1 for roller som taler, møteleder, lyd og bilde.
+                </p>
+              </div>
+            ) : (
+              <div className="font-semibold text-slate-900 text-sm">
+                {getMaksAntall(rolle) == null
+                  ? "Ubegrenset"
+                  : `${getMaksAntall(rolle)} ${
+                      getMaksAntall(rolle) === 1 ? "person" : "personer"
+                    }`}
               </div>
             )}
           </div>

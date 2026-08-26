@@ -3,7 +3,6 @@ import { DatabaseState, AppView, genererPersonligLenke } from "../services/dataS
 import { ImportMigrationModal } from "./ImportMigrationModal";
 import { GroupAdminModal } from "./GroupAdminModal";
 import { GoogleSheetsSync } from "./GoogleSheetsSync";
-import { GroupDetailModal } from "./GroupDetailModal";
 import { NewGroupModal } from "./NewGroupModal";
 import { GroupOverview } from "./GroupOverview";
 import { BelastningView } from "./BelastningView";
@@ -43,7 +42,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     "services" | "belastning" | "people" | "groups" | "roles" | "programmal" | "sync"
   >("services");
   const [groupTypeFilter, setGroupTypeFilter] = useState("alle");
-  const [detailGruppeId, setDetailGruppeId] = useState<string | null>(null);
   const [editingGruppeId, setEditingGruppeId] = useState<string | null>(null);
   const [newGroupModal, setNewGroupModal] = useState(false);
   const [copiedPersonId, setCopiedPersonId] = useState<string | null>(null);
@@ -169,10 +167,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
         hoppTil={hoppTil}
         onSelectPerson={onSelectPerson}
         selectedPersonId={selectedPersonId}
-        onByttTilGrupper={(gruppetypeId) => {
-          setGroupTypeFilter(gruppetypeId);
-          setActiveTab("groups");
-        }}
       />
 
       {activeTab === "belastning" && (
@@ -192,7 +186,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onGroupTypeFilter={setGroupTypeFilter}
           copiedPersonId={copiedPersonId}
           onCopyLink={handleCopyLink}
-          onOpenDetail={setDetailGruppeId}
+          onOpenEdit={setEditingGruppeId}
           onNewGroup={() => setNewGroupModal(true)}
           onSelectPerson={onSelectPerson}
         />
@@ -220,18 +214,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
           db={db}
           onUpdateDb={onUpdateDb}
           onClose={() => setNewGroupModal(false)}
-        />
-      )}
-
-      {detailGruppeId && db.grupper.find((g) => g.GruppeID === detailGruppeId) && (
-        <GroupDetailModal
-          gruppe={db.grupper.find((g) => g.GruppeID === detailGruppeId)!}
-          db={db}
-          onClose={() => setDetailGruppeId(null)}
-          onEdit={() => {
-            setEditingGruppeId(detailGruppeId);
-            setDetailGruppeId(null);
-          }}
         />
       )}
 

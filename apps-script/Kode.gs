@@ -47,11 +47,11 @@ var MASTER_SHEETS = {
   roller: {
     name: "Roller",
     columns: [
-      "RolleID", "Rollenavn", "Beskrivelse", "Aktiv", "Behov", "GruppeID",
+      "RolleID", "Rollenavn", "Beskrivelse", "Aktiv", "Behov", "MaksAntall", "GruppeID",
       "OpprettetDato", "SistEndret",
     ],
     booleans: ["Aktiv"],
-    numbers: ["Behov"],
+    numbers: ["Behov", "MaksAntall"],
   },
   personroller: {
     name: "Personroller",
@@ -968,9 +968,10 @@ function coerce_(col, val, spec) {
     return asBool_(text, emptyDefault);
   }
   if (numbers.indexOf(col) >= 0) {
-    if (text === "") return col === "Fødselsår" ? "" : 0;
+    // Tom MaksAntall = ikke satt (bruk app-standard). 0 = eksplisitt ubegrenset.
+    if (text === "") return col === "Fødselsår" || col === "MaksAntall" ? null : 0;
     var n = Number(String(text).replace(",", "."));
-    return isNaN(n) ? 0 : n;
+    return isNaN(n) ? (col === "MaksAntall" ? null : 0) : n;
   }
   return text;
 }

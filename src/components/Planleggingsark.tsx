@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { LayoutGrid, List } from "lucide-react";
+import { LayoutGrid, SquareStack } from "lucide-react";
 import { Rolle } from "../types/database";
 import {
   DatabaseState,
@@ -35,30 +35,32 @@ export function ListeArkBryter({
       <button
         type="button"
         data-testid="ark-toggle-liste"
+        title="Kort"
+        aria-label="Kort"
         aria-pressed={visning === "liste"}
         onClick={() => onChange("liste")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[10px] cursor-pointer ${
+        className={`inline-flex items-center justify-center w-9 h-9 rounded-[10px] cursor-pointer ${
           visning === "liste"
             ? "bg-white text-[#2d5a3f] shadow-xs"
             : "text-slate-600 hover:text-slate-900"
         }`}
       >
-        <List className="w-3.5 h-3.5" />
-        Liste
+        <SquareStack className="w-4 h-4" />
       </button>
       <button
         type="button"
         data-testid="ark-toggle-ark"
+        title="Ark"
+        aria-label="Ark"
         aria-pressed={visning === "ark"}
         onClick={() => onChange("ark")}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-[10px] cursor-pointer ${
+        className={`inline-flex items-center justify-center w-9 h-9 rounded-[10px] cursor-pointer ${
           visning === "ark"
             ? "bg-white text-[#2d5a3f] shadow-xs"
             : "text-slate-600 hover:text-slate-900"
         }`}
       >
-        <LayoutGrid className="w-3.5 h-3.5" />
-        Ark
+        <LayoutGrid className="w-4 h-4" />
       </button>
     </div>
   );

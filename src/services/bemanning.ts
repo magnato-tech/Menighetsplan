@@ -32,6 +32,87 @@ export function getEffektivtBehov(
   return overstyring !== undefined ? overstyring.Antall : rolle.Behov;
 }
 
+/** Roller som normalt bare skal ha én person — brukes når MaksAntall ikke er satt. */
+const STANDARD_HARD_MAKS: Record<string, number> = {
+  møteleder: 1,
+  taler: 1,
+  lyd: 1,
+  bilde: 1,
+};
+
+/**
+ * Hard maks for påmelding/tildeling.
+ * - Eksplisitt ≥1: den grensen
+ * - Eksplisitt 0: ubegrenset (overbooking tillatt)
+ * - Udefinert/null: standard for møteleder/taler/lyd/bilde (=1), ellers ubegrenset
+ */
+export function getMaksAntall(rolle: Rolle): number | null {
+  if (rolle.MaksAntall !== undefined && rolle.MaksAntall !== null) {
+    const n = Number(rolle.MaksAntall);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.round(n);
+  }
+  const key = String(rolle.Rollenavn || "")
+    .trim()
+    .toLowerCase();
+  return STANDARD_HARD_MAKS[key] ?? null;
+}
+
+/** Antall aktive (ikke avviste) tildelinger for rolle på gudstjeneste. */
+export function tellAktivePaaRolle(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string
+): number {
+  return db.tildelinger.filter((t) => {
+    if (t.GudstjenesteID !== gudstjenesteId || t.RolleID !== rolleId) return false;
+    return hentSvarStatus(db, t.TildelingID) !== "Avvist";
+  }).length;
+}
+
+/** True når hard maks er satt og allerede er nådd. */
+export function erRolleHardFull(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolle: Rolle
+): boolean {
+  const maks = getMaksAntall(rolle);
+  if (maks == null) return false;
+  return tellAktivePaaRolle(db, gudstjenesteId, rolle.RolleID) >= maks;
+}
+
+function avvisHvisHardFull(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  rolleId: string
+): { success: false; message: string } | null {
+  const rolle = db.roller.find((r) => r.RolleID === rolleId);
+  if (!rolle || !erRolleHardFull(db, gudstjenesteId, rolle)) return null;
+  const maks = getMaksAntall(rolle);
+  return {
+    success: false,
+    message: `Rollen ${rolle.Rollenavn} er full (maks ${maks}).`,
+  };
+}
+
+function avvisHvisPassertDato(
+  db: DatabaseState,
+  gudstjenesteId: string
+): { success: false; message: string } | null {
+  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === gudstjenesteId);
+  if (!gud) {
+    return { success: false, message: "Gudstjenesten finnes ikke." };
+  }
+  const iDag = new Date().toISOString().split("T")[0];
+  if (gud.Dato < iDag) {
+    return {
+      success: false,
+      message: "Du kan ikke melde deg på en gudstjeneste som allerede er passert.",
+    };
+  }
+  return null;
+}
+
 export function hentSvarStatus(db: DatabaseState, tildelingId: string): SvarStatus {
   return db.svar.find((s) => s.TildelingID === tildelingId)?.Svar || "Venter";
 }
@@ -61,6 +142,7 @@ const SITUASJON_ROLLE_REKKEFOLGE = [
   "rigging",
   "kjøkken",
   "baking",
+  "pynting",
   "kollekt",
 ];
 
@@ -346,7 +428,7 @@ export function beregnLedigeOppgaver(
 /**
  * Frivillig påmelding:
  * Finner oppgaver som matcher personens aktive Personroller.
- * Behovstall er veiledende; overbooking er tillatt.
+ * Behovstall er veiledende; overbooking er tillatt med mindre MaksAntall er satt.
  */
 export function finnLedigeOppgaverForPerson(
   db: DatabaseState,
@@ -381,7 +463,7 @@ export function finnLedigeOppgaverForPerson(
  * 1. Validerer personrolle
  * 2. Oppretter Tildeling
  * 3. Oppretter Svar med "Bekreftet"
- * Behovstall er veiledende — overbooking er tillatt.
+ * Behovstall er veiledende — overbooking er tillatt med mindre MaksAntall er satt.
  */
 export function meldPaaFrivillig(
   db: DatabaseState,
@@ -418,6 +500,12 @@ export function meldPaaFrivillig(
       message: "Du er allerede registrert på denne oppgaven.",
     };
   }
+
+  const fullt = avvisHvisHardFull(db, gudstjenesteID, rolleID);
+  if (fullt) return fullt;
+
+  const passert = avvisHvisPassertDato(db, gudstjenesteID);
+  if (passert) return passert;
 
   // Generer nye ID-er
   const maxTildelingNr = db.tildelinger.reduce((max, t) => {
@@ -476,6 +564,9 @@ export function velgDatoForPerson(
   gudstjenesteID: string,
   rolleID: string
 ): { success: boolean; message: string; updatedDb?: DatabaseState } {
+  const passert = avvisHvisPassertDato(db, gudstjenesteID);
+  if (passert) return passert;
+
   // Sjekk om det allerede finnes en tildeling for personen på denne gudstjenesten og rollen
   const eksisterendeTildeling = db.tildelinger.find(
     (t) =>
@@ -506,6 +597,9 @@ export function velgDatoForPerson(
       message: "Du kan bare velge oppgaver i tjenestegrupper du er med i.",
     };
   }
+
+  const fullt = avvisHvisHardFull(db, gudstjenesteID, rolleID);
+  if (fullt) return fullt;
 
   // Hvis ingen tildeling finnes fra før, opprett ny tildeling og bekreftet svar
   const maxTildelingNr = db.tildelinger.reduce((max, t) => {
@@ -656,6 +750,10 @@ export function settDeltakelseForPerson(
   let tildelinger = db.tildelinger;
   let tildelingId = eksisterende[0]?.TildelingID;
   if (!tildelingId) {
+    const rolle = db.roller.find((r) => r.RolleID === rolleId);
+    if (rolle && erRolleHardFull(db, gudstjenesteId, rolle)) {
+      return db;
+    }
     tildelingId = nesteNummerertId(tildelinger, "TildelingID", "T");
     tildelinger = [
       ...tildelinger,
@@ -734,6 +832,9 @@ export function tildelEksternPerson(
   );
   if (allerede) return db;
 
+  const rolle = db.roller.find((r) => r.RolleID === rolleId);
+  if (rolle && erRolleHardFull(db, gudstjenesteId, rolle)) return db;
+
   const now = new Date().toISOString().split("T")[0];
   const personId = nesteEksternPersonId(db.tildelinger);
   const tildelingId = nesteNummerertId(db.tildelinger, "TildelingID", "T");
@@ -772,7 +873,7 @@ const IMPORT_ROLE_COLUMNS: { col: keyof GudstjenesterImport; rolleId: string }[]
   { col: "Rigging", rolleId: "R009" },
   { col: "Kjøkken", rolleId: "R010" },
   { col: "Baking", rolleId: "R011" },
-  { col: "Pynting", rolleId: "R012" },
+  { col: "Pynting", rolleId: "R013" },
 ];
 
 function normalizePersonName(value: string): string {

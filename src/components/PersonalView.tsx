@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import {
   DatabaseState,
   getEffektivtBehov,
+  getMaksAntall,
+  erRolleHardFull,
   hentSvarStatus,
   erMedITjenestegruppe,
   hentPåmeldingsRoller,
@@ -39,7 +41,7 @@ interface PersonalViewProps {
 }
 
 type PåmeldingsFilter = "ledige" | "mine" | "alle";
-type PåmeldingsStatus = "ledig" | "min-venter" | "min-bekreftet" | "full";
+type PåmeldingsStatus = "ledig" | "min-venter" | "min-bekreftet" | "full" | "stengt";
 
 function formatDato(dato: string): string {
   const parsed = new Date(`${dato}T12:00:00`);
@@ -57,7 +59,9 @@ function byggPåmeldingsrader(
   personId: string,
   rolle: Rolle
 ) {
+  const iDag = new Date().toISOString().split("T")[0];
   return db.gudstjenester
+    .filter((g) => g.Dato >= iDag)
     .slice()
     .sort((a, b) => `${a.Dato} ${a.Tid}`.localeCompare(`${b.Dato} ${b.Tid}`))
     .map((g) => {
@@ -79,19 +83,33 @@ function byggPåmeldingsrader(
         .filter((x): x is { personId: string; navn: string; status: "Bekreftet" | "Venter" } => x !== null);
 
       const behov = getEffektivtBehov(db, g.GudstjenesteID, rolle);
+      const maks = getMaksAntall(rolle);
       const bekreftetAntall = personerPå.filter((p) => p.status === "Bekreftet").length;
+      const aktiveAntall = personerPå.length;
       const ledige = Math.max(0, behov - bekreftetAntall);
+      const hardFull = erRolleHardFull(db, g.GudstjenesteID, rolle);
       const min = personerPå.find((p) => p.personId === personId);
       const minAvvist = tildelinger.some((t) => {
         if (t.PersonID !== personId) return false;
         return hentSvarStatus(db, t.TildelingID) === "Avvist";
       });
 
-      let status: PåmeldingsStatus = ledige > 0 || minAvvist ? "ledig" : "full";
+      let status: PåmeldingsStatus =
+        hardFull && !min ? "stengt" : ledige > 0 || minAvvist ? "ledig" : "full";
       if (min?.status === "Bekreftet") status = "min-bekreftet";
       else if (min) status = "min-venter";
 
-      return { gudstjeneste: g, behov, ledige, bekreftetAntall, personerPå, status };
+      return {
+        gudstjeneste: g,
+        behov,
+        maks,
+        ledige,
+        bekreftetAntall,
+        aktiveAntall,
+        hardFull,
+        personerPå,
+        status,
+      };
     });
 }
 
@@ -507,7 +525,11 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                   {datePickerRolle.Rollenavn}
                 </h3>
                 <p className="text-sm text-slate-600 mt-1">
-                  Se ledige og dine søndager. Behovstallet er veiledende — du kan melde deg på selv om det er nok folk.
+                  {getMaksAntall(datePickerRolle) != null
+                    ? `Maks ${getMaksAntall(datePickerRolle)} ${
+                        getMaksAntall(datePickerRolle) === 1 ? "person" : "personer"
+                      } på denne rollen. Når den er full, kan du ikke melde deg på.`
+                    : "Se ledige og dine søndager. Behovstallet er veiledende — du kan melde deg på selv om det er nok folk."}
                 </p>
               </div>
               <button
@@ -527,6 +549,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                 (r) => r.status === "min-venter" || r.status === "min-bekreftet"
               ).length;
               const antallFulle = rader.filter((r) => r.status === "full").length;
+              const antallStengt = rader.filter((r) => r.status === "stengt").length;
               const filtrert = rader.filter((r) => {
                 if (datePickerFilter === "ledige") return r.status === "ledig";
                 if (datePickerFilter === "mine") {
@@ -559,7 +582,9 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                       </button>
                     ))}
                     <span className="text-xs text-slate-400 self-center ml-auto">
-                      {antallFulle} med dekket veiledende behov
+                      {antallStengt > 0
+                        ? `${antallStengt} fulle`
+                        : `${antallFulle} med dekket veiledende behov`}
                     </span>
                   </div>
 
@@ -570,14 +595,32 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                       </div>
                     ) : (
                       filtrert.map((rad) => {
-                        const { gudstjeneste: g, behov, ledige, bekreftetAntall, personerPå, status } = rad;
+                        const {
+                          gudstjeneste: g,
+                          behov,
+                          maks,
+                          ledige,
+                          bekreftetAntall,
+                          personerPå,
+                          status,
+                        } = rad;
                         const kanMelde = status === "ledig" || status === "full";
+                        const kapasitetTekst =
+                          maks != null
+                            ? `${bekreftetAntall} av maks ${maks}${
+                                status === "stengt" ? " · fullt" : ledige > 0 ? ` · ${ledige} ledig` : ""
+                              }`
+                            : `${bekreftetAntall} av ${behov} bekreftet (veiledende)${
+                                ledige > 0 ? ` · ${ledige} ledig` : " · kan overbookes"
+                              }`;
                         return (
                           <div
                             key={g.GudstjenesteID}
                             className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
                               status === "ledig"
                                 ? "bg-[#f4f8f5] border-[#d2e8d9]"
+                                : status === "stengt"
+                                ? "bg-slate-100 border-slate-200 opacity-90"
                                 : status === "full"
                                 ? "bg-slate-50 border-slate-200"
                                 : "bg-white border-slate-200"
@@ -596,10 +639,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                                 {g.Tema || "Gudstjeneste"}
                                 {g.Sted ? ` · ${g.Sted}` : ""}
                               </div>
-                              <div className="text-xs text-slate-500">
-                                {bekreftetAntall} av {behov} bekreftet (veiledende)
-                                {ledige > 0 ? ` · ${ledige} ledig` : " · kan overbookes"}
-                              </div>
+                              <div className="text-xs text-slate-500">{kapasitetTekst}</div>
                               {personerPå.filter(
                                 (p) =>
                                   p.status === "Bekreftet" || p.personId === person.PersonID

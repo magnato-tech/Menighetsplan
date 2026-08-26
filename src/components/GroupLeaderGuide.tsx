@@ -4,7 +4,7 @@ import {
   ChevronRight,
   Circle,
   LayoutGrid,
-  List,
+  SquareStack,
   Share2,
   UserPlus,
   X,
@@ -31,16 +31,16 @@ const STEG: Steg[] = [
   {
     target: "liste-ark",
     visning: "liste",
-    tittel: "Liste eller Ark — samme data",
-    tekst: "Bytt mellom Liste og Ark etter smak. Innholdet er det samme. Ark ligner et Excel-ark: kolonner er roller, rader er søndager, tom rute er ledig. Liste viser ett åpent kort om gangen.",
-    Icon: List,
+    tittel: "Kort eller Ark — samme data",
+    tekst: "Bytt mellom Kort og Ark etter smak. Innholdet er det samme. Ark ligner et Excel-ark: kolonner er roller, rader er søndager, tom rute er ledig. Kort viser ett åpent gudstjenestekort om gangen.",
+    Icon: SquareStack,
   },
   {
     target: "sett-opp",
     visning: "liste",
     apneKort: true,
     tittel: "Sett forespørsel i det åpne kortet",
-    tekst: "Åpne en søndag i Listen. Trykk pluss ved en rolle, søk fram et medlem og sett forespørsel. Personen blir gul til de svarer. Flere enn veiledende antall er helt greit.",
+    tekst: "Åpne en søndag i Kort-visningen. Trykk pluss ved en rolle, søk fram et medlem og sett forespørsel. Personen blir gul til de svarer. Flere enn veiledende antall er helt greit.",
     Icon: UserPlus,
   },
   {
@@ -55,7 +55,7 @@ const STEG: Steg[] = [
     target: "liste-ark",
     visning: "ark",
     tittel: "Fyll i Arket",
-    tekst: "Bytt til Ark. En tom celle er ledig. Skriv navn i cellen og trykk Enter for å sette opp. Samme tildeling som i Listen, bare i rutenett.",
+    tekst: "Bytt til Ark. En tom celle er ledig. Skriv navn i cellen og trykk Enter for å sette opp. Samme tildeling som i Kort-visningen, bare i rutenett.",
     Icon: LayoutGrid,
   },
   {

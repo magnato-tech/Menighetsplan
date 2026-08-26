@@ -358,8 +358,6 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           setEksternForesporsel(null);
           setAssignModal(foresporsel);
         }}
-        onCopyLink={handleCopyLink}
-        copiedPersonId={copiedPersonId}
         statusAktor="gruppeleder"
         guideVisning={guideOpen ? guideVisning : undefined}
         guideApneForsteKort={guideOpen && guideApneForsteKort}
