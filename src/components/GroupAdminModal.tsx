@@ -10,6 +10,9 @@ import {
   sikreGruppemedlemskap,
   synkGruppeledergruppe,
   synkTilgangsnivaaEtterGruppeledere,
+  avlysKommendeOppgaverIGruppe,
+  erObligatoriskIGruppelederteam,
+  lederforumKilderForPerson,
 } from "../services/dataService";
 
 interface GroupAdminModalProps {
@@ -183,7 +186,27 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
     setSok("");
   };
 
+  const erLederforum = Boolean(gruppe && erGruppeledergruppe(db, gruppe));
+
   const fjernPerson = (personId: string) => {
+    if (erLederforum && erObligatoriskIGruppelederteam(db, personId)) {
+      const kilder = lederforumKilderForPerson(db, personId);
+      const hvor = kilder.map((k) => k.gruppenavn).join(", ");
+      window.alert(
+        `Personen kan ikke fjernes fra gruppelederteamet mens hen er leder eller nestleder i ${hvor}. Ta vekk den rollen der først.`
+      );
+      return;
+    }
+    const person = db.personer.find((p) => p.PersonID === personId);
+    const navn = person?.Navn || person?.Fornavn || "denne personen";
+    const gruppeNavn = gruppenavn.trim() || gruppe.Gruppenavn;
+    if (
+      !window.confirm(
+        `Vil du fjerne ${navn} fra ${gruppeNavn}? Dette fjerner personen også fra alle kommende oppgaver i gruppen hen har sagt ja til eller står på.`
+      )
+    ) {
+      return;
+    }
     setMedlemmer((prev) =>
       prev.map((gm) => (gm.PersonID === personId ? { ...gm, Aktiv: false } : gm))
     );
@@ -259,8 +282,24 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
     })
     );
 
-    saveDatabase(updated);
-    onUpdateDb(updated);
+    const varAktive = new Set(
+      (db.gruppemedlemmer || [])
+        .filter((gm) => gm.GruppeID === gruppeId && gm.Aktiv)
+        .map((gm) => gm.PersonID)
+    );
+    const blirAktive = new Set(
+      (updated.gruppemedlemmer || [])
+        .filter((gm) => gm.GruppeID === gruppeId && gm.Aktiv)
+        .map((gm) => gm.PersonID)
+    );
+    let neste = updated;
+    for (const personId of varAktive) {
+      if (blirAktive.has(personId)) continue;
+      neste = avlysKommendeOppgaverIGruppe(neste, personId, gruppeId);
+    }
+
+    saveDatabase(neste);
+    onUpdateDb(neste);
     onClose();
   };
 
@@ -287,7 +326,7 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
 
         {erGruppeledergruppe(db, gruppe) && (
           <p className="mb-4 text-xs text-slate-600 bg-[#eef5f1] border border-[#d2e8d9] rounded-xl px-3 py-2">
-            Ledere og nestledere fra tjenestegrupper, husgrupper og barnekirke oppdateres automatisk. Manuelle tillegg blir værende.
+            Ledere og nestledere fra tjenestegrupper, husgrupper og barnekirke oppdateres automatisk og kan ikke fjernes her. Ta dem ut som leder i sin egen gruppe først. Manuelle tillegg kan fjernes.
           </p>
         )}
 
@@ -423,12 +462,18 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
                               {person.Navn}
                             </div>
                           </div>
-                          <IkonHandling
-                            label="Fjern medlem"
-                            Icon={Trash2}
-                            variant="decline"
-                            onClick={() => fjernPerson(person.PersonID)}
-                          />
+                          {erLederforum && erObligatoriskIGruppelederteam(db, person.PersonID) ? (
+                            <span className="text-[10px] font-semibold text-slate-400 max-w-[9rem] text-right leading-tight">
+                              Fjernes via egen gruppe
+                            </span>
+                          ) : (
+                            <IkonHandling
+                              label="Fjern medlem"
+                              Icon={Trash2}
+                              variant="decline"
+                              onClick={() => fjernPerson(person.PersonID)}
+                            />
+                          )}
                         </div>
 
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">

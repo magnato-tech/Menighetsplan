@@ -9,6 +9,7 @@ import {
   hentPåmeldingsRoller,
   oppsummerRolleendring,
   settPersonroller,
+  avlysKommendeOppgaverIGruppe,
   velkomstForGrupper,
 } from "../services/dataService";
 import { Gruppe, Gruppetype, Person, Rolle } from "../types/database";
@@ -377,6 +378,60 @@ test("huk av én rolle avlyser bare den oppgaven", () => {
   db = settPersonroller(db, "P001", ["R007"]);
   assert.equal(db.svar.find((s) => s.TildelingID === "T-LYD")?.Svar, "Avvist");
   assert.equal(db.svar.find((s) => s.TildelingID === "T-BILDE")?.Svar, "Bekreftet");
+});
+
+test("avlysKommendeOppgaverIGruppe tar kun gruppens kommende tildelinger", () => {
+  let db = settPersonroller(tomDb(), "P001", ["R006", "R010"]);
+  db = {
+    ...db,
+    gudstjenester: [
+      {
+        GudstjenesteID: "GUD-FREMTID",
+        Dato: "2026-12-06",
+        Tid: "11:00",
+        Sted: "",
+        Tema: "",
+      },
+    ],
+    tildelinger: [
+      {
+        TildelingID: "T-LYD",
+        GudstjenesteID: "GUD-FREMTID",
+        RolleID: "R006",
+        PersonID: "P001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        TildelingID: "T-KJOKKEN",
+        GudstjenesteID: "GUD-FREMTID",
+        RolleID: "R010",
+        PersonID: "P001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    svar: [
+      {
+        SvarID: "S-LYD",
+        TildelingID: "T-LYD",
+        PersonID: "P001",
+        Svar: "Bekreftet",
+        SvartDato: "2026-01-02",
+      },
+      {
+        SvarID: "S-KJOKKEN",
+        TildelingID: "T-KJOKKEN",
+        PersonID: "P001",
+        Svar: "Bekreftet",
+        SvartDato: "2026-01-02",
+      },
+    ],
+  };
+  db = avlysKommendeOppgaverIGruppe(db, "P001", "G003");
+  assert.equal(db.svar.find((s) => s.TildelingID === "T-LYD")?.Svar, "Avvist");
+  assert.equal(db.svar.find((s) => s.TildelingID === "T-LYD")?.Kommentar, "Fjernet fra tjenestegruppe");
+  assert.equal(db.svar.find((s) => s.TildelingID === "T-KJOKKEN")?.Svar, "Bekreftet");
 });
 
 if (failed > 0) {

@@ -48,6 +48,34 @@ function antallMedlemmer(db: DatabaseState, gruppe: Gruppe): number {
   return ids.size;
 }
 
+function aktiveRollerIGruppe(db: DatabaseState, gruppeId: string) {
+  return db.roller
+    .filter((r) => r.Aktiv && r.GruppeID === gruppeId)
+    .slice()
+    .sort((a, b) => a.Rollenavn.localeCompare(b.Rollenavn, "nb"));
+}
+
+function RolleChips({ navn, visTomHint }: { navn: string[]; visTomHint: boolean }) {
+  if (navn.length === 0) {
+    if (!visTomHint) return null;
+    return (
+      <span className="text-[11px] text-slate-400">Ingen oppgaver knyttet</span>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {navn.map((n) => (
+        <span
+          key={n}
+          className="text-[10px] font-semibold text-[#2d5a3f] bg-[#eef5f1] border border-[#d2e8d9] px-1.5 py-0.5 rounded-full"
+        >
+          {n}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function ikonNavn(db: DatabaseState, gruppe: Gruppe): string {
   const roller = db.roller.filter((r) => r.Aktiv && r.GruppeID === gruppe.GruppeID);
   if (roller[0]?.Rollenavn) return roller[0].Rollenavn;
@@ -101,7 +129,8 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
         const typeNavn = db.gruppetyper.find((gt) => gt.GruppetypeID === g.GruppetypeID)?.Navn || "";
         const leder = db.personer.find((p) => p.PersonID === g.GruppelederID);
         const nestleder = db.personer.find((p) => p.PersonID === g.NestlederID);
-        return [g.Gruppenavn, g.Beskrivelse, typeNavn, leder?.Navn, nestleder?.Navn]
+        const roller = aktiveRollerIGruppe(db, g.GruppeID).map((r) => r.Rollenavn);
+        return [g.Gruppenavn, g.Beskrivelse, typeNavn, leder?.Navn, nestleder?.Navn, ...roller]
           .filter(Boolean)
           .some((t) => String(t).toLowerCase().includes(q));
       })
@@ -214,6 +243,8 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
               db.gruppetyper.find((gt) => gt.GruppetypeID === gruppe.GruppetypeID)?.Navn || "";
             const isCopiedLeder = leder && copiedPersonId === leder.PersonID;
             const visLederknapp = Boolean(leder && erTjenestegruppe(db, gruppe));
+            const rolleNavn = aktiveRollerIGruppe(db, gruppe.GruppeID).map((r) => r.Rollenavn);
+            const visTomRoller = erTjenestegruppe(db, gruppe);
 
             const apne = () => onOpenEdit(gruppe.GruppeID);
             const tast = (e: React.KeyboardEvent) => {
@@ -253,6 +284,9 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                   <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 border-l border-slate-200 pl-2.5 shrink-0">
                     {medlemstall} MEDL.
                   </span>
+                  <div className="min-w-0 flex-1">
+                    <RolleChips navn={rolleNavn} visTomHint={visTomRoller} />
+                  </div>
                   {leder && (
                     <div className="flex items-center gap-1 ml-auto">
                       <IkonHandling
@@ -299,9 +333,12 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                     </div>
                   </div>
                 </div>
-                <p className="text-xs text-slate-500 mt-3 flex-1">
+                <p className="text-xs text-slate-500 mt-3">
                   {gruppe.Beskrivelse?.trim() || "Ingen beskrivelse tilgjengelig"}
                 </p>
+                <div className="mt-2.5 flex-1">
+                  <RolleChips navn={rolleNavn} visTomHint={visTomRoller} />
+                </div>
                 <div className="flex items-end justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
                   <div className="min-w-0 space-y-0.5">
                     <div className="flex items-center gap-1 text-xs text-slate-800">

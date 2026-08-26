@@ -61,27 +61,6 @@ export function finnGrupperForGruppeleder(
     }
   }
 
-  // 4. Spesialhåndtering for Astrid / Astri
-  const person = (db.personer || []).find((p) => p.PersonID === personID);
-  if (person) {
-    const fn = (person.Fornavn || "").toLowerCase();
-    const n = (person.Navn || "").toLowerCase();
-    const notat = (person.Notat || "").toLowerCase();
-    if (personID === "P011" || fn.startsWith("astr") || n.startsWith("astr")) {
-      const forbonn = (db.grupper || []).find(
-        (g) => g.GruppeID === "G007" || g.Gruppenavn.toLowerCase().includes("forbønn")
-      );
-      if (forbonn) grupperMap.set(forbonn.GruppeID, forbonn);
-    }
-    if (notat.includes("gruppeleder") || notat.includes("leder")) {
-      for (const g of db.grupper || []) {
-        if (g.Aktiv && notat.includes(g.Gruppenavn.toLowerCase())) {
-          grupperMap.set(g.GruppeID, g);
-        }
-      }
-    }
-  }
-
   return Array.from(grupperMap.values()).filter((g) => erTjenestegruppe(db, g));
 }
 
@@ -213,6 +192,11 @@ export function lederforumKilderForPerson(db: DatabaseState, personId: string): 
   return kilder;
 }
 
+/** Ledere/nestledere i øvrige grupper kan ikke tas ut av gruppelederteamet. */
+export function erObligatoriskIGruppelederteam(db: DatabaseState, personId: string): boolean {
+  return lederforumKilderForPerson(db, personId).length > 0;
+}
+
 function finnGruppeledergruppeType(db: DatabaseState): Gruppetype | undefined {
   return db.gruppetyper.find(
     (gt) => gt.Aktiv && gruppetypeNokkel(gt.Navn) === "gruppeledergruppe"
@@ -268,20 +252,21 @@ export function synkGruppeledergruppe(db: DatabaseState): DatabaseState {
       continue;
     }
     if (!existing.Aktiv) {
-      if (erLederforumAutoMedlem(existing) || !existing.Notat) {
-        medlemmer = medlemmer.map((gm) =>
-          gm.GruppeMedlemID === existing.GruppeMedlemID
-            ? {
-                ...gm,
-                Aktiv: true,
-                Medlemsrolle: gm.Medlemsrolle || "Automatisk",
-                Notat: LEDERFORUM_AUTO_NOTAT,
-                SistEndret: now,
-              }
-            : gm
-        );
-        endret = true;
-      }
+      medlemmer = medlemmer.map((gm) =>
+        gm.GruppeMedlemID === existing.GruppeMedlemID
+          ? {
+              ...gm,
+              Aktiv: true,
+              Medlemsrolle: gm.Medlemsrolle || "Automatisk",
+              Notat:
+                erLederforumAutoMedlem(gm) || !String(gm.Notat || "").trim()
+                  ? LEDERFORUM_AUTO_NOTAT
+                  : gm.Notat,
+              SistEndret: now,
+            }
+          : gm
+      );
+      endret = true;
       continue;
     }
     if (!erLederforumAutoMedlem(existing) && existing.Medlemsrolle !== "Automatisk") {

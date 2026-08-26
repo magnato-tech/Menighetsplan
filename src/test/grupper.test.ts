@@ -8,7 +8,9 @@ import {
   finnTjenestegrupperForPerson,
   hentTilgang,
   lederforumKilderForPerson,
+  erObligatoriskIGruppelederteam,
   synkGruppeledergruppe,
+  applyLoadedState,
 } from "../services/dataService";
 import { Gruppe, Gruppetype, Person } from "../types/database";
 
@@ -168,3 +170,61 @@ assert.ok(!aktiveForum.some((gm) => gm.PersonID === "P002"));
 assert.ok(aktiveForum.some((gm) => gm.PersonID === "P099"));
 assert.ok(aktiveForum.some((gm) => gm.PersonID === "P001"));
 assert.ok(aktiveForum.some((gm) => gm.PersonID === "P090"));
+
+assert.equal(erObligatoriskIGruppelederteam(synket, "P001"), true);
+assert.equal(erObligatoriskIGruppelederteam(synket, "P099"), false);
+
+const forsokFjernLeder = {
+  ...synket,
+  gruppemedlemmer: synket.gruppemedlemmer.map((gm) =>
+    gm.GruppeID === forum!.GruppeID && gm.PersonID === "P001"
+      ? { ...gm, Aktiv: false }
+      : gm
+  ),
+};
+const etterForsok = synkGruppeledergruppe(forsokFjernLeder);
+assert.ok(
+  etterForsok.gruppemedlemmer.some(
+    (gm) => gm.GruppeID === forum!.GruppeID && gm.PersonID === "P001" && gm.Aktiv
+  ),
+  "leder skal ikke kunne tas ut av gruppelederteamet uten å miste lederskap"
+);
+
+const astriDb: DatabaseState = {
+  ...tomDb(),
+  personer: [
+    person("P021", "Astri Berg"),
+    person("P020", "Preben Lien"),
+    person("P099", "Manuell Extra"),
+  ],
+  grupper: [
+    gruppe({
+      GruppeID: "G001",
+      Gruppenavn: "Gudstjenesteleder",
+      GruppetypeID: "GT001",
+      GruppelederID: "P020",
+    }),
+    gruppe({
+      GruppeID: "G004",
+      Gruppenavn: "Barnekirke",
+      GruppetypeID: "GT001",
+      GruppelederID: "P021",
+    }),
+    gruppe({
+      GruppeID: "G007",
+      Gruppenavn: "Forbønn",
+      GruppetypeID: "GT001",
+      GruppelederID: "P099",
+    }),
+  ],
+};
+const lastet = applyLoadedState(astriDb);
+assert.equal(lastet.grupper.find((g) => g.GruppeID === "G001")?.GruppelederID, "P020");
+assert.equal(lastet.grupper.find((g) => g.GruppeID === "G004")?.GruppelederID, "P021");
+assert.equal(lastet.grupper.find((g) => g.GruppeID === "G007")?.GruppelederID, "P099");
+assert.equal(
+  finnGrupperForGruppeleder(lastet, "P021").some((g) => g.GruppeID === "G007"),
+  false
+);
+
+console.log("grupper.test.ts: alle tester ok");

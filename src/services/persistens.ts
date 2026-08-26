@@ -415,7 +415,8 @@ async function fetchJson(url: string, init?: RequestInit): Promise<string> {
   );
 }
 
-function applyLoadedState(state: DatabaseState): DatabaseState {
+/** Leser ark-state. Skriver ikke om GruppelederID (ikke Astri→Forbønn e.l.). */
+export function applyLoadedState(state: DatabaseState): DatabaseState {
   const personer = sikreSikkerhetsTokens(state.personer);
   let endret = personer.some((p, i) => p.SikkerhetsToken !== state.personer[i]?.SikkerhetsToken);
   let fixed: DatabaseState = fyllManglendeTilgangsnivaa({
@@ -432,69 +433,6 @@ function applyLoadedState(state: DatabaseState): DatabaseState {
   const duplikat = fjernDuplikateTildelinger(fixed);
   fixed = duplikat.state;
   if (duplikat.endret) endret = true;
-
-  // Finn Astrid / Astri i persondatabasen
-  const astrid = fixed.personer.find(
-    (p) =>
-      p.PersonID === "P011" ||
-      String(p.Fornavn || "")
-        .toLowerCase()
-        .startsWith("astr") ||
-      String(p.Navn || "")
-        .toLowerCase()
-        .startsWith("astr")
-  );
-
-  if (astrid) {
-    // Sørg for at Forbønn-gruppen (G007) har Astrid som GruppelederID
-    const forbonnGruppe = fixed.grupper.find(
-      (g) => g.GruppeID === "G007" || g.Gruppenavn.toLowerCase().includes("forbønn")
-    );
-    if (forbonnGruppe && forbonnGruppe.GruppelederID !== astrid.PersonID) {
-      fixed = {
-        ...fixed,
-        grupper: fixed.grupper.map((g) =>
-          g.GruppeID === forbonnGruppe.GruppeID ? { ...g, GruppelederID: astrid.PersonID } : g
-        ),
-      };
-      endret = true;
-    }
-
-    // Sørg for at Astrid har Leder-rolle i gruppemedlemmer for Forbønn
-    if (forbonnGruppe) {
-      const eksisterendeMedlem = (fixed.gruppemedlemmer || []).find(
-        (gm) => gm.GruppeID === forbonnGruppe.GruppeID && gm.PersonID === astrid.PersonID
-      );
-      if (!eksisterendeMedlem) {
-        fixed = {
-          ...fixed,
-          gruppemedlemmer: [
-            ...(fixed.gruppemedlemmer || []),
-            {
-              GruppeMedlemID: `GM_AUTO_${Date.now()}`,
-              GruppeID: forbonnGruppe.GruppeID,
-              PersonID: astrid.PersonID,
-              Medlemsrolle: "Leder",
-              Aktiv: true,
-              OpprettetDato: "2026-01-10",
-              SistEndret: "2026-01-10",
-            },
-          ],
-        };
-        endret = true;
-      } else if (eksisterendeMedlem.Medlemsrolle !== "Leder") {
-        fixed = {
-          ...fixed,
-          gruppemedlemmer: fixed.gruppemedlemmer.map((gm) =>
-            gm.GruppeMedlemID === eksisterendeMedlem.GruppeMedlemID
-              ? { ...gm, Medlemsrolle: "Leder" }
-              : gm
-          ),
-        };
-        endret = true;
-      }
-    }
-  }
 
   // Sørg for at alle gruppeledere i fixed.grupper også er registrert som Leder i gruppemedlemmer
   for (const g of fixed.grupper || []) {

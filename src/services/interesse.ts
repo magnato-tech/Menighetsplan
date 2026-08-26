@@ -1,7 +1,12 @@
 import { Gruppe, Personrolle, Rolle, Svar } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
-import { erTjenestegruppe, sikreGruppemedlemskap } from "./grupper";
+import {
+  erGruppeledergruppe,
+  erObligatoriskIGruppelederteam,
+  erTjenestegruppe,
+  sikreGruppemedlemskap,
+} from "./grupper";
 import { saveDatabase } from "./persistens";
 
 const AVLYST_UTMELDING = "Gått ut av tjenestegruppe";
@@ -235,6 +240,18 @@ export function avlysKommendeTildelingerForRoller(
   return { ...db, svar };
 }
 
+export function avlysKommendeOppgaverIGruppe(
+  db: DatabaseState,
+  personId: string,
+  gruppeId: string,
+  kommentar = "Fjernet fra tjenestegruppe"
+): DatabaseState {
+  const rolleIds = tjenesteRoller(db)
+    .filter((r) => r.GruppeID === gruppeId)
+    .map((r) => r.RolleID);
+  return avlysKommendeTildelingerForRoller(db, personId, rolleIds, kommentar);
+}
+
 function rolleIdsSomSkalAvlyses(
   db: DatabaseState,
   personId: string,
@@ -305,6 +322,10 @@ export function settPersonroller(
     );
     if (harRolle) continue;
     if (erLederEllerNestlederIGruppe(db, personId, gruppeId)) continue;
+    const gruppe = db.grupper.find((g) => g.GruppeID === gruppeId);
+    if (gruppe && erGruppeledergruppe(db, gruppe) && erObligatoriskIGruppelederteam(db, personId)) {
+      continue;
+    }
     gruppemedlemmer = gruppemedlemmer.map((gm) =>
       gm.PersonID === personId && gm.GruppeID === gruppeId && gm.Aktiv
         ? { ...gm, Aktiv: false, SistEndret: now }
