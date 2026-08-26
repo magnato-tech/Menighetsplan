@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { DatabaseState, AppView, genererPersonligLenke } from "../services/dataService";
+import { DatabaseState, AppView, genererPersonligLenke, slettGruppe, opprettGruppetype, saveDatabase, synkTilgangsnivaaEtterGruppeledere } from "../services/dataService";
 import { ImportMigrationModal } from "./ImportMigrationModal";
 import { GroupAdminModal } from "./GroupAdminModal";
 import { GoogleSheetsSync } from "./GoogleSheetsSync";
@@ -189,6 +189,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
           onOpenEdit={setEditingGruppeId}
           onNewGroup={() => setNewGroupModal(true)}
           onSelectPerson={onSelectPerson}
+          onSlettGruppe={(gruppeId) => {
+            const neste = synkTilgangsnivaaEtterGruppeledere(slettGruppe(db, gruppeId));
+            saveDatabase(neste);
+            onUpdateDb(neste);
+          }}
+          onNyKategori={(navn) => {
+            const { db: neste, gruppetypeId } = opprettGruppetype(db, navn);
+            saveDatabase(neste);
+            onUpdateDb(neste);
+            if (gruppetypeId) setGroupTypeFilter(gruppetypeId);
+          }}
         />
       )}
 

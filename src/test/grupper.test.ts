@@ -11,6 +11,8 @@ import {
   erObligatoriskIGruppelederteam,
   synkGruppeledergruppe,
   applyLoadedState,
+  slettGruppe,
+  opprettGruppetype,
 } from "../services/dataService";
 import { Gruppe, Gruppetype, Person } from "../types/database";
 
@@ -258,6 +260,43 @@ const igjenSmagruppe = applyLoadedState(medSmagruppe);
 assert.equal(
   igjenSmagruppe.roller.filter((r) => r.Rollenavn === "Smågruppeleder").length,
   1
+);
+
+const dublett = {
+  ...synket,
+  grupper: [
+    ...synket.grupper,
+    gruppe({
+      GruppeID: "G099",
+      Gruppenavn: "Gruppelederteam",
+      GruppetypeID: forum!.GruppetypeID,
+    }),
+  ],
+};
+const etterDublettSlett = slettGruppe(dublett, "G099");
+assert.equal(etterDublettSlett.grupper.find((g) => g.GruppeID === "G099")?.Aktiv, false);
+assert.equal(etterDublettSlett.grupper.find((g) => g.GruppeID === forum!.GruppeID)?.Aktiv, true);
+
+const etterSlettForum = slettGruppe(synket, forum!.GruppeID);
+assert.equal(etterSlettForum.grupper.find((g) => g.GruppeID === forum!.GruppeID)?.Aktiv, false);
+const etterNySynk = synkGruppeledergruppe(etterSlettForum);
+assert.equal(
+  etterNySynk.grupper.filter((g) => g.GruppetypeID === forum!.GruppetypeID && g.Aktiv).length,
+  0,
+  "skal ikke opprette ny gruppelederteam-dublett etter sletting"
+);
+
+const medNyType = opprettGruppetype(tomDb(), "Ungdom");
+assert.ok(medNyType.gruppetypeId);
+assert.equal(
+  medNyType.db.gruppetyper.find((gt) => gt.GruppetypeID === medNyType.gruppetypeId)?.Navn,
+  "Ungdom"
+);
+const duplikat = opprettGruppetype(medNyType.db, "ungdom");
+assert.equal(duplikat.gruppetypeId, medNyType.gruppetypeId);
+assert.equal(
+  duplikat.db.gruppetyper.filter((gt) => gt.Aktiv).length,
+  medNyType.db.gruppetyper.filter((gt) => gt.Aktiv).length
 );
 
 console.log("grupper.test.ts: alle tester ok");

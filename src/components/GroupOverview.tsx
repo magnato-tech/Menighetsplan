@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { LayoutGrid, List, Plus, Search, Share2, Star, Eye } from "lucide-react";
+import { LayoutGrid, List, Plus, Search, Share2, Star, Eye, Trash2 } from "lucide-react";
 import { Gruppe } from "../types/database";
 import {
   DatabaseState,
@@ -91,6 +91,8 @@ interface GroupOverviewProps {
   onOpenEdit: (gruppeId: string) => void;
   onNewGroup: () => void;
   onSelectPerson: (personId: string, view?: AppView) => void;
+  onSlettGruppe: (gruppeId: string) => void;
+  onNyKategori: (navn: string) => void;
 }
 
 export const GroupOverview: React.FC<GroupOverviewProps> = ({
@@ -102,9 +104,14 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
   onOpenEdit,
   onNewGroup,
   onSelectPerson,
+  onSlettGruppe,
+  onNyKategori,
 }) => {
   const [sok, setSok] = useState("");
   const [visning, setVisning] = useState<"grid" | "list">("grid");
+  const [slettGruppe, setSlettGruppe] = useState<Gruppe | null>(null);
+  const [nyKategoriApen, setNyKategoriApen] = useState(false);
+  const [nyKategoriNavn, setNyKategoriNavn] = useState("");
 
   const typer = useMemo(
     () =>
@@ -196,6 +203,18 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => {
+              setNyKategoriNavn("");
+              setNyKategoriApen(true);
+            }}
+            className="w-7 h-7 rounded-full border border-slate-200 bg-white text-slate-500 hover:border-[#2d5a3f]/40 hover:text-[#2d5a3f] flex items-center justify-center cursor-pointer"
+            title="Ny kategori"
+            aria-label="Ny kategori"
+          >
+            <Plus className="w-3.5 h-3.5" />
+          </button>
         </div>
         <div className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200 ml-auto">
           <button
@@ -287,30 +306,41 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                   <div className="min-w-0 flex-1">
                     <RolleChips navn={rolleNavn} visTomHint={visTomRoller} />
                   </div>
-                  {leder && (
-                    <div className="flex items-center gap-1 ml-auto">
-                      <IkonHandling
-                        label="Kopier personlenke"
-                        Icon={Share2}
-                        variant="sky"
-                        copied={Boolean(isCopiedLeder)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCopyLink(leder.PersonID);
-                        }}
-                      />
-                      {visLederknapp && (
+                  <div className="flex items-center gap-1 ml-auto">
+                    {leder && (
+                      <>
                         <IkonHandling
-                          label="Se som denne lederen"
-                          Icon={Eye}
+                          label="Kopier personlenke"
+                          Icon={Share2}
+                          variant="sky"
+                          copied={Boolean(isCopiedLeder)}
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectPerson(leder.PersonID, "leader");
+                            onCopyLink(leder.PersonID);
                           }}
                         />
-                      )}
-                    </div>
-                  )}
+                        {visLederknapp && (
+                          <IkonHandling
+                            label="Se som denne lederen"
+                            Icon={Eye}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectPerson(leder.PersonID, "leader");
+                            }}
+                          />
+                        )}
+                      </>
+                    )}
+                    <IkonHandling
+                      label="Slett gruppe"
+                      Icon={Trash2}
+                      variant="decline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSlettGruppe(gruppe);
+                      }}
+                    />
+                  </div>
                 </div>
               );
             }
@@ -359,34 +389,140 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                       {medlemstall} MEDL.
                     </span>
                   </div>
-                  {leder && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      <IkonHandling
-                        label="Kopier personlenke"
-                        Icon={Share2}
-                        variant="sky"
-                        copied={Boolean(isCopiedLeder)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCopyLink(leder.PersonID);
-                        }}
-                      />
-                      {visLederknapp && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    {leder && (
+                      <>
                         <IkonHandling
-                          label="Se som denne lederen"
-                          Icon={Eye}
+                          label="Kopier personlenke"
+                          Icon={Share2}
+                          variant="sky"
+                          copied={Boolean(isCopiedLeder)}
                           onClick={(e) => {
                             e.stopPropagation();
-                            onSelectPerson(leder.PersonID, "leader");
+                            onCopyLink(leder.PersonID);
                           }}
                         />
-                      )}
-                    </div>
-                  )}
+                        {visLederknapp && (
+                          <IkonHandling
+                            label="Se som denne lederen"
+                            Icon={Eye}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onSelectPerson(leder.PersonID, "leader");
+                            }}
+                          />
+                        )}
+                      </>
+                    )}
+                    <IkonHandling
+                      label="Slett gruppe"
+                      Icon={Trash2}
+                      variant="decline"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSlettGruppe(gruppe);
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             );
           })}
+        </div>
+      )}
+
+      {slettGruppe && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+          onClick={() => setSlettGruppe(null)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-slate-900 text-lg">Slett gruppe?</h3>
+            <p className="text-sm text-slate-600 mt-2">
+              Er du sikker på at du vil slette <strong>{slettGruppe.Gruppenavn}</strong>? Denne
+              handlingen kan ikke angres.
+            </p>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setSlettGruppe(null)}
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onSlettGruppe(slettGruppe.GruppeID);
+                  setSlettGruppe(null);
+                }}
+                className="px-3 py-1.5 text-sm font-semibold bg-rose-600 hover:bg-rose-700 text-white rounded-lg cursor-pointer"
+              >
+                Slett
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {nyKategoriApen && (
+        <div
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50"
+          onClick={() => setNyKategoriApen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="font-bold text-slate-900 text-lg">Ny kategori</h3>
+            <p className="text-sm text-slate-600 mt-2">
+              Kategorien vises som en egen fane i gruppeoversikten, og kan brukes når du oppretter
+              grupper.
+            </p>
+            <label className="block text-xs font-semibold text-slate-500 mt-4 mb-1" htmlFor="ny-kategori-navn">
+              Navn
+            </label>
+            <input
+              id="ny-kategori-navn"
+              type="text"
+              autoFocus
+              value={nyKategoriNavn}
+              onChange={(e) => setNyKategoriNavn(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && nyKategoriNavn.trim()) {
+                  onNyKategori(nyKategoriNavn);
+                  setNyKategoriApen(false);
+                  setNyKategoriNavn("");
+                }
+              }}
+              placeholder="F.eks. Ungdom"
+              className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
+            />
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setNyKategoriApen(false)}
+                className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                disabled={!nyKategoriNavn.trim()}
+                onClick={() => {
+                  onNyKategori(nyKategoriNavn);
+                  setNyKategoriApen(false);
+                  setNyKategoriNavn("");
+                }}
+                className="px-3 py-1.5 text-sm font-semibold bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg cursor-pointer"
+              >
+                Opprett
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

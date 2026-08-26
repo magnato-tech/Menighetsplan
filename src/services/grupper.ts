@@ -133,6 +133,51 @@ export function nesteGruppeId(grupper: Gruppe[]): string {
   return nesteNummerertId(grupper, "GruppeID", "G");
 }
 
+export function nesteGruppetypeId(gruppetyper: Gruppetype[]): string {
+  return nesteNummerertId(gruppetyper, "GruppetypeID", "GT");
+}
+
+/** Oppretter en gruppekategori, eller reaktiverer en inaktiv med samme navn. */
+export function opprettGruppetype(
+  db: DatabaseState,
+  navn: string,
+  beskrivelse = ""
+): { db: DatabaseState; gruppetypeId: string | null } {
+  const trimmed = navn.trim();
+  if (!trimmed) return { db, gruppetypeId: null };
+  const nøkkel = gruppetypeNokkel(trimmed);
+  const now = new Date().toISOString().split("T")[0];
+  const existing = (db.gruppetyper || []).find((gt) => gruppetypeNokkel(gt.Navn) === nøkkel);
+  if (existing) {
+    if (existing.Aktiv) return { db, gruppetypeId: existing.GruppetypeID };
+    return {
+      db: {
+        ...db,
+        gruppetyper: db.gruppetyper.map((gt) =>
+          gt.GruppetypeID === existing.GruppetypeID
+            ? {
+                ...gt,
+                Aktiv: true,
+                Beskrivelse: beskrivelse.trim() || gt.Beskrivelse,
+                SistEndret: now,
+              }
+            : gt
+        ),
+      },
+      gruppetypeId: existing.GruppetypeID,
+    };
+  }
+  const ny: Gruppetype = {
+    GruppetypeID: nesteGruppetypeId(db.gruppetyper || []),
+    Navn: trimmed,
+    Beskrivelse: beskrivelse.trim(),
+    Aktiv: true,
+    OpprettetDato: now,
+    SistEndret: now,
+  };
+  return { db: { ...db, gruppetyper: [...(db.gruppetyper || []), ny] }, gruppetypeId: ny.GruppetypeID };
+}
+
 export function nesteGruppeMedlemId(gruppemedlemmer: Gruppemedlem[]): string {
   return nesteNummerertId(gruppemedlemmer, "GruppeMedlemID", "GM");
 }
@@ -204,8 +249,10 @@ function finnEllerOpprettGruppeledergruppe(
   db: DatabaseState,
   type: Gruppetype
 ): { grupper: Gruppe[]; forum: Gruppe; opprettet: boolean } {
-  const eksisterende = db.grupper.find((g) => g.Aktiv && g.GruppetypeID === type.GruppetypeID);
-  if (eksisterende) return { grupper: db.grupper, forum: eksisterende, opprettet: false };
+  const aktive = db.grupper.filter((g) => g.Aktiv && g.GruppetypeID === type.GruppetypeID);
+  if (aktive[0]) return { grupper: db.grupper, forum: aktive[0], opprettet: false };
+  const inaktiv = db.grupper.find((g) => !g.Aktiv && g.GruppetypeID === type.GruppetypeID);
+  if (inaktiv) return { grupper: db.grupper, forum: inaktiv, opprettet: false };
   const now = new Date().toISOString().split("T")[0];
   const forum: Gruppe = {
     GruppeID: nesteGruppeId(db.grupper),
@@ -225,6 +272,8 @@ export function synkGruppeledergruppe(db: DatabaseState): DatabaseState {
   if (!type) return db;
 
   const { grupper, forum, opprettet } = finnEllerOpprettGruppeledergruppe(db, type);
+  if (!forum.Aktiv && !opprettet) return db;
+
   const wanted = new Set<string>();
   for (const gruppe of grupper) {
     if (!inngarILederforum({ ...db, grupper }, gruppe)) continue;
@@ -293,6 +342,19 @@ export function synkGruppeledergruppe(db: DatabaseState): DatabaseState {
 
   if (!endret) return db;
   return { ...db, grupper, gruppemedlemmer: medlemmer };
+}
+
+/** Soft-slett: gruppen og medlemskap deaktiveres. Rader beholdes i arket. */
+export function slettGruppe(db: DatabaseState, gruppeId: string): DatabaseState {
+  if (!gruppeId) return db;
+  const now = new Date().toISOString().split("T")[0];
+  const grupper = (db.grupper || []).map((g) =>
+    g.GruppeID === gruppeId ? { ...g, Aktiv: false, SistEndret: now } : g
+  );
+  const gruppemedlemmer = (db.gruppemedlemmer || []).map((gm) =>
+    gm.GruppeID === gruppeId && gm.Aktiv ? { ...gm, Aktiv: false, SistEndret: now } : gm
+  );
+  return synkGruppeledergruppe({ ...db, grupper, gruppemedlemmer });
 }
 
 /** Aktiver eksisterende rad, eller opprett ny GM…-rad for personen i gruppen. */
