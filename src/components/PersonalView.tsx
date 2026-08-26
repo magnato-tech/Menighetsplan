@@ -258,13 +258,30 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             Du bidrar med {rolleNavnTekst}.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => onOppgaverArkChange?.(true)}
-          className="min-h-11 px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer"
-        >
-          {personensRoller.length === 0 ? "Velg oppgaver" : "Mine oppgaver"}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {visningsRoller.map((rolle) => (
+            <button
+              key={rolle.RolleID}
+              type="button"
+              onClick={() => openDatePicker(rolle)}
+              className="min-h-11 flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer shadow-xs"
+            >
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>
+                {visningsRoller.length === 1
+                  ? `Velg dato for ${rolle.Rollenavn}`
+                  : rolle.Rollenavn}
+              </span>
+            </button>
+          ))}
+          <button
+            type="button"
+            onClick={() => onOppgaverArkChange?.(true)}
+            className="min-h-11 px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer"
+          >
+            {personensRoller.length === 0 ? "Velg oppgaver" : "Mine oppgaver"}
+          </button>
+        </div>
 
         <div className="hidden sm:block bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
           <p>
@@ -295,22 +312,6 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
 
         return (
           <div className="space-y-2">
-            {visningsRoller.length > 0 && (
-              <div className="hidden md:flex flex-wrap gap-2">
-                {visningsRoller.map((rolle) => (
-                  <button
-                    key={rolle.RolleID}
-                    type="button"
-                    onClick={() => openDatePicker(rolle)}
-                    className="text-xs font-semibold text-[#2d5a3f] bg-white hover:bg-[#eef5f1] border border-[#d2e8d9] px-3 py-1.5 rounded-full cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5 inline mr-1" />
-                    Velg dato for {rolle.Rollenavn}
-                  </button>
-                ))}
-              </div>
-            )}
-
             {(() => {
               const medOppgave = kommende.filter((g) =>
                 personensTildelinger.some((item) => item.gudstjeneste?.GudstjenesteID === g.GudstjenesteID)
