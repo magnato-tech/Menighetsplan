@@ -7,6 +7,7 @@ import {
   parseKlokkeMinutter,
   hentAnsvarForBrikke,
   formatRolleOgPersoner,
+  øvrigBemanningForProgram,
   kopierMalTilGudstjeneste,
   tilbakestillProgramFraMal,
   kanRedigereProgram,
@@ -239,6 +240,84 @@ function tomDb(): DatabaseState {
   const skjult = avpubliserProgram(publisert, "GUD001");
   assert.equal(erProgramPublisert(skjult, "GUD001"), false);
   assert.equal(hentPrograminstans(skjult, "GUD001")?.Status, "Utkast");
+}
+
+{
+  const db = tomDb();
+  const medLyd: DatabaseState = {
+    ...db,
+    roller: [
+      ...db.roller,
+      {
+        RolleID: "R006",
+        Rollenavn: "Lyd",
+        Beskrivelse: "",
+        Aktiv: true,
+        Behov: 1,
+        GruppeID: "G001",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    programaktiviteter: [
+      {
+        ProgramAktivitetID: "PA001",
+        GudstjenesteID: "GUD001",
+        Rekkefolge: 1,
+        Tittel: "Lovsang x2",
+        VarighetMin: 7,
+        RolleID: "R005",
+        ForStart: false,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+  };
+  const rader = øvrigBemanningForProgram(medLyd, "GUD001");
+  assert.equal(rader.some((r) => r.rolleId === "R005"), false);
+  const lyd = rader.find((r) => r.rolleId === "R006");
+  assert.equal(lyd?.tekst, "Lyd: —");
+  assert.ok(rader.some((r) => r.rolleId === "R001"));
+
+  const medTildeling: DatabaseState = {
+    ...medLyd,
+    tildelinger: [
+      ...medLyd.tildelinger,
+      {
+        TildelingID: "T-LYD",
+        GudstjenesteID: "GUD001",
+        RolleID: "R006",
+        PersonID: "P003",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    svar: [
+      ...medLyd.svar,
+      {
+        SvarID: "S-LYD",
+        TildelingID: "T-LYD",
+        PersonID: "P003",
+        Svar: "Bekreftet",
+        SvartDato: "2026-01-01",
+      },
+    ],
+  };
+  assert.equal(
+    øvrigBemanningForProgram(medTildeling, "GUD001").find((r) => r.rolleId === "R006")?.tekst,
+    "Lyd: Magnar"
+  );
+
+  const avvistLyd: DatabaseState = {
+    ...medTildeling,
+    svar: medTildeling.svar.map((s) =>
+      s.TildelingID === "T-LYD" ? { ...s, Svar: "Avvist" as const } : s
+    ),
+  };
+  assert.equal(
+    øvrigBemanningForProgram(avvistLyd, "GUD001").find((r) => r.rolleId === "R006")?.tekst,
+    "Lyd: —"
+  );
 }
 
 {

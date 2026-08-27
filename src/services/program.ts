@@ -2,7 +2,13 @@ import { MalAktivitet, ProgramAktivitet, Programinstans, Rolle, Gruppe, SvarStat
 import type { DatabaseState } from "../types/database";
 import { initialMalaktiviteter } from "../data/initialData";
 import { nesteNummerertId } from "./ids";
-import { hentSvarStatus, tildelingVisningsnavn, finnMotelederRolle, erHendelseRad } from "./bemanning";
+import {
+  hentSvarStatus,
+  tildelingVisningsnavn,
+  finnMotelederRolle,
+  erHendelseRad,
+  situasjonRollerForGudstjeneste,
+} from "./bemanning";
 import { erAdministrator } from "./tilgang";
 import { sortertMalposter, sikreTjenestebehovFraMal } from "./mal";
 
@@ -105,6 +111,32 @@ export function formatRolleOgPersoner(
     .join(", ");
   if (rolle && navn) return `${rolle}: ${navn}`;
   return rolle || navn;
+}
+
+export type OvrigBemanningRad = {
+  rolleId: string;
+  tekst: string;
+};
+
+/** Roller med behov (eller tildeling) som ikke allerede står på en programpost. */
+export function øvrigBemanningForProgram(
+  db: DatabaseState,
+  gudstjenesteId: string
+): OvrigBemanningRad[] {
+  const iProgram = new Set(
+    programForGudstjeneste(db, gudstjenesteId)
+      .map((p) => p.RolleID)
+      .filter((id): id is string => Boolean(id))
+  );
+  return situasjonRollerForGudstjeneste(db, gudstjenesteId)
+    .filter((rad) => !iProgram.has(rad.rolle.RolleID))
+    .map((rad) => ({
+      rolleId: rad.rolle.RolleID,
+      tekst: formatRolleOgPersoner(
+        rad.rolle.Rollenavn,
+        rad.personer.length > 0 ? rad.personer : [{ navn: "—" }]
+      ),
+    }));
 }
 
 export function kanRedigereProgram(

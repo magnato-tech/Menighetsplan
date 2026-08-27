@@ -6,6 +6,7 @@ import {
   formatRolleOgPersoner,
   hentAnsvarForBrikke,
   programForGudstjeneste,
+  øvrigBemanningForProgram,
 } from "../services/dataService";
 
 function formatDatoLang(dato: string): string {
@@ -23,22 +24,27 @@ interface ProgramPdfArkProps {
   db: DatabaseState;
   gudstjeneste: Gudstjeneste;
   kompakt?: boolean;
+  visOvrigBemanning?: boolean;
 }
 
 export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
   db,
   gudstjeneste,
   kompakt = false,
+  visOvrigBemanning = false,
 }) => {
   const linjer = programForGudstjeneste(db, gudstjeneste.GudstjenesteID);
   const medTid = beregnProgramtider(linjer, gudstjeneste.Tid || "11:00");
   const sluttid = medTid.length > 0 ? medTid[medTid.length - 1].slutt : gudstjeneste.Tid;
+  const ovrig = visOvrigBemanning
+    ? øvrigBemanningForProgram(db, gudstjeneste.GudstjenesteID)
+    : [];
 
   return (
     <article
       className={`program-pdf-ark bg-white text-slate-900 ${kompakt ? "program-pdf-ark--kompakt" : ""}`}
     >
-      <header className={kompakt ? "border-b border-[#2d5a3f] pb-2 mb-2" : "border-b-2 border-[#2d5a3f] pb-4 mb-5"}>
+      <header className={kompakt ? "border-b border-[#2d5a3f] pb-2 mb-2" : "border-b-2 border-[#2d5a3f] pb-3 mb-3"}>
         <p
           className={`font-bold uppercase tracking-[0.2em] text-[#2d5a3f] ${
             kompakt ? "text-[9px]" : "text-[11px]"
@@ -46,17 +52,17 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
         >
           Gudstjenesteprogram
         </p>
-        <h1 className={`font-bold leading-tight ${kompakt ? "text-lg mt-0.5" : "text-2xl mt-1"}`}>
+        <h1 className={`font-bold leading-tight ${kompakt ? "text-lg mt-0.5" : "text-xl mt-1"}`}>
           {gudstjeneste.Tema || "Gudstjeneste"}
         </h1>
-        <p className={`text-slate-700 ${kompakt ? "text-xs mt-1" : "text-sm mt-2"}`}>
+        <p className={`text-slate-700 ${kompakt ? "text-xs mt-1" : "text-sm mt-1.5"}`}>
           {formatDatoLang(gudstjeneste.Dato)}
           {gudstjeneste.Tid ? ` · ${gudstjeneste.Tid}` : ""}
           {sluttid ? `–${sluttid}` : ""}
           {gudstjeneste.Sted ? ` · ${gudstjeneste.Sted}` : ""}
         </p>
         {gudstjeneste.Bibeltekst && (
-          <p className={`italic text-slate-600 ${kompakt ? "text-xs mt-1" : "text-sm mt-2"}`}>
+          <p className={`italic text-slate-600 ${kompakt ? "text-xs mt-1" : "text-sm mt-1.5"}`}>
             «{gudstjeneste.Bibeltekst}»
           </p>
         )}
@@ -87,19 +93,45 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
           return (
             <li
               key={p.ProgramAktivitetID}
-              className="flex gap-4 py-3.5 border-b border-slate-100 break-inside-avoid"
+              className="flex gap-4 py-1.5 border-b border-slate-100 break-inside-avoid"
             >
-              <div className="w-14 shrink-0 text-[#2d5a3f]">
-                <div className="text-base font-bold tabular-nums leading-none">{p.start}</div>
+              <div className="w-12 shrink-0 text-[#2d5a3f]">
+                <div className="text-sm font-bold tabular-nums leading-none pt-0.5">{p.start}</div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[15px] leading-snug">{p.Tittel}</p>
-                {meta ? <p className="text-sm text-slate-500 mt-1">{meta}</p> : null}
+                <p className="font-semibold text-sm leading-snug">{p.Tittel}</p>
+                {meta ? <p className="text-xs text-slate-500 mt-0.5">{meta}</p> : null}
               </div>
             </li>
           );
         })}
       </ol>
+
+      {ovrig.length > 0 && (
+        <section className="mt-4 pt-3 border-t-2 border-[#2d5a3f]">
+          <h2
+            className={`font-bold uppercase tracking-[0.14em] text-[#2d5a3f] ${
+              kompakt ? "text-[9px] mb-1.5" : "text-[11px] mb-2"
+            }`}
+          >
+            Øvrig bemanning
+          </h2>
+          <ul className="grid grid-cols-2 gap-x-4">
+            {ovrig.map((rad) => (
+              <li
+                key={rad.rolleId}
+                className={
+                  kompakt
+                    ? "text-[11px] text-slate-800 py-0.5 leading-tight"
+                    : "text-sm text-slate-800 py-1 leading-snug"
+                }
+              >
+                {rad.tekst}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </article>
   );
 };

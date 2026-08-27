@@ -48,6 +48,7 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
 }) => {
   const [visPdf, setVisPdf] = useState(!redigerbar);
   const [kompakt, setKompakt] = useState(false);
+  const [visOvrigBemanning, setVisOvrigBemanning] = useState(false);
   const visKjoreplan = redigerbar;
 
   return (
@@ -105,6 +106,20 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
             </div>
             <button
               type="button"
+              onClick={() => {
+                setVisOvrigBemanning((v) => !v);
+                if (visKjoreplan) setVisPdf(true);
+              }}
+              className={`min-h-11 px-3 text-xs font-semibold rounded-xl cursor-pointer border ${
+                visOvrigBemanning
+                  ? "bg-[#2d5a3f] text-white border-[#2d5a3f]"
+                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+              }`}
+            >
+              Øvrig bemanning
+            </button>
+            <button
+              type="button"
               onClick={lastNedProgramPdf}
               className="min-h-11 px-3 py-1.5 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl cursor-pointer inline-flex items-center gap-1.5"
             >
@@ -128,7 +143,12 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
             </div>
           )}
           <div className={visKjoreplan && !visPdf ? "program-pdf-print-only" : "p-4 sm:p-6"}>
-            <ProgramPdfArk db={db} gudstjeneste={gudstjeneste} kompakt={kompakt} />
+            <ProgramPdfArk
+              db={db}
+              gudstjeneste={gudstjeneste}
+              kompakt={kompakt}
+              visOvrigBemanning={visOvrigBemanning}
+            />
           </div>
         </div>
       </div>
