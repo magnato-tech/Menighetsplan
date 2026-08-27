@@ -266,11 +266,13 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
         }
       />
 
-          {visLeser && !iDialog && !arrangementId && (
+      {visLeser && !iDialog && !arrangementId && (
         <ProgramLeserModal
           db={db}
           gudstjeneste={gudstjeneste}
           uthevPersonId={uthevPersonId}
+          selectedPersonId={selectedPersonId}
+          redigerbar={redigerbar}
           onClose={() => setVisLeser(false)}
           onUpdateDb={onUpdateDb}
         />

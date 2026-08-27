@@ -49,12 +49,14 @@ Under **Innstillinger** kan admin skru på (standard av): lesekalender på Min s
 
 - Tjenestegrupper eier roller. Gruppeleder/nestleder får leder-visning.
 - **Gruppelederteam** synkes automatisk fra ledere.
-- Personregister: navn, kontakt, gruppe, personlenke. Ukjente navn fra import kan opprettes her.
+- Personregister: navn, kontakt, gruppe, personlenke. Ny person opprettes **her** (kun navn); oppgaver tildeles etterpå under Søndager. Ukjente navn fra import kan opprettes her uten tildeling i samme steg.
 - Gruppeleder ser mobil, e-post og adresse for medlemmer i gruppene hen leder.
 
 ## Programmal og kjøreplan
 
-Admin redigerer **standardmalen** (søndager) under Programmal. Nye arrangementer velger en **arrangementmal** (kjøreplan + tilleggsvakter) under Arrangementmaler. Eksisterende søndager og arrangementer uten `MalID` er uendret.
+Admin redigerer maler under **Maler**: søndagens standard kjøreplan og arrangementmaler (kjøreplan + tilleggsvakter) i samme nedtrekk. Eksisterende søndager og arrangementer uten `MalID` er uendret.
+
+På gudstjenesteraden ligger **Kollekt** (hva gaven går til) og **Kunngjøringer**. Admin og tildelt møteleder (ikke avvist) redigerer dem i programdialogen. A4-PDF (`ProgramPdfArk`) viser sted, tema og bibeltekst øverst, og kollekt/kunngjøringer nederst (under øvrig bemanning når den er slått på). Tomme felt vises ikke.
 
 Ikke i denne versjonen: samlingsplanlegging for gruppeledere, endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
 
@@ -68,7 +70,7 @@ Importer forretningslogikk fra `src/services/dataService.ts` (fatade). Filene un
 | --- | --- |
 | `bemanning.ts` | Tildeling, svar, ark-celler, belastningstall, person i register |
 | `grupper.ts` | Ledere, medlemskap, gruppelederteam |
-| `program.ts` | Søndagsmal, instans, publisering, programtider |
+| `program.ts` | Søndagsmal, instans, publisering, programtider, kollekt/kunngjøringer |
 | `mal.ts` | Arrangementmaler, bemanning fra kjøreplan + tilleggsvakter |
 | `arrangementer.ts` | Opprette og slette arrangementer |
 | `eksternKalender.ts` | iCal-parse, tidsretting, synk-oppgaver |
@@ -92,17 +94,21 @@ Datamodellen (`DatabaseState` og tabeller) ligger i `src/types/database.ts`. Moc
 | `AdminView.tsx` | Admin-faner og kryss-hopp |
 | `KalenderView.tsx` | Admin-kalender, synk-oppgaver |
 | `ArrangementDetaljView.tsx` | Admin: bemanning og kjøreplan for ett arrangement |
-| `AdminGudstjenesterView.tsx` | Admin rundt søndagslisten (følg opp, ny gudstjeneste, tildel fra register) |
-| `PersonregisterView.tsx` | Personregister-fanen |
+| `AdminGudstjenesterView.tsx` | Admin rundt søndagslisten (ny gudstjeneste, tildel fra register) |
+| `PersonregisterView.tsx` | Personregister-fanen (ny person uten tildeling) |
 | `RollerAdminView.tsx` | Roller-fanen |
 | `GroupOverview.tsx` | Grupper-fanen |
 | `BelastningView.tsx` | Belastning-fanen |
-| `ProgrammalAdminView.tsx` | Programmal-fanen (søndag) |
-| `ArrangementMalAdminView.tsx` | Arrangementmaler (kjøreplan + bemanning) |
+| `ProgrammalAdminView.tsx` | Søndagens standardkjøreplan (under Maler) |
+| `ArrangementMalAdminView.tsx` | Arrangementmal (kjøreplan + bemanning) |
+| `MalerAdminView.tsx` | Admin-fanen Maler (søndag + arrangementmaler) |
+| `GudstjenesteNotaterFelt.tsx` | Kollekt og kunngjøringer i programdialogen |
+| `ProgramPdfArk.tsx` | A4-utskrift av publisert/forhåndsvist program |
+| `ProgramLeserModal.tsx` | Les/rediger program, PDF-forhåndsvisning |
 | `Planleggingsark.tsx` | Ark-visning |
 | `Startside.tsx` | Login uten sesjon |
 
-Tildelingsmodalene er **ikke** slått sammen: admin velger fra register / oppretter person; gruppeleder søker og kan sette ekstern.
+Tildelingsmodalene er **ikke** slått sammen: admin velger bare personer som allerede ligger i registeret; gruppeleder søker og kan sette et eksternt navn.
 
 ## Dataflyt
 

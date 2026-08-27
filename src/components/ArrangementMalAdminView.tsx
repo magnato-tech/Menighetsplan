@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ClipboardList, Clock3, Copy, Plus, Trash2 } from "lucide-react";
 import {
   DatabaseState,
@@ -23,14 +23,32 @@ import { RolleIkon } from "./RolleIkon";
 interface ArrangementMalAdminViewProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
+  malId?: string;
+  onMalIdChange?: (malId: string) => void;
+  innebygd?: boolean;
 }
 
-export const ArrangementMalAdminView: React.FC<ArrangementMalAdminViewProps> = ({ db, onUpdateDb }) => {
+export const ArrangementMalAdminView: React.FC<ArrangementMalAdminViewProps> = ({
+  db,
+  onUpdateDb,
+  malId: styrtMalId,
+  onMalIdChange,
+  innebygd = false,
+}) => {
   const maler = aktiveMaler(db);
-  const [malId, setMalId] = useState(maler[0]?.MalID || "");
+  const [internMalId, setInternMalId] = useState(maler[0]?.MalID || "");
   const [fane, setFane] = useState<"kjoreplan" | "bemanning">("kjoreplan");
+  const malId = styrtMalId ?? internMalId;
+  const settMalId = (id: string) => {
+    onMalIdChange?.(id);
+    setInternMalId(id);
+  };
   const valgt = maler.find((m) => m.MalID === malId) || maler[0];
   const aktivMalId = valgt?.MalID || "";
+
+  useEffect(() => {
+    setFane("kjoreplan");
+  }, [aktivMalId]);
   const poster = sortertMalposter(db, aktivMalId);
   const bemanning = bemanningFraMal(db, aktivMalId);
   const kjoreIder = new Set(kjoreplanRolleIder(db, aktivMalId));
@@ -56,7 +74,7 @@ export const ArrangementMalAdminView: React.FC<ArrangementMalAdminViewProps> = (
   const lagNyMal = () => {
     const { db: neste, malId: id } = opprettMal(db, "Ny mal");
     persister(neste);
-    setMalId(id);
+    settMalId(id);
     setFane("kjoreplan");
   };
 
@@ -65,7 +83,7 @@ export const ArrangementMalAdminView: React.FC<ArrangementMalAdminViewProps> = (
     const { db: neste, malId: id } = kopierMal(db, aktivMalId);
     if (!id) return;
     persister(neste);
-    setMalId(id);
+    settMalId(id);
     setFane("kjoreplan");
   };
 
@@ -91,33 +109,36 @@ export const ArrangementMalAdminView: React.FC<ArrangementMalAdminViewProps> = (
   }
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div>
-        <h3 className="text-lg font-bold text-slate-900">Arrangementmaler</h3>
-        <p className="text-sm text-slate-600 mt-1">
-          Brukes når du oppretter nye arrangementer. Søndagens standard kjøreplan ligger uendret under
-          Programmal.
-        </p>
-      </div>
+    <div className={innebygd ? "space-y-4" : "space-y-4 max-w-3xl"}>
+      {!innebygd && (
+        <div>
+          <h3 className="text-lg font-bold text-slate-900">Arrangementmaler</h3>
+          <p className="text-sm text-slate-600 mt-1">
+            Brukes når du oppretter nye arrangementer.
+          </p>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 items-end">
-        <label className="text-xs font-semibold text-slate-600">
-          Mal
-          <select
-            value={aktivMalId}
-            onChange={(e) => {
-              setMalId(e.target.value);
-              setFane("kjoreplan");
-            }}
-            className="mt-1 block border border-slate-300 rounded-xl px-3 py-2 text-sm font-normal text-slate-900"
-          >
-            {maler.map((m) => (
-              <option key={m.MalID} value={m.MalID}>
-                {m.Navn}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!innebygd && (
+          <label className="text-xs font-semibold text-slate-600">
+            Mal
+            <select
+              value={aktivMalId}
+              onChange={(e) => {
+                settMalId(e.target.value);
+                setFane("kjoreplan");
+              }}
+              className="mt-1 block border border-slate-300 rounded-xl px-3 py-2 text-sm font-normal text-slate-900"
+            >
+              {maler.map((m) => (
+                <option key={m.MalID} value={m.MalID}>
+                  {m.Navn}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="text-xs font-semibold text-slate-600 flex-1 min-w-48">
           Navn
           <input
@@ -127,22 +148,26 @@ export const ArrangementMalAdminView: React.FC<ArrangementMalAdminViewProps> = (
             className="mt-1 w-full border border-slate-300 rounded-xl px-3 py-2 text-sm font-normal text-slate-900"
           />
         </label>
-        <button
-          type="button"
-          onClick={lagNyMal}
-          className="min-h-11 px-3 py-2 bg-[#2d5a3f] text-white text-xs font-semibold rounded-xl cursor-pointer inline-flex items-center gap-1.5"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Ny mal
-        </button>
-        <button
-          type="button"
-          onClick={lagKopi}
-          className="min-h-11 px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer inline-flex items-center gap-1.5"
-        >
-          <Copy className="w-3.5 h-3.5" />
-          Kopier mal
-        </button>
+        {!innebygd && (
+          <>
+            <button
+              type="button"
+              onClick={lagNyMal}
+              className="min-h-11 px-3 py-2 bg-[#2d5a3f] text-white text-xs font-semibold rounded-xl cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Ny mal
+            </button>
+            <button
+              type="button"
+              onClick={lagKopi}
+              className="min-h-11 px-3 py-2 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer inline-flex items-center gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              Kopier mal
+            </button>
+          </>
+        )}
       </div>
 
       <div className="flex gap-2">

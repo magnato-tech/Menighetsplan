@@ -6,8 +6,7 @@ import { GoogleSheetsSync } from "./GoogleSheetsSync";
 import { NewGroupModal } from "./NewGroupModal";
 import { GroupOverview } from "./GroupOverview";
 import { BelastningView } from "./BelastningView";
-import { ProgrammalAdminView } from "./ProgrammalAdminView";
-import { ArrangementMalAdminView } from "./ArrangementMalAdminView";
+import { MalerAdminView } from "./MalerAdminView";
 import { PersonregisterView } from "./PersonregisterView";
 import { RollerAdminView } from "./RollerAdminView";
 import { AdminGudstjenesterView } from "./AdminGudstjenesterView";
@@ -19,7 +18,6 @@ import {
   UsersRound,
   Layers,
   Settings,
-  Clock,
   LayoutTemplate,
   Gauge,
   Ellipsis,
@@ -49,7 +47,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
     | "people"
     | "groups"
     | "roles"
-    | "programmal"
     | "maler"
     | "sync"
   >("services");
@@ -71,13 +68,12 @@ export const AdminView: React.FC<AdminViewProps> = ({
     antall?: number;
   }[] = [
     { id: "calendar", Icon: Calendar, kort: "Kalender", lang: "Kalender" },
-    { id: "services", Icon: ClipboardList, kort: "Søndager", lang: "Gudstjenester & Bemanningsstatus", antall: db.gudstjenester.length },
+    { id: "services", Icon: ClipboardList, kort: "Søndager", lang: "Søndager" },
     { id: "belastning", Icon: Gauge, kort: "Last", lang: "Belastning" },
-    { id: "people", Icon: Users, kort: "Folk", lang: "Personregister", antall: db.personer.length },
-    { id: "groups", Icon: UsersRound, kort: "Grupper", lang: "Grupper", antall: db.grupper.length },
-    { id: "roles", Icon: Layers, kort: "Roller", lang: "Roller", antall: db.roller.length },
-    { id: "programmal", Icon: Clock, kort: "Mal", lang: "Programmal", antall: db.malaktiviteter.length },
-    { id: "maler", Icon: LayoutTemplate, kort: "Maler", lang: "Arrangementmaler", antall: (db.maler || []).length },
+    { id: "people", Icon: Users, kort: "Folk", lang: "Personer" },
+    { id: "groups", Icon: UsersRound, kort: "Grupper", lang: "Grupper" },
+    { id: "roles", Icon: Layers, kort: "Roller", lang: "Roller" },
+    { id: "maler", Icon: LayoutTemplate, kort: "Maler", lang: "Maler" },
     { id: "sync", Icon: Settings, kort: "Sync", lang: "Innstillinger" },
   ];
   const primaere = faner.slice(0, 4);
@@ -230,11 +226,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
       {activeTab === "roles" && <RollerAdminView db={db} onUpdateDb={onUpdateDb} />}
 
-      {activeTab === "programmal" && (
-        <ProgrammalAdminView db={db} onUpdateDb={onUpdateDb} />
-      )}
-
-      {activeTab === "maler" && <ArrangementMalAdminView db={db} onUpdateDb={onUpdateDb} />}
+      {activeTab === "maler" && <MalerAdminView db={db} onUpdateDb={onUpdateDb} />}
 
       {activeTab === "sync" && (
         <GoogleSheetsSync

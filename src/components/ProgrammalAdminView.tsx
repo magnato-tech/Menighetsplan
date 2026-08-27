@@ -14,9 +14,14 @@ import { ProgramBrikkeFelt } from "./ProgramBrikke";
 interface ProgrammalAdminViewProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
+  innebygd?: boolean;
 }
 
-export const ProgrammalAdminView: React.FC<ProgrammalAdminViewProps> = ({ db, onUpdateDb }) => {
+export const ProgrammalAdminView: React.FC<ProgrammalAdminViewProps> = ({
+  db,
+  onUpdateDb,
+  innebygd = false,
+}) => {
   const mal = sortertMalaktiviteter(db);
 
   const persister = (updated: DatabaseState) => {
@@ -29,14 +34,16 @@ export const ProgrammalAdminView: React.FC<ProgrammalAdminViewProps> = ({ db, on
   };
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className={innebygd ? "space-y-4" : "space-y-4 max-w-3xl"}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <Clock3 className="w-5 h-5 text-[#2d5a3f]" />
-            Standard kjøreplan
-          </h3>
-          <p className="text-sm text-slate-600 mt-1">
+          {!innebygd && (
+            <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <Clock3 className="w-5 h-5 text-[#2d5a3f]" />
+              Standard kjøreplan
+            </h3>
+          )}
+          <p className={`text-sm text-slate-600 ${innebygd ? "" : "mt-1"}`}>
             Dra og slipp for å endre rekkefølge. Roller og grupper huskes på brikkene. Personer fylles
             inn når lederen henter malen til en gudstjeneste.
           </p>

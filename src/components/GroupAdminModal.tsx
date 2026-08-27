@@ -284,18 +284,18 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
     })
     );
 
-    const varAktive = new Set(
+    const varAktive = new Set<string>(
       (db.gruppemedlemmer || [])
         .filter((gm) => gm.GruppeID === gruppeId && gm.Aktiv)
         .map((gm) => gm.PersonID)
     );
-    const blirAktive = new Set(
+    const blirAktive = new Set<string>(
       (updated.gruppemedlemmer || [])
         .filter((gm) => gm.GruppeID === gruppeId && gm.Aktiv)
         .map((gm) => gm.PersonID)
     );
     let neste = updated;
-    for (const personId of varAktive) {
+    for (const personId of Array.from(varAktive)) {
       if (blirAktive.has(personId)) continue;
       neste = avlysKommendeOppgaverIGruppe(neste, personId, gruppeId);
     }

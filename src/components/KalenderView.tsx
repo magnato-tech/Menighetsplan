@@ -321,7 +321,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 space-y-3">
           <h3 className="text-sm font-bold text-amber-950">Ikke i app-kalenderen</h3>
           <p className="text-xs text-amber-900">
-            Kirkekalenderen har hendelser som ikke ligger i appen. Velg mal fra Arrangementmaler og legg inn, eller hopp over.
+            Kirkekalenderen har hendelser som ikke ligger i appen. Velg mal under Maler og legg inn, eller hopp over.
           </p>
           <ul className="space-y-2">
             {apneOppgaver.map((o) => {
