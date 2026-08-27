@@ -1043,7 +1043,11 @@ async function pumpRemoteSave(): Promise<void> {
         const payload = await response.json().catch(() => null);
         if (!payload?.ok) {
           sisteFeil = String(payload?.error || response.statusText || "Ukjent feil");
-          if (forsok < 2) continue;
+          if (forsok < 2) {
+            const las = /låsing|lock/i.test(sisteFeil);
+            await new Promise((r) => setTimeout(r, las ? 2500 * (forsok + 1) : 400));
+            continue;
+          }
           console.error("Kunne ikke lagre til Google Sheets:", sisteFeil);
           varsleRemoteSaveFeil(sisteFeil);
           break;
@@ -1060,7 +1064,10 @@ async function pumpRemoteSave(): Promise<void> {
         break;
       } catch (e) {
         sisteFeil = e instanceof Error ? e.message : String(e);
-        if (forsok < 2) continue;
+        if (forsok < 2) {
+          await new Promise((r) => setTimeout(r, 800 * (forsok + 1)));
+          continue;
+        }
         console.error("Kunne ikke lagre til Google Sheets:", e);
         varsleRemoteSaveFeil(sisteFeil);
       }

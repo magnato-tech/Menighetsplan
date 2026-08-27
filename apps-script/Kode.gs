@@ -579,9 +579,14 @@ function doPost(e) {
     }
   }
 
+  var skrivende = action === "save" || action === "migrateImport" || action === "exportImportBackup";
   var lock = LockService.getScriptLock();
+  var harLas = false;
   try {
-    lock.waitLock(30000);
+    if (skrivende) {
+      lock.waitLock(30000);
+      harLas = true;
+    }
 
     if (action === "load") {
       var loadAuth = requireAuth_(body, false);
@@ -601,6 +606,10 @@ function doPost(e) {
         return json_({ ok: false, error: "Mangler data" }, 400);
       }
       saveDatabase(body.data, saveAuth.isAdmin);
+      if (harLas) {
+        lock.releaseLock();
+        harLas = false;
+      }
       var saved = loadDatabase();
       return json_({
         ok: true,
@@ -640,7 +649,7 @@ function doPost(e) {
   } catch (err) {
     return json_({ ok: false, error: String(err) }, 500);
   } finally {
-    lock.releaseLock();
+    if (harLas) lock.releaseLock();
   }
 }
 
@@ -1262,6 +1271,14 @@ function coerce_(col, val, spec) {
     var n = Number(String(text).replace(",", "."));
     return isNaN(n) ? (col === "MaksAntall" ? null : 0) : n;
   }
+  if (col === "Dato") {
+    var isoDato = normalizeDate_(text);
+    return isoDato || text;
+  }
+  if (col === "Tid") {
+    var isoTid = normalizeTime_(text);
+    return isoTid || text;
+  }
   return text;
 }
 
@@ -1271,6 +1288,10 @@ function serialize_(col, val, spec) {
     return asBool_(val) ? "TRUE" : "FALSE";
   }
   if (val === null || val === undefined) return "";
+  if (col === "Dato") {
+    var iso = normalizeDate_(val);
+    return iso || val;
+  }
   return val;
 }
 
@@ -1733,11 +1754,32 @@ function normalizeDate_(s) {
   if (!t) return "";
   var iso = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (iso) return iso[1] + "-" + iso[2] + "-" + iso[3];
+  var compact = t.match(/^(\d{4})(\d{2})(\d{2})(?:$|T)/);
+  if (compact) return compact[1] + "-" + compact[2] + "-" + compact[3];
   var nordic = t.match(/^(\d{1,2})[./](\d{1,2})[./](\d{2,4})/);
   if (nordic) {
     var year = parseInt(nordic[3], 10);
     if (year < 100) year += 2000;
     return String(year) + "-" + pad2_(nordic[2]) + "-" + pad2_(nordic[1]);
+  }
+  var maneder = {
+    januar: "01", jan: "01",
+    februar: "02", feb: "02",
+    mars: "03", mar: "03",
+    april: "04", apr: "04",
+    mai: "05",
+    juni: "06", jun: "06",
+    juli: "07", jul: "07",
+    august: "08", aug: "08",
+    september: "09", sept: "09", sep: "09",
+    oktober: "10", okt: "10",
+    november: "11", nov: "11",
+    desember: "12", des: "12"
+  };
+  var navn = t.toLowerCase().match(/^(\d{1,2})\.?\s*([a-zæøå.]+)\s+(\d{4})/);
+  if (navn) {
+    var mo = maneder[navn[2].replace(/\./g, "")];
+    if (mo) return navn[3] + "-" + mo + "-" + pad2_(navn[1]);
   }
   return t;
 }
@@ -1912,7 +1954,7 @@ function minIcalSvar_(token) {
       return icsSvar_(tomIcs_());
     }
     var cache = CacheService.getScriptCache();
-    var nokkel = "minIcal_v5_" + t;
+    var nokkel = "minIcal_v6_" + t;
     var cached = cache.get(nokkel);
     if (cached) return icsSvar_(cached);
     var state = loadDatabaseForIcal_();
@@ -1930,6 +1972,7 @@ function minIcalSvar_(token) {
     }
     return icsSvar_(ics);
   } catch (err) {
+    Logger.log("minIcal: " + err);
     return icsSvar_(tomIcs_());
   }
 }
