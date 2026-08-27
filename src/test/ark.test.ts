@@ -356,6 +356,29 @@ await testAsync("saveDatabase: localStorage med en gang, remote én in-flight og
   }
 });
 
+await testAsync("saveDatabase: sender uten keepalive slik at store JSON-kall ikke feiler", async () => {
+  setDevDataSource("remote");
+  lagreMagiskToken("mk_testtokenabc");
+  let settKeepalive: boolean | undefined;
+  const origFetch = globalThis.fetch;
+  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    settKeepalive = init?.keepalive;
+    return new Response(JSON.stringify({ ok: true }), {
+      headers: { "Content-Type": "application/json" },
+    });
+  }) as typeof fetch;
+
+  try {
+    saveDatabase(tomDb());
+    await whenRemoteSaveIdle();
+    assert.notEqual(settKeepalive, true);
+  } finally {
+    globalThis.fetch = origFetch;
+    slettMagiskToken();
+    setDevDataSource("mock");
+  }
+});
+
 test("gruppemedlemmer merkes iGruppen og kommer først i listen", () => {
   const db = tomDb();
   db.grupper = [

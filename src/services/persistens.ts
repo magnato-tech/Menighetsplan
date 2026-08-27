@@ -48,9 +48,23 @@ function noterPersondataFraServer(isAdmin: unknown): void {
   sisteLastHaddeFullPersondata = isAdmin === true;
 }
 
+function oversettNettverksfeil(melding: string): string {
+  const t = String(melding || "").trim();
+  if (
+    t === "Failed to fetch" ||
+    t === "Load failed" ||
+    t === "NetworkError when attempting to fetch resource."
+  ) {
+    return "Kunne ikke nå Google Sheets. Prøv igjen, eller last siden på nytt.";
+  }
+  return t;
+}
+
 function varsleRemoteSaveFeil(melding: string) {
   if (typeof window === "undefined") return;
-  window.dispatchEvent(new CustomEvent(REMOTE_SAVE_FEIL_EVENT, { detail: melding }));
+  window.dispatchEvent(
+    new CustomEvent(REMOTE_SAVE_FEIL_EVENT, { detail: oversettNettverksfeil(melding) })
+  );
 }
 
 /**
@@ -992,8 +1006,8 @@ async function pumpRemoteSave(): Promise<void> {
         const response = await fetch(base, {
           method: "POST",
           headers: { "Content-Type": "text/plain;charset=utf-8" },
+          // Ikke keepalive: nettleseren avviser da kropp over 64 kB med «Failed to fetch».
           body: kropp,
-          keepalive: true,
         });
         const payload = await response.json().catch(() => null);
         if (!payload?.ok) {
