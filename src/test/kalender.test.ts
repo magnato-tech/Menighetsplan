@@ -17,6 +17,7 @@ import {
   googleKalenderAbonnerUrl,
 } from "../services/kalender";
 import { opprettArrangement } from "../services/arrangementer";
+import { leggInnKalenderoppgave } from "../services/eksternKalender";
 
 function tomDb(): DatabaseState {
   return {
@@ -271,16 +272,55 @@ function tomDb(): DatabaseState {
 
   assert.equal(
     minIcalOffentligUrl("mk_abc"),
-    "https://gudstjenesteplanlegger2-0.vercel.app/kalender.ics?t=mk_abc"
+    "https://gudstjenesteplanlegger2-0.vercel.app/kalender/mk_abc.ics"
   );
   assert.equal(minIcalOffentligUrl(""), "");
   const offentlig = minIcalOffentligUrl("mk_abc");
   const googleOffentlig = googleKalenderAbonnerUrl(offentlig);
   assert.ok(
     googleOffentlig.includes(
-      encodeURIComponent("webcal://gudstjenesteplanlegger2-0.vercel.app/kalender.ics?t=mk_abc")
+      encodeURIComponent("webcal://gudstjenesteplanlegger2-0.vercel.app/kalender/mk_abc.ics")
     )
   );
+  assert.ok(!offentlig.includes("?t="), "offentlig iCal-URL skal ikke bruke query");
+}
+
+{
+  let db = tomDb();
+  db = {
+    ...db,
+    kalenderoppgaver: [
+      {
+        KalenderoppgaveID: "KO001",
+        EksternUID: "kirke-uid-1",
+        Dato: "13.10.2026",
+        Tid: "19:00",
+        Sted: "Bedehuset",
+        Tittel: "Bønnemøte fra kirken",
+        Beskrivelse: "",
+        Status: "Åpen",
+        OpprettetDato: "2026-08-27",
+        SistEndret: "2026-08-27",
+      },
+    ],
+  };
+  db = leggInnKalenderoppgave(db, "KO001", "P001");
+  const icsAda = byggPersonIcs(db, "P001");
+  const icsBo = byggPersonIcs(db, "P002");
+  assert.match(icsAda, /SUMMARY:Bønnemøte fra kirken/);
+  assert.match(icsBo, /SUMMARY:Bønnemøte fra kirken/);
+  assert.match(icsBo, /DTSTART;TZID=Europe\/Oslo:20261013T190000/);
+  db = opprettArrangement(db, {
+    tittel: "Husgruppe lukket",
+    dato: "2026-10-14",
+    tid: "19:00",
+    sted: "",
+    gruppeId: "G008",
+  });
+  const medHusAda = byggPersonIcs(db, "P001");
+  const medHusBo = byggPersonIcs(db, "P002");
+  assert.match(medHusAda, /SUMMARY:Husgruppe lukket/);
+  assert.doesNotMatch(medHusBo, /SUMMARY:Husgruppe lukket/);
 }
 
 console.log("kalender.test.ts: alle tester ok");

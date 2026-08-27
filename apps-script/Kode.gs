@@ -1873,17 +1873,48 @@ function icsSvar_(ics) {
   return ContentService.createTextOutput(ics).setMimeType(mime);
 }
 
+function loadDatabaseForIcal_() {
+  var ss = getSpreadsheet_();
+  var keys = [
+    "personer",
+    "gudstjenester",
+    "arrangementer",
+    "grupper",
+    "gruppemedlemmer",
+    "programaktiviteter",
+  ];
+  var state = {};
+  var i;
+  for (i = 0; i < keys.length; i++) {
+    state[keys[i]] = readSheet_(ss, MASTER_SHEETS[keys[i]]);
+  }
+  return state;
+}
+
 function minIcalSvar_(token) {
   try {
-    var state = loadDatabase();
-    if (!innstillingErSan_(state, "visKalenderIcal")) {
+    var t = String(token || "").trim().replace(/\.ics$/i, "");
+    if (!isMagicLinkToken_(t)) {
       return icsSvar_(tomIcs_());
     }
-    var person = findPersonByMagicToken_(state, token);
+    var cache = CacheService.getScriptCache();
+    var nokkel = "minIcal_v4_" + t;
+    var cached = cache.get(nokkel);
+    if (cached) return icsSvar_(cached);
+    var state = loadDatabaseForIcal_();
+    var person = findPersonByMagicToken_(state, t);
     if (!person) {
       return icsSvar_(tomIcs_());
     }
-    return icsSvar_(byggPersonIcs_(state, person.PersonID));
+    var ics = byggPersonIcs_(state, person.PersonID);
+    if (ics.indexOf("BEGIN:VEVENT") >= 0) {
+      try {
+        cache.put(nokkel, ics, 60);
+      } catch (cacheErr) {
+        // Cache er valgfri — for stor ICS skal fortsatt leveres.
+      }
+    }
+    return icsSvar_(ics);
   } catch (err) {
     return icsSvar_(tomIcs_());
   }
@@ -1988,9 +2019,12 @@ function icsEscape_(tekst) {
 }
 
 function icsDatoTid_(dato, tid) {
-  var d = String(dato || "").replace(/-/g, "");
-  var m = /^(\d{1,2}):(\d{2})/.exec(String(tid || "").trim());
-  var hh = m ? (m[1].length === 1 ? "0" + m[1] : m[1]) : "11";
+  var iso = normalizeDate_(dato);
+  var d = String(iso || "").replace(/-/g, "");
+  if (!/^\d{8}$/.test(d)) return "";
+  var kl = normalizeTime_(tid) || "11:00";
+  var m = /^(\d{1,2}):(\d{2})/.exec(kl);
+  var hh = m ? pad2_(m[1]) : "11";
   var mm = m ? m[2] : "00";
   return d + "T" + hh + mm + "00";
 }
@@ -2012,12 +2046,15 @@ function byggPersonIcs_(state, personId) {
     var g = guds[i];
     var start = g.Tid || "11:00";
     var slutt = hendelseSluttTid_(state, "gudstjeneste", g.GudstjenesteID, start);
+    var gStart = icsDatoTid_(g.Dato, start);
+    var gSlutt = icsDatoTid_(g.Dato, slutt);
+    if (!gStart || !gSlutt) continue;
     linjer.push(
       "BEGIN:VEVENT",
       "UID:gudstjeneste-" + g.GudstjenesteID + "@menighetsplan",
       "DTSTAMP:" + stamp,
-      "DTSTART;TZID=Europe/Oslo:" + icsDatoTid_(g.Dato, start),
-      "DTEND;TZID=Europe/Oslo:" + icsDatoTid_(g.Dato, slutt),
+      "DTSTART;TZID=Europe/Oslo:" + gStart,
+      "DTEND;TZID=Europe/Oslo:" + gSlutt,
       "SUMMARY:" + icsEscape_(g.Tema || "Gudstjeneste")
     );
     if (g.Sted) linjer.push("LOCATION:" + icsEscape_(g.Sted));
@@ -2029,12 +2066,15 @@ function byggPersonIcs_(state, personId) {
     var a = arr[i];
     var aStart = a.Tid || "12:00";
     var aSlutt = hendelseSluttTid_(state, "arrangement", a.ArrangementID, aStart);
+    var arrStart = icsDatoTid_(a.Dato, aStart);
+    var arrSlutt = icsDatoTid_(a.Dato, aSlutt);
+    if (!arrStart || !arrSlutt) continue;
     linjer.push(
       "BEGIN:VEVENT",
       "UID:arrangement-" + a.ArrangementID + "@menighetsplan",
       "DTSTAMP:" + stamp,
-      "DTSTART;TZID=Europe/Oslo:" + icsDatoTid_(a.Dato, aStart),
-      "DTEND;TZID=Europe/Oslo:" + icsDatoTid_(a.Dato, aSlutt),
+      "DTSTART;TZID=Europe/Oslo:" + arrStart,
+      "DTEND;TZID=Europe/Oslo:" + arrSlutt,
       "SUMMARY:" + icsEscape_(a.Tittel)
     );
     if (a.Sted) linjer.push("LOCATION:" + icsEscape_(a.Sted));

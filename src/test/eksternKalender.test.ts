@@ -19,7 +19,11 @@ import {
   KIRKE_ICAL_KATEGORI_URL,
 } from "../services/eksternKalender";
 import { slettArrangement } from "../services/arrangementer";
-import { flettLastetMedLokalCache, flettManglendeKalenderdata } from "../services/persistens";
+import {
+  flettLastetMedLokalCache,
+  flettManglendeKalenderdata,
+  kalenderBleUtvidetFraCache,
+} from "../services/persistens";
 import type { DatabaseState } from "../types/database";
 
 function tomDb(): DatabaseState {
@@ -322,6 +326,17 @@ END:VCALENDAR`;
     gammel
   );
   assert.equal(union.arrangementer?.length, 2);
+  assert.equal(
+    kalenderBleUtvidetFraCache({ arrangementer: [], kalenderoppgaver: [] }, gammel),
+    true
+  );
+  assert.equal(
+    kalenderBleUtvidetFraCache(
+      { arrangementer: gammel.arrangementer, kalenderoppgaver: gammel.kalenderoppgaver },
+      gammel
+    ),
+    false
+  );
 }
 
 console.log("eksternKalender.test.ts: alle tester ok");

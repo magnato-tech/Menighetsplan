@@ -6,14 +6,22 @@ export const config = { maxDuration: 60 };
 
 function tokenFra(req: { query?: Record<string, string | string[] | undefined>; url?: string }): string {
   const q = req.query?.t;
-  if (typeof q === "string") return q.trim();
-  if (Array.isArray(q) && q[0]) return String(q[0]).trim();
-  try {
-    const u = new URL(req.url || "", "https://gudstjenesteplanlegger2-0.vercel.app");
-    return (u.searchParams.get("t") || "").trim();
-  } catch {
-    return "";
+  let raw = "";
+  if (typeof q === "string") raw = q.trim();
+  else if (Array.isArray(q) && q[0]) raw = String(q[0]).trim();
+  else {
+    try {
+      const u = new URL(req.url || "", "https://gudstjenesteplanlegger2-0.vercel.app");
+      raw = (u.searchParams.get("t") || "").trim();
+      if (!raw) {
+        const m = /\/kalender\/([^/?#]+)/i.exec(u.pathname);
+        if (m) raw = decodeURIComponent(m[1]);
+      }
+    } catch {
+      return "";
+    }
   }
+  return raw.replace(/\.ics$/i, "").trim();
 }
 
 export default async function handler(

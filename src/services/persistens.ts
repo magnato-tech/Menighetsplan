@@ -360,6 +360,34 @@ export function flettManglendeKalenderdata(
   };
 }
 
+/** True når cache hadde arrangementer/oppgaver som arket manglet. */
+export function kalenderBleUtvidetFraCache(
+  ark: Partial<DatabaseState>,
+  cache: Partial<DatabaseState> | null | undefined
+): boolean {
+  if (!cache) return false;
+  const flettet = flettManglendeKalenderdata(ark, cache);
+  const nArr = Array.isArray(ark.arrangementer) ? ark.arrangementer.length : 0;
+  const fArr = Array.isArray(flettet.arrangementer) ? flettet.arrangementer.length : 0;
+  if (fArr > nArr) return true;
+  const nOpp = Array.isArray(ark.kalenderoppgaver) ? ark.kalenderoppgaver.length : 0;
+  const fOpp = Array.isArray(flettet.kalenderoppgaver) ? flettet.kalenderoppgaver.length : 0;
+  return fOpp > nOpp;
+}
+
+function persisterFlettetKalenderTilArk(
+  fraArk: Partial<DatabaseState> | undefined,
+  cache: Partial<DatabaseState> | null | undefined,
+  state: DatabaseState
+) {
+  if (!shouldWriteToRemote()) return;
+  const arkManglerKalender =
+    !Array.isArray(fraArk?.arrangementer) || !Array.isArray(fraArk?.kalenderoppgaver);
+  if (arkManglerKalender || kalenderBleUtvidetFraCache(fraArk || {}, cache)) {
+    saveDatabase(state);
+  }
+}
+
 /** Tomme Arrangementer/Kalenderoppgaver fra Sheets skal ikke slette det som ligger lokalt. */
 export function flettLastetMedLokalCache(
   ny: Partial<DatabaseState>,
@@ -717,11 +745,12 @@ export async function loadDatabase(): Promise<DatabaseState> {
     if (payload?.ok && payload.data) {
       noterPersondataFraServer(payload.isAdmin);
       const cache = lesLocalJson(REMOTE_CACHE_KEY);
-      const data = { ...payload.data } as Partial<DatabaseState>;
-      if (!Array.isArray(payload.data.arrangementer) && cache?.arrangementer) {
+      const fraArk = payload.data as Partial<DatabaseState>;
+      const data = { ...fraArk };
+      if (!Array.isArray(fraArk.arrangementer) && cache?.arrangementer) {
         data.arrangementer = cache.arrangementer;
       }
-      if (!Array.isArray(payload.data.kalenderoppgaver) && cache?.kalenderoppgaver) {
+      if (!Array.isArray(fraArk.kalenderoppgaver) && cache?.kalenderoppgaver) {
         data.kalenderoppgaver = cache.kalenderoppgaver;
       }
       const flettet = flettLastetMedLokalCache(data, cache);
@@ -731,6 +760,7 @@ export async function loadDatabase(): Promise<DatabaseState> {
         lagreAdminSesjonPersonId(sisteLastetPersonId);
       }
       persistLocalState(state);
+      persisterFlettetKalenderTilArk(fraArk, cache, state);
       return state;
     }
     throw new Error(payload?.error || "Ukjent svar fra Google Sheets.");
@@ -792,6 +822,7 @@ export async function forceSyncFromGoogleSheets(customUrl?: string): Promise<{ s
       // Lagre til lokal database slik at dataene sitter fast
       saveCustomScriptUrl(targetUrl);
       persistLocalState(normalized);
+      persisterFlettetKalenderTilArk(payload.data, cache, normalized);
       return { success: true, data: normalized };
     } else {
       return { success: false, error: payload?.error || "Ukjent format fra Google Apps Script." };

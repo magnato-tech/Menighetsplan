@@ -44,7 +44,7 @@ export const KalenderAbonner: React.FC<KalenderAbonnerProps> = ({ db, personId }
       <button
         type="button"
         onClick={() => void kopier()}
-        title="Kopier kalenderlenke. Hvis Google sier «sjekk nettadressen»: Innstillinger → Legg til kalender → Fra URL, og lim inn."
+        title="Kopier https-lenken. Hvis Abonner gir tom kalender: Innstillinger → Legg til kalender → Fra URL, og lim inn."
         className="min-h-11 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl inline-flex items-center gap-1.5"
       >
         <Copy className="w-3.5 h-3.5" />

@@ -163,9 +163,24 @@ function icsEscape(tekst: string): string {
     .replace(/;/g, "\\;");
 }
 
+function normalizeIcsDato(dato: string): string {
+  const t = String(dato || "").trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (iso) return `${iso[1]}${iso[2]}${iso[3]}`;
+  const nordisk = /^(\d{1,2})[./](\d{1,2})[./](\d{2,4})/.exec(t);
+  if (nordisk) {
+    let year = parseInt(nordisk[3], 10);
+    if (year < 100) year += 2000;
+    return `${year}${String(nordisk[2]).padStart(2, "0")}${String(nordisk[1]).padStart(2, "0")}`;
+  }
+  const siffer = t.replace(/-/g, "");
+  return /^\d{8}$/.test(siffer) ? siffer : "";
+}
+
 function icsDatoTid(dato: string, tid: string): string {
-  const d = String(dato || "").replace(/-/g, "");
-  const m = /^(\d{1,2}):(\d{2})/.exec(String(tid || "").trim());
+  const d = normalizeIcsDato(dato);
+  if (!d) return "";
+  const m = /^(\d{1,2})[:.](\d{2})/.exec(String(tid || "").trim());
   const hh = m ? String(m[1]).padStart(2, "0") : "11";
   const mm = m ? m[2] : "00";
   return `${d}T${hh}${mm}00`;
@@ -213,6 +228,7 @@ export function byggPersonIcs(db: DatabaseState, personId: string): string {
   for (const h of hendelser) {
     const start = icsDatoTid(h.dato, h.tid);
     const slutt = icsDatoTid(h.dato, hendelseSluttTid(db, h));
+    if (!start || !slutt) continue;
     const uid = h.kind === "gudstjeneste" ? `gudstjeneste-${h.id}@menighetsplan` : `arrangement-${h.id}@menighetsplan`;
     linjer.push(
       "BEGIN:VEVENT",
@@ -248,7 +264,8 @@ export function minIcalOffentligUrl(token: string, origin = OFFENTLIG_APP_URL): 
     .trim()
     .replace(/\/$/, "");
   if (!base || !t) return "";
-  return `${base}/kalender.ics?t=${encodeURIComponent(t)}`;
+  // Token i stien: Google Kalender dropper ofte query-parametre på webcal-abonnement.
+  return `${base}/kalender/${encodeURIComponent(t)}.ics`;
 }
 
 export function minIcalWebcalUrl(httpsUrl: string): string {
