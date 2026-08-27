@@ -46,8 +46,9 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
   onClose,
   onUpdateDb,
 }) => {
-  const [visPdf, setVisPdf] = useState(false);
+  const [visPdf, setVisPdf] = useState(!redigerbar);
   const [kompakt, setKompakt] = useState(false);
+  const visKjoreplan = redigerbar;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-center p-0 sm:p-4 animate-fadeIn">
@@ -67,26 +68,41 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
             </button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setVisPdf((v) => !v)}
-              className="min-h-11 px-3 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
-            >
-              {visPdf ? "Vis kjøreplan" : "Forhåndsvis PDF"}
-            </button>
-            <label className="min-h-11 px-2 inline-flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={kompakt}
-                onChange={(e) => {
-                  const neste = e.target.checked;
-                  setKompakt(neste);
-                  if (neste) setVisPdf(true);
+            {visKjoreplan && (
+              <button
+                type="button"
+                onClick={() => setVisPdf((v) => !v)}
+                className="min-h-11 px-3 text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+              >
+                {visPdf ? "Vis kjøreplan" : "Forhåndsvis PDF"}
+              </button>
+            )}
+            <div className="inline-flex rounded-xl border border-slate-200 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setKompakt(true);
+                  if (visKjoreplan) setVisPdf(true);
                 }}
-                className="w-4 h-4 accent-[#2d5a3f] cursor-pointer"
-              />
-              Kompakt visning
-            </label>
+                className={`min-h-11 px-3 text-xs font-semibold cursor-pointer ${
+                  kompakt ? "bg-[#2d5a3f] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Kompakt
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setKompakt(false);
+                  if (visKjoreplan) setVisPdf(true);
+                }}
+                className={`min-h-11 px-3 text-xs font-semibold cursor-pointer ${
+                  !kompakt ? "bg-[#2d5a3f] text-white" : "bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                Med luft
+              </button>
+            </div>
             <button
               type="button"
               onClick={lastNedProgramPdf}
@@ -98,18 +114,20 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
           </div>
         </div>
         <div className="overflow-y-auto flex-1">
-          <div className={visPdf ? "hidden no-print" : "block no-print"}>
-            <GudstjenesteProgramView
-              db={db}
-              gudstjeneste={gudstjeneste}
-              redigerbar={redigerbar}
-              iDialog
-              uthevPersonId={uthevPersonId}
-              selectedPersonId={selectedPersonId}
-              onUpdateDb={onUpdateDb}
-            />
-          </div>
-          <div className={visPdf ? "p-4 sm:p-6" : "program-pdf-print-only"}>
+          {visKjoreplan && (
+            <div className={visPdf ? "hidden no-print" : "block no-print"}>
+              <GudstjenesteProgramView
+                db={db}
+                gudstjeneste={gudstjeneste}
+                redigerbar={redigerbar}
+                iDialog
+                uthevPersonId={uthevPersonId}
+                selectedPersonId={selectedPersonId}
+                onUpdateDb={onUpdateDb}
+              />
+            </div>
+          )}
+          <div className={visKjoreplan && !visPdf ? "program-pdf-print-only" : "p-4 sm:p-6"}>
             <ProgramPdfArk db={db} gudstjeneste={gudstjeneste} kompakt={kompakt} />
           </div>
         </div>

@@ -93,6 +93,20 @@ export function hentAnsvarForBrikke(
   return { rolle, gruppe, personer };
 }
 
+/** Publisert program: rolle og navn, uten gruppenavn. «Taler: Magnar», «Lovsang: Ola». */
+export function formatRolleOgPersoner(
+  rolleNavn?: string,
+  personer?: { navn: string }[]
+): string {
+  const rolle = String(rolleNavn || "").trim();
+  const navn = (personer || [])
+    .map((p) => String(p.navn || "").trim())
+    .filter(Boolean)
+    .join(", ");
+  if (rolle && navn) return `${rolle}: ${navn}`;
+  return rolle || navn;
+}
+
 export function kanRedigereProgram(
   db: DatabaseState,
   personId: string,

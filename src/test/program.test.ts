@@ -6,6 +6,7 @@ import {
   formatKlokkeMinutter,
   parseKlokkeMinutter,
   hentAnsvarForBrikke,
+  formatRolleOgPersoner,
   kopierMalTilGudstjeneste,
   tilbakestillProgramFraMal,
   kanRedigereProgram,
@@ -166,6 +167,10 @@ function tomDb(): DatabaseState {
   assert.equal(ansvar.gruppe?.Gruppenavn, "Gudstjenesteleder");
   assert.equal(ansvar.personer.length, 1);
   assert.equal(ansvar.personer[0].navn, "Line");
+  assert.equal(formatRolleOgPersoner(ansvar.rolle?.Rollenavn, ansvar.personer), "Lovsang: Line");
+  assert.equal(formatRolleOgPersoner("Taler", [{ navn: "Magnar" }]), "Taler: Magnar");
+  assert.equal(formatRolleOgPersoner("Forbønn", [{ navn: "Gunnar" }, { navn: "Astrid" }]), "Forbønn: Gunnar, Astrid");
+  assert.equal(formatRolleOgPersoner("Lovsang", []), "Lovsang");
 }
 
 {

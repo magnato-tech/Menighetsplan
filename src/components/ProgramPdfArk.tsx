@@ -3,6 +3,7 @@ import { Gudstjeneste } from "../types/database";
 import {
   DatabaseState,
   beregnProgramtider,
+  formatRolleOgPersoner,
   hentAnsvarForBrikke,
   programForGudstjeneste,
 } from "../services/dataService";
@@ -64,16 +65,13 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
       <ol className="space-y-0">
         {medTid.map((p) => {
           const ansvar = hentAnsvarForBrikke(db, gudstjeneste.GudstjenesteID, p.RolleID);
-          const navn = ansvar.personer.map((pers) => pers.navn).join(", ");
-          const meta = [ansvar.rolle?.Rollenavn, ansvar.gruppe?.Gruppenavn, navn]
-            .filter(Boolean)
-            .join(" · ");
+          const meta = formatRolleOgPersoner(ansvar.rolle?.Rollenavn, ansvar.personer);
 
           if (kompakt) {
             return (
               <li
                 key={p.ProgramAktivitetID}
-                className="flex items-baseline gap-2 py-0.5 border-b border-slate-100 leading-tight break-inside-avoid"
+                className="flex items-baseline gap-3 py-0.5 border-b border-slate-100 leading-tight break-inside-avoid"
               >
                 <span className="w-10 shrink-0 text-[11px] font-bold tabular-nums text-slate-700">
                   {p.start}
@@ -82,9 +80,6 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
                   <span className="font-semibold">{p.Tittel}</span>
                   {meta ? <span className="text-slate-500"> · {meta}</span> : null}
                 </span>
-                <span className="shrink-0 text-[9px] uppercase tracking-wide text-slate-500">
-                  {p.VarighetMin} min
-                </span>
               </li>
             );
           }
@@ -92,15 +87,14 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
           return (
             <li
               key={p.ProgramAktivitetID}
-              className="flex gap-3 py-2.5 border-b border-slate-100 break-inside-avoid"
+              className="flex gap-4 py-3.5 border-b border-slate-100 break-inside-avoid"
             >
-              <div className="w-14 shrink-0 rounded-md bg-[#5b4b8a] text-white text-center py-1.5 h-fit">
-                <div className="text-sm font-bold tabular-nums leading-none">{p.start}</div>
-                <div className="text-[9px] uppercase mt-1 opacity-90">{p.VarighetMin} min</div>
+              <div className="w-14 shrink-0 text-[#2d5a3f]">
+                <div className="text-base font-bold tabular-nums leading-none">{p.start}</div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm leading-snug">{p.Tittel}</p>
-                <p className="text-[11px] text-slate-500 mt-0.5">{meta}</p>
+                <p className="font-semibold text-[15px] leading-snug">{p.Tittel}</p>
+                {meta ? <p className="text-sm text-slate-500 mt-1">{meta}</p> : null}
               </div>
             </li>
           );
