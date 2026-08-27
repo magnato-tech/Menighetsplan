@@ -1,6 +1,7 @@
 import { Arrangement } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
+import { tilIsoDato, tilIsoTid } from "./dato";
 import { sikreTjenestebehovFraMal, sortertMalposter } from "./mal";
 import { opprettProgramFraMal } from "./program";
 
@@ -23,14 +24,14 @@ export function opprettArrangement(
   }
 ): DatabaseState {
   const tittel = felt.tittel.trim();
-  const dato = felt.dato.trim();
+  const dato = tilIsoDato(felt.dato.trim());
   if (!tittel || !dato) return db;
   const now = new Date().toISOString().split("T")[0];
   const malId = String(felt.malId || "").trim() || undefined;
   const ny: Arrangement = {
     ArrangementID: nesteArrangementId(db.arrangementer || []),
     Dato: dato,
-    Tid: felt.tid.trim() || "12:00",
+    Tid: tilIsoTid(felt.tid.trim(), "12:00"),
     Sted: felt.sted.trim(),
     Tittel: tittel,
     Beskrivelse: (felt.beskrivelse || "").trim(),

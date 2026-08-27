@@ -1,6 +1,7 @@
 import { AppInnstillinger } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import { beregnProgramtider, parseKlokkeMinutter, formatKlokkeMinutter, programForGudstjeneste } from "./program";
+import { tilIsoDato } from "./dato";
 
 export const GUDSTJENESTE_STANDARD_MIN = 90;
 export const ARRANGEMENT_STANDARD_MIN = 60;
@@ -175,17 +176,8 @@ function icsEscape(tekst: string): string {
 }
 
 function normalizeIcsDato(dato: string): string {
-  const t = String(dato || "").trim();
-  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
-  if (iso) return `${iso[1]}${iso[2]}${iso[3]}`;
-  const nordisk = /^(\d{1,2})[./](\d{1,2})[./](\d{2,4})/.exec(t);
-  if (nordisk) {
-    let year = parseInt(nordisk[3], 10);
-    if (year < 100) year += 2000;
-    return `${year}${String(nordisk[2]).padStart(2, "0")}${String(nordisk[1]).padStart(2, "0")}`;
-  }
-  const siffer = t.replace(/-/g, "");
-  return /^\d{8}$/.test(siffer) ? siffer : "";
+  const iso = tilIsoDato(dato).replace(/-/g, "");
+  return /^\d{8}$/.test(iso) ? iso : "";
 }
 
 function icsDatoTid(dato: string, tid: string): string {

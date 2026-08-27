@@ -17,6 +17,7 @@ import {
   googleKalenderAbonnerUrl,
 } from "../services/kalender";
 import { opprettArrangement } from "../services/arrangementer";
+import { tilIsoDato, tilIsoTid } from "../services/dato";
 import { leggInnKalenderoppgave } from "../services/eksternKalender";
 
 function tomDb(): DatabaseState {
@@ -307,6 +308,7 @@ function tomDb(): DatabaseState {
   db = leggInnKalenderoppgave(db, "KO001", "P001");
   assert.equal(db.arrangementer[0].GruppeID, undefined);
   assert.equal(db.arrangementer[0].Aktiv, true);
+  assert.equal(db.arrangementer[0].Dato, "2026-10-13");
   const icsAda = byggPersonIcs(db, "P001");
   const icsBo = byggPersonIcs(db, "P002");
   assert.match(icsAda, /SUMMARY:Bønnemøte fra kirken/);
@@ -331,6 +333,13 @@ function tomDb(): DatabaseState {
   const medHusBo = byggPersonIcs(db, "P002");
   assert.match(medHusAda, /SUMMARY:Husgruppe lukket/);
   assert.doesNotMatch(medHusBo, /SUMMARY:Husgruppe lukket/);
+}
+
+{
+  assert.equal(tilIsoDato("13.10.2026"), "2026-10-13");
+  assert.equal(tilIsoDato("2026-10-13"), "2026-10-13");
+  assert.equal(tilIsoDato("20261013T190000"), "2026-10-13");
+  assert.equal(tilIsoTid("9.05"), "09:05");
 }
 
 console.log("kalender.test.ts: alle tester ok");

@@ -862,6 +862,29 @@ function skalSkriveArk_(ss, key, spec, records) {
   return !eksisterende || eksisterende.length === 0;
 }
 
+function arkFingerprint_(records, spec) {
+  var linjer = [];
+  var i;
+  var j;
+  for (i = 0; i < (records || []).length; i++) {
+    var rec = records[i] || {};
+    var celler = [];
+    for (j = 0; j < spec.columns.length; j++) {
+      celler.push(String(serialize_(spec.columns[j], rec[spec.columns[j]], spec)));
+    }
+    linjer.push(celler.join("\t"));
+  }
+  return linjer.join("\n");
+}
+
+/** Unngå å holde låsen med full omskriving når arket allerede er likt. */
+function skrivHvisEndret_(ss, spec, records) {
+  var eksisterende = readSheet_(ss, spec);
+  if (arkFingerprint_(eksisterende, spec) === arkFingerprint_(records, spec)) return false;
+  writeSheet_(ss, spec, records);
+  return true;
+}
+
 function saveDatabase(state, isAdmin) {
   ensureSchema_();
   var ss = getSpreadsheet_();
@@ -928,7 +951,7 @@ function saveDatabase(state, isAdmin) {
     if (state[key] === undefined || state[key] === null) continue;
     if (isAdmin === false && !NON_ADMIN_WRITABLE_SHEETS[key]) continue;
     if (!skalSkriveArk_(ss, key, MASTER_SHEETS[key], state[key])) continue;
-    writeSheet_(ss, MASTER_SHEETS[key], state[key]);
+    skrivHvisEndret_(ss, MASTER_SHEETS[key], state[key]);
     skrevet[key] = true;
   }
   for (key in MASTER_SHEETS) {
@@ -936,7 +959,7 @@ function saveDatabase(state, isAdmin) {
     if (state[key] === undefined || state[key] === null) continue;
     if (isAdmin === false && !NON_ADMIN_WRITABLE_SHEETS[key]) continue;
     if (!skalSkriveArk_(ss, key, MASTER_SHEETS[key], state[key])) continue;
-    writeSheet_(ss, MASTER_SHEETS[key], state[key]);
+    skrivHvisEndret_(ss, MASTER_SHEETS[key], state[key]);
   }
   // Import-faner skrives aldri av vanlig save — bare via exportImportBackup.
 }

@@ -27,6 +27,7 @@ import { synkGruppeledergruppe } from "./grupper";
 import { sikreSmagruppelederRolle } from "./roller";
 import { sikreStandardMaler } from "./mal";
 import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger, flettManglendeInnstillinger } from "./kalender";
+import { tilIsoDato, tilIsoTid } from "./dato";
 import { byggImportBackup } from "./importBackup";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v3_mock";
@@ -77,6 +78,15 @@ export function stateForRemoteSave(
 ): DatabaseState {
   const medInnstillinger = {
     ...state,
+    arrangementer: (state.arrangementer || []).map((a) => ({
+      ...a,
+      Dato: tilIsoDato(a.Dato) || a.Dato,
+      Tid: tilIsoTid(a.Tid, a.Tid || "12:00"),
+    })),
+    gudstjenester: (state.gudstjenester || []).map((g) => ({
+      ...g,
+      Dato: tilIsoDato(g.Dato) || g.Dato,
+    })),
     innstillinger: innstillingerTilRader(hentInnstillinger(state)) as unknown as DatabaseState["innstillinger"],
   };
   if (harFullPersondata) return medInnstillinger;

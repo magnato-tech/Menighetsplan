@@ -51,7 +51,7 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
   onClose,
   lese = false,
 }) => {
-  const [fane, setFane] = useState<"bemanning" | "kjoreplan">("bemanning");
+  const [fane, setFane] = useState<"bemanning" | "kjoreplan">(lese ? "kjoreplan" : "bemanning");
   const [behovRolle, setBehovRolle] = useState<Rolle | null>(null);
   const [behovTall, setBehovTall] = useState(1);
   const [tildelRolle, setTildelRolle] = useState<Rolle | null>(null);
@@ -156,7 +156,9 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
             <div className="divide-y divide-slate-100">
             {roller.length === 0 ? (
               <p className="px-3 py-6 text-sm text-slate-500 text-center">
-                Ingen bemanning ennå. Legg til en vakt under, eller sett rolle på en programpost.
+                {lese
+                  ? "Ingen bemanning er satt på dette arrangementet ennå."
+                  : "Ingen bemanning ennå. Legg til en vakt under, eller sett rolle på en programpost."}
               </p>
             ) : (
             roller.map((rolle) => {
