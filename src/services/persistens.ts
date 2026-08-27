@@ -17,11 +17,15 @@ import {
   initialGudstjenesterImport,
   initialRollebeskrivelseImport,
   initialMalaktiviteter,
+  initialMaler,
+  initialMalposter,
+  initialMalTilleggsvakter,
 } from "../data/initialData";
 import { hentApiIdentitet, lagreAdminSesjonPersonId } from "./innlogging";
 import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa } from "./tilgang";
 import { synkGruppeledergruppe } from "./grupper";
 import { sikreSmagruppelederRolle } from "./roller";
+import { sikreStandardMaler } from "./mal";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
 const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
@@ -195,8 +199,13 @@ function emptyState(): DatabaseState {
     tildelinger: [],
     svar: [],
     malaktiviteter: [],
+    maler: [],
+    malposter: [],
+    malTilleggsvakter: [],
     programaktiviteter: [],
     programinstanser: [],
+    arrangementer: [],
+    kalenderoppgaver: [],
     personerImport: [],
     gudstjenesterImport: [],
     rollebeskrivelseImport: [],
@@ -220,12 +229,21 @@ function normalizeState(parsed: Partial<DatabaseState> | null | undefined): Data
     tildelinger: Array.isArray(parsed.tildelinger) ? parsed.tildelinger : base.tildelinger,
     svar: Array.isArray(parsed.svar) ? parsed.svar : base.svar,
     malaktiviteter: Array.isArray(parsed.malaktiviteter) ? parsed.malaktiviteter : base.malaktiviteter,
+    maler: Array.isArray(parsed.maler) ? parsed.maler : base.maler,
+    malposter: Array.isArray(parsed.malposter) ? parsed.malposter : base.malposter,
+    malTilleggsvakter: Array.isArray(parsed.malTilleggsvakter)
+      ? parsed.malTilleggsvakter
+      : base.malTilleggsvakter,
     programaktiviteter: Array.isArray(parsed.programaktiviteter)
       ? parsed.programaktiviteter
       : base.programaktiviteter,
     programinstanser: Array.isArray(parsed.programinstanser)
       ? parsed.programinstanser
       : base.programinstanser,
+    arrangementer: Array.isArray(parsed.arrangementer) ? parsed.arrangementer : base.arrangementer,
+    kalenderoppgaver: Array.isArray(parsed.kalenderoppgaver)
+      ? parsed.kalenderoppgaver
+      : base.kalenderoppgaver,
     personerImport: Array.isArray(parsed.personerImport) ? parsed.personerImport : base.personerImport,
     gudstjenesterImport: Array.isArray(parsed.gudstjenesterImport) ? parsed.gudstjenesterImport : base.gudstjenesterImport,
     rollebeskrivelseImport: Array.isArray(parsed.rollebeskrivelseImport)
@@ -347,8 +365,13 @@ export function loadLocalDatabase(): DatabaseState {
           malaktiviteter: Array.isArray(parsed.malaktiviteter)
             ? parsed.malaktiviteter
             : initialMalaktiviteter,
+          maler: Array.isArray(parsed.maler) ? parsed.maler : [],
+          malposter: Array.isArray(parsed.malposter) ? parsed.malposter : [],
+          malTilleggsvakter: Array.isArray(parsed.malTilleggsvakter) ? parsed.malTilleggsvakter : [],
           programaktiviteter: Array.isArray(parsed.programaktiviteter) ? parsed.programaktiviteter : [],
           programinstanser: Array.isArray(parsed.programinstanser) ? parsed.programinstanser : [],
+          arrangementer: Array.isArray(parsed.arrangementer) ? parsed.arrangementer : [],
+          kalenderoppgaver: Array.isArray(parsed.kalenderoppgaver) ? parsed.kalenderoppgaver : [],
           personerImport: Array.isArray(parsed.personerImport) ? parsed.personerImport : initialPersonerImport,
           gudstjenesterImport: Array.isArray(parsed.gudstjenesterImport) ? parsed.gudstjenesterImport : initialGudstjenesterImport,
           rollebeskrivelseImport: Array.isArray(parsed.rollebeskrivelseImport)
@@ -374,8 +397,13 @@ export function loadLocalDatabase(): DatabaseState {
     tildelinger: initialTildelinger,
     svar: initialSvar,
     malaktiviteter: initialMalaktiviteter,
+    maler: initialMaler,
+    malposter: initialMalposter,
+    malTilleggsvakter: initialMalTilleggsvakter,
     programaktiviteter: [],
     programinstanser: [],
+    arrangementer: [],
+    kalenderoppgaver: [],
     personerImport: initialPersonerImport,
     gudstjenesterImport: initialGudstjenesterImport,
     rollebeskrivelseImport: initialRollebeskrivelseImport,
@@ -471,6 +499,12 @@ export function applyLoadedState(state: DatabaseState): DatabaseState {
   const medSmagruppe = sikreSmagruppelederRolle(fixed);
   if (medSmagruppe !== fixed) {
     fixed = medSmagruppe;
+    endret = true;
+  }
+
+  const medMaler = sikreStandardMaler(fixed);
+  if (medMaler !== fixed) {
+    fixed = medMaler;
     endret = true;
   }
 
@@ -766,8 +800,13 @@ export function populateMockDatabase(): DatabaseState {
     tildelinger: initialTildelinger,
     svar: initialSvar,
     malaktiviteter: initialMalaktiviteter,
+    maler: initialMaler,
+    malposter: initialMalposter,
+    malTilleggsvakter: initialMalTilleggsvakter,
     programaktiviteter: [],
     programinstanser: [],
+    arrangementer: [],
+    kalenderoppgaver: [],
     personerImport: initialPersonerImport,
     gudstjenesterImport: initialGudstjenesterImport,
     rollebeskrivelseImport: initialRollebeskrivelseImport,

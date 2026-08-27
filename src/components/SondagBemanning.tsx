@@ -16,6 +16,7 @@ import {
   tomtBemanningstall,
   visProgramIkon,
   kanRedigereProgram,
+  erHendelseRad,
 } from "../services/dataService";
 import { Gudstjeneste, Rolle } from "../types/database";
 import { RolleIkon } from "./RolleIkon";
@@ -403,7 +404,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     const now = new Date().toISOString().split("T")[0];
     const existingIndex = db.tjenestebehov.findIndex(
       (tb) =>
-        tb.GudstjenesteID === editNeedModal.gudstjenesteId &&
+        erHendelseRad(tb, editNeedModal.gudstjenesteId) &&
         tb.RolleID === editNeedModal.rolleId
     );
     const tjenestebehov =
@@ -484,10 +485,10 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     const gudstjenesteId = gudstjeneste.GudstjenesteID;
     const effektivtBehov = getEffektivtBehov(db, gudstjenesteId, rolle);
     const isOverridden = db.tjenestebehov.some(
-      (tb) => tb.GudstjenesteID === gudstjenesteId && tb.RolleID === rolle.RolleID && tb.Aktiv
+      (tb) => erHendelseRad(tb, gudstjenesteId) && tb.RolleID === rolle.RolleID && tb.Aktiv
     );
     const tildelinger = db.tildelinger.filter(
-      (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID
+      (t) => erHendelseRad(t, gudstjenesteId) && t.RolleID === rolle.RolleID
     );
     const antallBekreftet = tildelinger.filter(
       (t) => hentSvarStatus(db, t.TildelingID) === "Bekreftet"

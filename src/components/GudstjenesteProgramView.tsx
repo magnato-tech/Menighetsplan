@@ -5,6 +5,7 @@ import {
   DatabaseState,
   avpubliserProgram,
   beregnProgramtider,
+  erHendelseRad,
   erProgramPublisert,
   hentAnsvarForBrikke,
   hentPrograminstans,
@@ -15,6 +16,7 @@ import {
   publiserProgram,
   saveDatabase,
   sortertMalaktiviteter,
+  sortertMalposter,
   tilbakestillProgramFraMal,
 } from "../services/dataService";
 import { ProgramKjoreplan } from "./ProgramKjoreplan";
@@ -28,6 +30,8 @@ interface GudstjenesteProgramViewProps {
   uthevPersonId?: string;
   selectedPersonId?: string;
   iDialog?: boolean;
+  arrangementId?: string;
+  hendelseEtikett?: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
 }
 
@@ -48,15 +52,24 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
   uthevPersonId,
   selectedPersonId,
   iDialog,
+  arrangementId,
+  hendelseEtikett = "gudstjenesten",
   onUpdateDb,
 }) => {
   const [visLeser, setVisLeser] = useState(false);
-  const linjer = programForGudstjeneste(db, gudstjeneste.GudstjenesteID);
+  const gudId = gudstjeneste.GudstjenesteID;
+  const linjer = programForGudstjeneste(db, gudId, arrangementId);
   const medTid = beregnProgramtider(linjer, gudstjeneste.Tid || "11:00");
   const sluttid = medTid.length > 0 ? medTid[medTid.length - 1].slutt : gudstjeneste.Tid;
-  const malTom = sortertMalaktiviteter(db).length === 0;
-  const instans = hentPrograminstans(db, gudstjeneste.GudstjenesteID);
-  const publisert = erProgramPublisert(db, gudstjeneste.GudstjenesteID);
+  const arrangement = arrangementId
+    ? (db.arrangementer || []).find((a) => a.ArrangementID === arrangementId)
+    : undefined;
+  const malLinjer = arrangement?.MalID
+    ? sortertMalposter(db, arrangement.MalID)
+    : sortertMalaktiviteter(db);
+  const malTom = malLinjer.length === 0;
+  const instans = hentPrograminstans(db, gudId, arrangementId);
+  const publisert = erProgramPublisert(db, gudId, arrangementId);
 
   const persister = (updated: DatabaseState) => {
     saveDatabase(updated);
@@ -64,32 +77,38 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
   };
 
   const oppdaterLinjer = (neste: typeof linjer) => {
-    const resten = db.programaktiviteter.filter(
-      (p) => p.GudstjenesteID !== gudstjeneste.GudstjenesteID
-    );
+    const resten = db.programaktiviteter.filter((p) => !erHendelseRad(p, gudId, arrangementId));
     persister({
       ...db,
       programaktiviteter: [...resten, ...omskrivProgramRekkefolge(neste)],
     });
   };
 
-  if (linjer.length === 0) {
+  if (linjer.length === 0 && !instans) {
     return (
       <div className="px-4 py-6 text-center space-y-3">
         <p className="text-sm text-slate-600">
-          Ingen kjøreplan for denne gudstjenesten ennå.
+          Ingen kjøreplan for denne {hendelseEtikett} ennå.
         </p>
-        {redigerbar && (
+        {redigerbar && !malTom && (
           <button
             type="button"
-            disabled={malTom}
-            onClick={() => persister(opprettProgramFraMal(db, gudstjeneste.GudstjenesteID))}
-            className="px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl cursor-pointer"
+            onClick={() => persister(opprettProgramFraMal(db, gudId, arrangementId))}
+            className="px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl cursor-pointer"
           >
             Opprett program fra mal
           </button>
         )}
-        {malTom && redigerbar && (
+        {redigerbar && malTom && arrangement?.MalID && (
+          <button
+            type="button"
+            onClick={() => persister(opprettProgramFraMal(db, gudId, arrangementId))}
+            className="px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl cursor-pointer"
+          >
+            Opprett tom kjøreplan
+          </button>
+        )}
+        {malTom && redigerbar && !arrangement?.MalID && (
           <p className="text-xs text-slate-500">Admin må først lage en programmal.</p>
         )}
       </div>
@@ -135,7 +154,7 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
               {publisert ? (
                 <button
                   type="button"
-                  onClick={() => persister(avpubliserProgram(db, gudstjeneste.GudstjenesteID))}
+                  onClick={() => persister(avpubliserProgram(db, gudId, arrangementId))}
                   className="text-xs font-semibold text-amber-800 hover:text-amber-950 cursor-pointer"
                 >
                   Avpubliser
@@ -144,7 +163,7 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
                 <button
                   type="button"
                   onClick={() =>
-                    persister(publiserProgram(db, gudstjeneste.GudstjenesteID, selectedPersonId))
+                    persister(publiserProgram(db, gudId, selectedPersonId, arrangementId))
                   }
                   className="px-2.5 py-1 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-lg cursor-pointer inline-flex items-center gap-1"
                 >
@@ -156,7 +175,7 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
                 type="button"
                 onClick={() => {
                   if (!window.confirm("Erstatte denne kjøreplanen med standardmalen?")) return;
-                  persister(tilbakestillProgramFraMal(db, gudstjeneste.GudstjenesteID));
+                  persister(tilbakestillProgramFraMal(db, gudId, arrangementId));
                 }}
                 className="text-xs font-semibold text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
               >
@@ -180,7 +199,7 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
 
       <ProgramKjoreplan
         linjer={medTid.map((p) => {
-          const ansvar = hentAnsvarForBrikke(db, gudstjeneste.GudstjenesteID, p.RolleID);
+          const ansvar = hentAnsvarForBrikke(db, gudId, p.RolleID, arrangementId);
           const uthevet = Boolean(
             uthevPersonId && ansvar.personer.some((pers) => pers.personId === uthevPersonId)
           );
@@ -231,13 +250,13 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
             ? () =>
                 oppdaterLinjer([
                   ...linjer,
-                  nyProgramAktivitet(db.programaktiviteter, gudstjeneste.GudstjenesteID),
+                  nyProgramAktivitet(db.programaktiviteter, gudId, arrangementId),
                 ])
             : undefined
         }
       />
 
-      {visLeser && !iDialog && (
+          {visLeser && !iDialog && !arrangementId && (
         <ProgramLeserModal
           db={db}
           gudstjeneste={gudstjeneste}

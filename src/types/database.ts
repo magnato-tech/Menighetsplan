@@ -102,11 +102,14 @@ export interface Gudstjeneste {
   Bibeltekst?: string;
   Kollekt?: string;
   Merknad?: string;
+  /** UID fra kirkekalenderen, kun treffnøkkel — appen eier innholdet. */
+  EksternKalenderID?: string;
 }
 
 export interface Tjenestebehov {
   TjenestebehovID: string; // e.g. "TB001"
-  GudstjenesteID: string; // Ref: Gudstjenester.GudstjenesteID
+  GudstjenesteID: string; // Ref: Gudstjenester.GudstjenesteID (tom for arrangement)
+  ArrangementID?: string;
   RolleID: string; // Ref: Roller.RolleID
   Antall: number; // Overstyrer Roller.Behov for denne gudstjenesten
   Aktiv: boolean;
@@ -117,7 +120,8 @@ export interface Tjenestebehov {
 
 export interface Tildeling {
   TildelingID: string; // e.g. "T001"
-  GudstjenesteID: string; // Ref: Gudstjenester.GudstjenesteID
+  GudstjenesteID: string; // Ref: Gudstjenester.GudstjenesteID (tom for arrangement)
+  ArrangementID?: string;
   RolleID: string; // Ref: Roller.RolleID
   PersonID: string; // Ref: Personer.PersonID, eller EXT… for gjest
   EksternNavn?: string; // Gjest: visningsnavn, ikke i Personer
@@ -214,6 +218,7 @@ export interface MalAktivitet {
 export interface ProgramAktivitet {
   ProgramAktivitetID: string; // e.g. "PA001"
   GudstjenesteID: string;
+  ArrangementID?: string;
   Rekkefolge: number;
   Tittel: string;
   VarighetMin: number;
@@ -229,9 +234,77 @@ export type ProgramStatus = "Utkast" | "Publisert";
 /** Én rad per gudstjeneste som har program. Uten rad er programmet ikke synlig. */
 export interface Programinstans {
   GudstjenesteID: string;
+  ArrangementID?: string;
   Status: ProgramStatus;
   PublisertDato?: string;
   PublisertAv?: string;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+export interface Arrangement {
+  ArrangementID: string;
+  Dato: string;
+  Tid: string;
+  Sted: string;
+  Tittel: string;
+  Beskrivelse: string;
+  GruppeID?: string;
+  OpprettetAv?: string;
+  EksternKalenderID?: string;
+  /** Valgfri. Tom = gammel rad, bemanning som før. Satt = ny mal (kjøreplan + tilleggsvakter). */
+  MalID?: string;
+  Aktiv: boolean;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+/** Arrangementmal (ved siden av søndagens malaktiviteter). */
+export interface Mal {
+  MalID: string;
+  Navn: string;
+  Aktiv: boolean;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+/** Kjøreplanlinje i en arrangementmal. Egne ID-er — ikke de samme som Malaktiviteter. */
+export interface MalPost {
+  MalPostID: string;
+  MalID: string;
+  Rekkefolge: number;
+  Tittel: string;
+  VarighetMin: number;
+  RolleID?: string;
+  ForStart: boolean;
+  Merknad?: string;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+/** Rolle som ikke kommer fra kjøreplanen, lagret på malen. */
+export interface MalTilleggsvakt {
+  MalTilleggsvaktID: string;
+  MalID: string;
+  RolleID: string;
+  Antall: number;
+  Aktiv: boolean;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+export type KalenderoppgaveStatus = "Åpen" | "Avvist" | "Opprettet";
+
+export interface Kalenderoppgave {
+  KalenderoppgaveID: string;
+  EksternUID: string;
+  Dato: string;
+  Tid: string;
+  Sted: string;
+  Tittel: string;
+  Beskrivelse: string;
+  Status: KalenderoppgaveStatus;
+  ArrangementID?: string;
   OpprettetDato: string;
   SistEndret: string;
 }
@@ -249,8 +322,13 @@ export interface DatabaseState {
   tildelinger: Tildeling[];
   svar: Svar[];
   malaktiviteter: MalAktivitet[];
+  maler: Mal[];
+  malposter: MalPost[];
+  malTilleggsvakter: MalTilleggsvakt[];
   programaktiviteter: ProgramAktivitet[];
   programinstanser: Programinstans[];
+  arrangementer: Arrangement[];
+  kalenderoppgaver: Kalenderoppgave[];
   personerImport: PersonerImport[];
   gudstjenesterImport: GudstjenesterImport[];
   rollebeskrivelseImport: RollebeskrivelseImport[];

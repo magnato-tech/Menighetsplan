@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "test": "tsx src/test/bemanning.test.ts && tsx src/test/program.test.ts && tsx src/test/innlogging.test.ts && tsx src/test/ark.test.ts && tsx src/test/grupper.test.ts && tsx src/test/interesse.test.ts",
+    "test": "tsx src/test/bemanning.test.ts && tsx src/test/program.test.ts && tsx src/test/innlogging.test.ts && tsx src/test/ark.test.ts && tsx src/test/grupper.test.ts && tsx src/test/interesse.test.ts && tsx src/test/eksternKalender.test.ts && tsx src/test/arrangementer.test.ts && tsx src/test/mal.test.ts && tsx src/test/synkMal.test.ts",
     "apps-script:push": "clasp push --force",
     "apps-script:deploy": "clasp deploy --deploymentId AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw --description Gudstjenesteplanlegger2.0-API"
   },

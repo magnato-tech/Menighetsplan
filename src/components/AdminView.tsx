@@ -7,16 +7,20 @@ import { NewGroupModal } from "./NewGroupModal";
 import { GroupOverview } from "./GroupOverview";
 import { BelastningView } from "./BelastningView";
 import { ProgrammalAdminView } from "./ProgrammalAdminView";
+import { ArrangementMalAdminView } from "./ArrangementMalAdminView";
 import { PersonregisterView } from "./PersonregisterView";
 import { RollerAdminView } from "./RollerAdminView";
 import { AdminGudstjenesterView } from "./AdminGudstjenesterView";
+import { KalenderView } from "./KalenderView";
 import {
   Calendar,
+  ClipboardList,
   Users,
   UsersRound,
   Layers,
   Settings,
   Clock,
+  LayoutTemplate,
   Gauge,
   Ellipsis,
 } from "lucide-react";
@@ -39,7 +43,15 @@ export const AdminView: React.FC<AdminViewProps> = ({
   onSwitchDataSource,
 }) => {
   const [activeTab, setActiveTab] = useState<
-    "services" | "belastning" | "people" | "groups" | "roles" | "programmal" | "sync"
+    | "calendar"
+    | "services"
+    | "belastning"
+    | "people"
+    | "groups"
+    | "roles"
+    | "programmal"
+    | "maler"
+    | "sync"
   >("services");
   const [groupTypeFilter, setGroupTypeFilter] = useState("alle");
   const [editingGruppeId, setEditingGruppeId] = useState<string | null>(null);
@@ -58,12 +70,14 @@ export const AdminView: React.FC<AdminViewProps> = ({
     lang: string;
     antall?: number;
   }[] = [
-    { id: "services", Icon: Calendar, kort: "Søndager", lang: "Gudstjenester & Bemanningsstatus", antall: db.gudstjenester.length },
+    { id: "calendar", Icon: Calendar, kort: "Kalender", lang: "Kalender" },
+    { id: "services", Icon: ClipboardList, kort: "Søndager", lang: "Gudstjenester & Bemanningsstatus", antall: db.gudstjenester.length },
     { id: "belastning", Icon: Gauge, kort: "Last", lang: "Belastning" },
     { id: "people", Icon: Users, kort: "Folk", lang: "Personregister", antall: db.personer.length },
     { id: "groups", Icon: UsersRound, kort: "Grupper", lang: "Grupper", antall: db.grupper.length },
     { id: "roles", Icon: Layers, kort: "Roller", lang: "Roller", antall: db.roller.length },
     { id: "programmal", Icon: Clock, kort: "Mal", lang: "Programmal", antall: db.malaktiviteter.length },
+    { id: "maler", Icon: LayoutTemplate, kort: "Maler", lang: "Arrangementmaler", antall: (db.maler || []).length },
     { id: "sync", Icon: Settings, kort: "Sync", lang: "Innstillinger" },
   ];
   const primaere = faner.slice(0, 4);
@@ -160,6 +174,17 @@ export const AdminView: React.FC<AdminViewProps> = ({
         visTabell={activeTab === "people"}
       />
 
+      <KalenderView
+        db={db}
+        onUpdateDb={onUpdateDb}
+        vis={activeTab === "calendar"}
+        selectedPersonId={selectedPersonId}
+        onApneGudstjeneste={(gudstjenesteId) => {
+          setHoppTil({ gudstjenesteId, personId: selectedPersonId || "" });
+          setActiveTab("services");
+        }}
+      />
+
       <AdminGudstjenesterView
         db={db}
         onUpdateDb={onUpdateDb}
@@ -208,6 +233,8 @@ export const AdminView: React.FC<AdminViewProps> = ({
       {activeTab === "programmal" && (
         <ProgrammalAdminView db={db} onUpdateDb={onUpdateDb} />
       )}
+
+      {activeTab === "maler" && <ArrangementMalAdminView db={db} onUpdateDb={onUpdateDb} />}
 
       {activeTab === "sync" && (
         <GoogleSheetsSync

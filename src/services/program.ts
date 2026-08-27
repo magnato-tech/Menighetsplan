@@ -2,8 +2,9 @@ import { MalAktivitet, ProgramAktivitet, Programinstans, Rolle, Gruppe, SvarStat
 import type { DatabaseState } from "../types/database";
 import { initialMalaktiviteter } from "../data/initialData";
 import { nesteNummerertId } from "./ids";
-import { hentSvarStatus, tildelingVisningsnavn, finnMotelederRolle } from "./bemanning";
+import { hentSvarStatus, tildelingVisningsnavn, finnMotelederRolle, erHendelseRad } from "./bemanning";
 import { erAdministrator } from "./tilgang";
+import { sortertMalposter, sikreTjenestebehovFraMal } from "./mal";
 
 export function parseKlokkeMinutter(tid: string): number {
   const m = /^(\d{1,2}):(\d{2})/.exec(String(tid || "").trim());
@@ -56,10 +57,11 @@ export function sortertMalaktiviteter(db: DatabaseState): MalAktivitet[] {
 
 export function programForGudstjeneste(
   db: DatabaseState,
-  gudstjenesteId: string
+  gudstjenesteId: string,
+  arrangementId?: string
 ): ProgramAktivitet[] {
   return (db.programaktiviteter || [])
-    .filter((p) => p.GudstjenesteID === gudstjenesteId)
+    .filter((p) => erHendelseRad(p, gudstjenesteId, arrangementId))
     .sort((a, b) => a.Rekkefolge - b.Rekkefolge);
 }
 
@@ -72,7 +74,8 @@ export type BrikkeAnsvarPerson = {
 export function hentAnsvarForBrikke(
   db: DatabaseState,
   gudstjenesteId: string,
-  rolleId?: string
+  rolleId?: string,
+  arrangementId?: string
 ): { rolle?: Rolle; gruppe?: Gruppe; personer: BrikkeAnsvarPerson[] } {
   if (!rolleId) return { personer: [] };
   const rolle = (db.roller || []).find((r) => r.RolleID === rolleId);
@@ -80,7 +83,7 @@ export function hentAnsvarForBrikke(
     ? (db.grupper || []).find((g) => g.GruppeID === rolle.GruppeID)
     : undefined;
   const personer = (db.tildelinger || [])
-    .filter((t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolleId)
+    .filter((t) => erHendelseRad(t, gudstjenesteId, arrangementId) && t.RolleID === rolleId)
     .filter((t) => hentSvarStatus(db, t.TildelingID) !== "Avvist")
     .map((t) => ({
       personId: t.PersonID,
@@ -93,15 +96,17 @@ export function hentAnsvarForBrikke(
 export function kanRedigereProgram(
   db: DatabaseState,
   personId: string,
-  gudstjenesteId?: string
+  gudstjenesteId?: string,
+  arrangementId?: string
 ): boolean {
   if (erAdministrator(db, personId)) return true;
+  if (arrangementId) return false;
   if (!gudstjenesteId) return false;
   const rolle = finnMotelederRolle(db);
   if (!rolle) return false;
   const tildeling = (db.tildelinger || []).find(
     (t) =>
-      t.GudstjenesteID === gudstjenesteId &&
+      erHendelseRad(t, gudstjenesteId) &&
       t.RolleID === rolle.RolleID &&
       t.PersonID === personId
   );
@@ -119,22 +124,28 @@ export function visProgramIkon(
 
 export function hentPrograminstans(
   db: DatabaseState,
-  gudstjenesteId: string
+  gudstjenesteId: string,
+  arrangementId?: string
 ): Programinstans | undefined {
-  return (db.programinstanser || []).find((p) => p.GudstjenesteID === gudstjenesteId);
+  return (db.programinstanser || []).find((p) => erHendelseRad(p, gudstjenesteId, arrangementId));
 }
 
-export function erProgramPublisert(db: DatabaseState, gudstjenesteId: string): boolean {
-  return hentPrograminstans(db, gudstjenesteId)?.Status === "Publisert";
+export function erProgramPublisert(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  arrangementId?: string
+): boolean {
+  return hentPrograminstans(db, gudstjenesteId, arrangementId)?.Status === "Publisert";
 }
 
 function upsertPrograminstans(
   db: DatabaseState,
   gudstjenesteId: string,
-  patch: Partial<Programinstans>
+  patch: Partial<Programinstans>,
+  arrangementId?: string
 ): DatabaseState {
   const now = dagensDatoFelt();
-  const eksisterende = hentPrograminstans(db, gudstjenesteId);
+  const eksisterende = hentPrograminstans(db, gudstjenesteId, arrangementId);
   const rad: Programinstans = {
     Status: "Utkast",
     PublisertDato: "",
@@ -142,59 +153,97 @@ function upsertPrograminstans(
     OpprettetDato: now,
     ...eksisterende,
     ...patch,
-    GudstjenesteID: gudstjenesteId,
+    GudstjenesteID: arrangementId ? "" : gudstjenesteId,
+    ArrangementID: arrangementId,
     SistEndret: now,
   };
-  const uten = (db.programinstanser || []).filter((p) => p.GudstjenesteID !== gudstjenesteId);
+  const uten = (db.programinstanser || []).filter(
+    (p) => !erHendelseRad(p, gudstjenesteId, arrangementId)
+  );
   return { ...db, programinstanser: [...uten, rad] };
 }
 
-export function opprettProgramFraMal(db: DatabaseState, gudstjenesteId: string): DatabaseState {
-  const kopiert = kopierMalTilGudstjeneste(db, gudstjenesteId);
-  if (hentPrograminstans(kopiert, gudstjenesteId)) return kopiert;
-  return upsertPrograminstans(kopiert, gudstjenesteId, { Status: "Utkast" });
+export function opprettProgramFraMal(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  arrangementId?: string
+): DatabaseState {
+  let kopiert = kopierMalTilGudstjeneste(db, gudstjenesteId, arrangementId);
+  if (arrangementId) kopiert = sikreTjenestebehovFraMal(kopiert, arrangementId);
+  if (hentPrograminstans(kopiert, gudstjenesteId, arrangementId)) return kopiert;
+  return upsertPrograminstans(kopiert, gudstjenesteId, { Status: "Utkast" }, arrangementId);
 }
 
 export function publiserProgram(
   db: DatabaseState,
   gudstjenesteId: string,
-  personId: string
+  personId: string,
+  arrangementId?: string
 ): DatabaseState {
-  if (programForGudstjeneste(db, gudstjenesteId).length === 0) return db;
+  if (programForGudstjeneste(db, gudstjenesteId, arrangementId).length === 0) return db;
   const now = dagensDatoFelt();
-  return upsertPrograminstans(db, gudstjenesteId, {
-    Status: "Publisert",
-    PublisertDato: now,
-    PublisertAv: personId,
-  });
+  return upsertPrograminstans(
+    db,
+    gudstjenesteId,
+    {
+      Status: "Publisert",
+      PublisertDato: now,
+      PublisertAv: personId,
+    },
+    arrangementId
+  );
 }
 
-export function avpubliserProgram(db: DatabaseState, gudstjenesteId: string): DatabaseState {
-  if (!hentPrograminstans(db, gudstjenesteId)) return db;
-  return upsertPrograminstans(db, gudstjenesteId, {
-    Status: "Utkast",
-    PublisertDato: "",
-    PublisertAv: "",
-  });
+export function avpubliserProgram(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  arrangementId?: string
+): DatabaseState {
+  if (!hentPrograminstans(db, gudstjenesteId, arrangementId)) return db;
+  return upsertPrograminstans(
+    db,
+    gudstjenesteId,
+    {
+      Status: "Utkast",
+      PublisertDato: "",
+      PublisertAv: "",
+    },
+    arrangementId
+  );
 }
 
 function dagensDatoFelt(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+function posterForProgramKopi(
+  db: DatabaseState,
+  arrangementId?: string
+): Array<{ Tittel: string; VarighetMin: number; RolleID?: string; ForStart: boolean; Merknad?: string }> {
+  if (arrangementId) {
+    const arr = (db.arrangementer || []).find((a) => a.ArrangementID === arrangementId);
+    if (arr?.MalID) return sortertMalposter(db, arr.MalID);
+  }
+  return sortertMalaktiviteter(db);
+}
+
 export function kopierMalTilGudstjeneste(
   db: DatabaseState,
-  gudstjenesteId: string
+  gudstjenesteId: string,
+  arrangementId?: string
 ): DatabaseState {
   const now = dagensDatoFelt();
-  const mal = sortertMalaktiviteter(db);
-  const utenDenne = (db.programaktiviteter || []).filter((p) => p.GudstjenesteID !== gudstjenesteId);
+  const mal = posterForProgramKopi(db, arrangementId);
+  const utenDenne = (db.programaktiviteter || []).filter(
+    (p) => !erHendelseRad(p, gudstjenesteId, arrangementId)
+  );
   let neste = utenDenne;
   const nye: ProgramAktivitet[] = mal.map((m, index) => {
     const id = nesteNummerertId(neste, "ProgramAktivitetID", "PA");
     const rad: ProgramAktivitet = {
       ProgramAktivitetID: id,
-      GudstjenesteID: gudstjenesteId,
+      GudstjenesteID: arrangementId ? "" : gudstjenesteId,
+      ArrangementID: arrangementId,
       Rekkefolge: index + 1,
       Tittel: m.Tittel,
       VarighetMin: Number(m.VarighetMin) || 0,
@@ -212,9 +261,10 @@ export function kopierMalTilGudstjeneste(
 
 export function tilbakestillProgramFraMal(
   db: DatabaseState,
-  gudstjenesteId: string
+  gudstjenesteId: string,
+  arrangementId?: string
 ): DatabaseState {
-  return kopierMalTilGudstjeneste(db, gudstjenesteId);
+  return kopierMalTilGudstjeneste(db, gudstjenesteId, arrangementId);
 }
 
 export function fyllStandardMalaktiviteter(db: DatabaseState): DatabaseState {
@@ -249,14 +299,16 @@ export function nyMalAktivitet(eksisterende: MalAktivitet[]): MalAktivitet {
 
 export function nyProgramAktivitet(
   eksisterende: ProgramAktivitet[],
-  gudstjenesteId: string
+  gudstjenesteId: string,
+  arrangementId?: string
 ): ProgramAktivitet {
   const now = dagensDatoFelt();
-  const iGud = eksisterende.filter((p) => p.GudstjenesteID === gudstjenesteId);
+  const iGud = eksisterende.filter((p) => erHendelseRad(p, gudstjenesteId, arrangementId));
   const maxRekke = iGud.reduce((acc, p) => Math.max(acc, p.Rekkefolge || 0), 0);
   return {
     ProgramAktivitetID: nesteNummerertId(eksisterende, "ProgramAktivitetID", "PA"),
-    GudstjenesteID: gudstjenesteId,
+    GudstjenesteID: arrangementId ? "" : gudstjenesteId,
+    ArrangementID: arrangementId,
     Rekkefolge: maxRekke + 1,
     Tittel: "Ny aktivitet",
     VarighetMin: 5,

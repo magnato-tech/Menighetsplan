@@ -9,4 +9,7 @@ export * from "./roller";
 export * from "./interesse";
 export * from "./bemanning";
 export * from "./program";
+export * from "./mal";
 export * from "./persistens";
+export * from "./arrangementer";
+export * from "./eksternKalender";

@@ -68,12 +68,27 @@ var MASTER_SHEETS = {
   },
   gudstjenester: {
     name: "Gudstjenester",
-    columns: ["GudstjenesteID", "Dato", "Tid", "Sted", "Tema", "Bibeltekst", "Kollekt", "Merknad"],
+    columns: ["GudstjenesteID", "Dato", "Tid", "Sted", "Tema", "Bibeltekst", "Kollekt", "Merknad", "EksternKalenderID"],
+  },
+  arrangementer: {
+    name: "Arrangementer",
+    columns: [
+      "ArrangementID", "Dato", "Tid", "Sted", "Tittel", "Beskrivelse", "GruppeID",
+      "OpprettetAv", "EksternKalenderID", "MalID", "Aktiv", "OpprettetDato", "SistEndret",
+    ],
+    booleans: ["Aktiv"],
+  },
+  kalenderoppgaver: {
+    name: "Kalenderoppgaver",
+    columns: [
+      "KalenderoppgaveID", "EksternUID", "Dato", "Tid", "Sted", "Tittel", "Beskrivelse",
+      "Status", "ArrangementID", "OpprettetDato", "SistEndret",
+    ],
   },
   tjenestebehov: {
     name: "Tjenestebehov",
     columns: [
-      "TjenestebehovID", "GudstjenesteID", "RolleID", "Antall", "Aktiv",
+      "TjenestebehovID", "GudstjenesteID", "ArrangementID", "RolleID", "Antall", "Aktiv",
       "Notat", "OpprettetDato", "SistEndret",
     ],
     booleans: ["Aktiv"],
@@ -81,7 +96,7 @@ var MASTER_SHEETS = {
   },
   tildelinger: {
     name: "Tildelinger",
-    columns: ["TildelingID", "GudstjenesteID", "RolleID", "PersonID", "EksternNavn", "OpprettetDato", "SistEndret"],
+    columns: ["TildelingID", "GudstjenesteID", "ArrangementID", "RolleID", "PersonID", "EksternNavn", "OpprettetDato", "SistEndret"],
   },
   svar: {
     name: "Svar",
@@ -97,10 +112,34 @@ var MASTER_SHEETS = {
     falseBooleans: ["ForStart"],
     numbers: ["Rekkefolge", "VarighetMin"],
   },
+  maler: {
+    name: "Maler",
+    columns: ["MalID", "Navn", "Aktiv", "OpprettetDato", "SistEndret"],
+    booleans: ["Aktiv"],
+  },
+  malposter: {
+    name: "Malposter",
+    columns: [
+      "MalPostID", "MalID", "Rekkefolge", "Tittel", "VarighetMin", "RolleID",
+      "ForStart", "Merknad", "OpprettetDato", "SistEndret",
+    ],
+    booleans: ["ForStart"],
+    falseBooleans: ["ForStart"],
+    numbers: ["Rekkefolge", "VarighetMin"],
+  },
+  malTilleggsvakter: {
+    name: "MalTilleggsvakter",
+    columns: [
+      "MalTilleggsvaktID", "MalID", "RolleID", "Antall", "Aktiv",
+      "OpprettetDato", "SistEndret",
+    ],
+    booleans: ["Aktiv"],
+    numbers: ["Antall"],
+  },
   programaktiviteter: {
     name: "Programaktiviteter",
     columns: [
-      "ProgramAktivitetID", "GudstjenesteID", "Rekkefolge", "Tittel", "VarighetMin",
+      "ProgramAktivitetID", "GudstjenesteID", "ArrangementID", "Rekkefolge", "Tittel", "VarighetMin",
       "RolleID", "ForStart", "Merknad", "OpprettetDato", "SistEndret",
     ],
     booleans: ["ForStart"],
@@ -110,7 +149,7 @@ var MASTER_SHEETS = {
   programinstanser: {
     name: "Programinstanser",
     columns: [
-      "GudstjenesteID", "Status", "PublisertDato", "PublisertAv",
+      "GudstjenesteID", "ArrangementID", "Status", "PublisertDato", "PublisertAv",
       "OpprettetDato", "SistEndret",
     ],
   },
@@ -476,6 +515,15 @@ function doGet(e) {
       return json_({ ok: true, service: "Menighetsplan" });
     }
 
+    if (action === "eksternIcal") {
+      return ContentService.createTextOutput(hentKorrigertEksternIcal_())
+        .setMimeType(ContentService.MimeType.TEXT);
+    }
+
+    if (action === "eksternIcalJson") {
+      return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
+    }
+
     if (action === "inspectImport") {
       return json_({ ok: false, error: "inspectImport krever innlogget POST." });
     }
@@ -590,6 +638,20 @@ function sanitizeStateForViewer_(state, personId, isAdmin) {
     renset.push(kopi);
   }
   state.personer = renset;
+  state.arrangementer = [];
+  state.kalenderoppgaver = [];
+  state.tjenestebehov = (state.tjenestebehov || []).filter(function (r) {
+    return !r.ArrangementID;
+  });
+  state.tildelinger = (state.tildelinger || []).filter(function (r) {
+    return !r.ArrangementID;
+  });
+  state.programaktiviteter = (state.programaktiviteter || []).filter(function (r) {
+    return !r.ArrangementID;
+  });
+  state.programinstanser = (state.programinstanser || []).filter(function (r) {
+    return !r.ArrangementID;
+  });
   return state;
 }
 
@@ -1550,3 +1612,28 @@ function testMigrateDryRun() {
   Logger.log(JSON.stringify(report, null, 2));
   return report;
 }
+
+var EKSTERN_ICAL_URL =
+  "https://lillesandmisjonskirke.no/er/functions/calendar/shareplanneritems.aspx?categoryid=81";
+
+function korrigerIcalHeldagsTilKlokkeslett_(ics) {
+  var tekst = String(ics || "").replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
+  return tekst.replace(/^(DT(?:START|END));VALUE=DATE:(\d{8}T\d{6}(?:Z)?)$/gm, "$1:$2");
+}
+
+function hentKorrigertEksternIcal_() {
+  var cache = CacheService.getScriptCache();
+  var cached = cache.get("eksternIcal");
+  if (cached) return cached;
+  var res = UrlFetchApp.fetch(EKSTERN_ICAL_URL, {
+    muteHttpExceptions: true,
+    followRedirects: true,
+  });
+  if (res.getResponseCode() >= 400) {
+    throw new Error("Kunne ikke hente ekstern kalender (" + res.getResponseCode() + ")");
+  }
+  var ics = korrigerIcalHeldagsTilKlokkeslett_(res.getContentText());
+  cache.put("eksternIcal", ics, 600);
+  return ics;
+}
+

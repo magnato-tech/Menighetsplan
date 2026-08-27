@@ -11,7 +11,7 @@ Første versjon er inne: admin-fanen **Programmal**, per-gudstjeneste **Programa
 
 Ikke i v1:
 
-- Flere maltyper eller serieplanlegging
+- Samlingsplanlegging / serieplanlegging for gruppeledere
 - Endringslogg
 - Tilgang til admin-fanen Programmal for møteleder
 - Ny app-visning «Møteleder»
@@ -20,3 +20,18 @@ Ikke i v1:
 - PersonID på mal-linjer
 - Parallelle spor (f.eks. barnekirke under talen)
 - Én-klikks PDF-fil uten nettleserens utskriftsdialog
+
+## Kalender og planlegging
+
+Appen eier kalenderen (søndager og arrangementer). Kirkens iCal er en sjekkliste admin kjører med **Synk mot kirkekalenderen** — ikke abonnement og ikke auto-innlegging.
+
+Ikke i denne runden:
+
+- Filter for å skjule arrangementer hos admin
+- Arrangementer synlige for gruppeleder eller Min side
+- App-eide iCal-abonnement (offentlig feed og `mk_…` + gruppemøter)
+- Gruppeaktiviteter som egen fane
+- At kalenderklikket åpner `ProgramLeserModal` for gudstjeneste (går til Søndager)
+- Nye søndager (`Gudstjenester`) velger arrangementmal — de bruker fortsatt `malaktiviteter`
+
+Mangler i appen ved synk blir en **Kalenderoppgave**. Godkjent oppgave lager et tomt arrangement med samme barn som gudstjeneste (behov, tildeling, program), uten innhold, kun i admin-visningen. Avvist oppgave spørres ikke på nytt.

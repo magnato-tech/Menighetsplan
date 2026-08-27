@@ -19,6 +19,45 @@ function readBody(req: IncomingMessage): Promise<Buffer> {
   });
 }
 
+const KIRKE_ICAL_URL =
+  "https://lillesandmisjonskirke.no/er/functions/calendar/shareplanneritems.aspx?categoryid=81";
+
+/** Henter kirkens iCal uten CORS i utvikling (kun admin-synk, ikke visningsinnhold). */
+function kirkeIcalPlugin(): Plugin {
+  return {
+    name: "kirke-ical-proxy",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        const pathOnly = (req.url || "").split("?")[0];
+        if (pathOnly !== "/kirke-ical") {
+          next();
+          return;
+        }
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), 20000);
+        fetch(KIRKE_ICAL_URL, { redirect: "follow", signal: ac.signal })
+          .then(async (upstream) => {
+            const text = await upstream.text();
+            res.statusCode = upstream.status;
+            res.setHeader(
+              "Content-Type",
+              upstream.headers.get("content-type") || "text/calendar; charset=utf-8"
+            );
+            res.end(text);
+          })
+          .catch((err) => {
+            if (!res.headersSent) {
+              res.statusCode = 502;
+              res.setHeader("Content-Type", "text/plain; charset=utf-8");
+              res.end(String(err));
+            }
+          })
+          .finally(() => clearTimeout(timer));
+      });
+    },
+  };
+}
+
 /** Henter Apps Script med Node fetch (følger redirects). http-proxy timer ofte ut på Windows. */
 function gasApiPlugin(gasUrl: string): Plugin {
   const targetBase = gasUrl.replace(/\/$/, '');
@@ -67,7 +106,7 @@ export default defineConfig(({mode}) => {
   const gasUrl = env.VITE_APPS_SCRIPT_URL || DEFAULT_GAS_URL;
 
   return {
-    plugins: [gasApiPlugin(gasUrl), react(), tailwindcss()],
+    plugins: [kirkeIcalPlugin(), gasApiPlugin(gasUrl), react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

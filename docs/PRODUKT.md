@@ -9,7 +9,7 @@ Datakilde (mock vs Google Sheets): [DATAKILDE.md](DATAKILDE.md).
 - Holder oversikt over gudstjenester, roller og tildelinger (bekreftet / venter / forfall).
 - Lar frivillige svare på Min side via personlig lenke.
 - Lar tjenestegruppeledere bemanne **sine** roller og se gruppemedlemmer.
-- Lar administrator styre hele huset: søndager, register, grupper, roller, programmal og innstillinger.
+- Lar administrator styre hele huset: kalender, søndager, register, grupper, roller, programmal og innstillinger.
 
 SMS-utsending er **ikke** på plass. Knappen hos gruppeleder er en deaktivert plassholder.
 
@@ -39,6 +39,10 @@ Admin ser alle grupper. Gruppeleder ser bare gruppens roller. Begge bruker samme
 
 **Belastning** (admin) er semester-matrise per person; klikk i en celle hopper til den søndagen med personen uthevet.
 
+## Kalender (admin)
+
+Admin-fanen **Kalender** viser bare det som ligger i appen: gudstjenester og arrangementer. Appen er fasit. **Synk mot kirkekalenderen** sammenligner med kirkens iCal og lager oppgaver når noe mangler i appen — ingenting kopieres automatisk. **Legg inn** oppretter et tomt arrangement (samme mulighet for program og bemanning som en søndag), synlig kun for administrator. **Ikke nå** lagrer at hendelsen er avvist.
+
 ## Grupper og register
 
 - Tjenestegrupper eier roller. Gruppeleder/nestleder får leder-visning.
@@ -48,9 +52,9 @@ Admin ser alle grupper. Gruppeleder ser bare gruppens roller. Begge bruker samme
 
 ## Programmal og kjøreplan
 
-Admin redigerer **standardmalen**. Per gudstjeneste kan det ligge et utkast eller en **publisert** instans. Tildelt møteleder (ikke avvist) kan opprette fra mal, redigere og publisere **sin** søndag. PDF går via nettleserens utskrift.
+Admin redigerer **standardmalen** (søndager) under Programmal. Nye arrangementer velger en **arrangementmal** (kjøreplan + tilleggsvakter) under Arrangementmaler. Eksisterende søndager og arrangementer uten `MalID` er uendret.
 
-Ikke i denne versjonen: flere maltyper, endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
+Ikke i denne versjonen: samlingsplanlegging for gruppeledere, endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
 
 ## Kodekart — hvor du endrer
 
@@ -62,7 +66,10 @@ Importer forretningslogikk fra `src/services/dataService.ts` (fatade). Filene un
 | --- | --- |
 | `bemanning.ts` | Tildeling, svar, ark-celler, belastningstall, person i register |
 | `grupper.ts` | Ledere, medlemskap, gruppelederteam |
-| `program.ts` | Mal, instans, publisering, programtider |
+| `program.ts` | Søndagsmal, instans, publisering, programtider |
+| `mal.ts` | Arrangementmaler, bemanning fra kjøreplan + tilleggsvakter |
+| `arrangementer.ts` | Opprette og slette arrangementer |
+| `eksternKalender.ts` | iCal-parse, tidsretting, synk-oppgaver |
 | `tilgang.ts` | Token, personlenke, `hentTilgang`, skjuling av andres kontakt |
 | `persistens.ts` | Last/lagre, mock/remote, Sheets-kø |
 | `innlogging.ts` | Sesjon, Google-JWT, URL-token |
@@ -80,12 +87,15 @@ Datamodellen (`DatabaseState` og tabeller) ligger i `src/types/database.ts`. Moc
 | `GruppeMedlemListe.tsx` | Medlemmer og kontakt |
 | `SondagBemanning.tsx` | Felles søndagsliste (admin og leder) |
 | `AdminView.tsx` | Admin-faner og kryss-hopp |
+| `KalenderView.tsx` | Admin-kalender, synk-oppgaver |
+| `ArrangementDetaljView.tsx` | Admin: bemanning og kjøreplan for ett arrangement |
 | `AdminGudstjenesterView.tsx` | Admin rundt søndagslisten (følg opp, ny gudstjeneste, tildel fra register) |
 | `PersonregisterView.tsx` | Personregister-fanen |
 | `RollerAdminView.tsx` | Roller-fanen |
 | `GroupOverview.tsx` | Grupper-fanen |
 | `BelastningView.tsx` | Belastning-fanen |
-| `ProgrammalAdminView.tsx` | Programmal-fanen |
+| `ProgrammalAdminView.tsx` | Programmal-fanen (søndag) |
+| `ArrangementMalAdminView.tsx` | Arrangementmaler (kjøreplan + bemanning) |
 | `Planleggingsark.tsx` | Ark-visning |
 | `Startside.tsx` | Login uten sesjon |
 

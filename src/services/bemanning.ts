@@ -14,6 +14,16 @@ import { finnTjenestegrupperForPerson } from "./grupper";
 import { erGudstjenesteBemanningRolle } from "./roller";
 import { hentPåmeldingsRoller } from "./interesse";
 
+/** Arrangement-rader har ArrangementID og tom GudstjenesteID — aldri omvendt. */
+export function erHendelseRad(
+  row: { GudstjenesteID?: string; ArrangementID?: string },
+  gudstjenesteId: string,
+  arrangementId?: string
+): boolean {
+  if (arrangementId) return row.ArrangementID === arrangementId;
+  return row.GudstjenesteID === gudstjenesteId && !row.ArrangementID;
+}
+
 /**
  * Beregner effektivt behov for en rolle på en bestemt gudstjeneste
  * Regel: Hvis Tjenestebehov har en aktiv rad for GudstjenesteID + RolleID, brukes Antall.
@@ -22,11 +32,12 @@ import { hentPåmeldingsRoller } from "./interesse";
 export function getEffektivtBehov(
   db: DatabaseState,
   gudstjenesteId: string,
-  rolle: Rolle
+  rolle: Rolle,
+  arrangementId?: string
 ): number {
   const overstyring = (db.tjenestebehov || []).find(
     (tb) =>
-      tb.GudstjenesteID === gudstjenesteId &&
+      erHendelseRad(tb, gudstjenesteId, arrangementId) &&
       tb.RolleID === rolle.RolleID &&
       tb.Aktiv
   );
@@ -63,10 +74,11 @@ export function getMaksAntall(rolle: Rolle): number | null {
 export function tellAktivePaaRolle(
   db: DatabaseState,
   gudstjenesteId: string,
-  rolleId: string
+  rolleId: string,
+  arrangementId?: string
 ): number {
   return db.tildelinger.filter((t) => {
-    if (t.GudstjenesteID !== gudstjenesteId || t.RolleID !== rolleId) return false;
+    if (!erHendelseRad(t, gudstjenesteId, arrangementId) || t.RolleID !== rolleId) return false;
     return hentSvarStatus(db, t.TildelingID) !== "Avvist";
   }).length;
 }
@@ -75,20 +87,22 @@ export function tellAktivePaaRolle(
 export function erRolleHardFull(
   db: DatabaseState,
   gudstjenesteId: string,
-  rolle: Rolle
+  rolle: Rolle,
+  arrangementId?: string
 ): boolean {
   const maks = getMaksAntall(rolle);
   if (maks == null) return false;
-  return tellAktivePaaRolle(db, gudstjenesteId, rolle.RolleID) >= maks;
+  return tellAktivePaaRolle(db, gudstjenesteId, rolle.RolleID, arrangementId) >= maks;
 }
 
 function avvisHvisHardFull(
   db: DatabaseState,
   gudstjenesteId: string,
-  rolleId: string
+  rolleId: string,
+  arrangementId?: string
 ): { success: false; message: string } | null {
   const rolle = db.roller.find((r) => r.RolleID === rolleId);
-  if (!rolle || !erRolleHardFull(db, gudstjenesteId, rolle)) return null;
+  if (!rolle || !erRolleHardFull(db, gudstjenesteId, rolle, arrangementId)) return null;
   const maks = getMaksAntall(rolle);
   return {
     success: false,
@@ -98,14 +112,17 @@ function avvisHvisHardFull(
 
 function avvisHvisPassertDato(
   db: DatabaseState,
-  gudstjenesteId: string
+  gudstjenesteId: string,
+  arrangementId?: string
 ): { success: false; message: string } | null {
-  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === gudstjenesteId);
-  if (!gud) {
-    return { success: false, message: "Gudstjenesten finnes ikke." };
+  const dato = arrangementId
+    ? db.arrangementer?.find((a) => a.ArrangementID === arrangementId)?.Dato
+    : db.gudstjenester.find((g) => g.GudstjenesteID === gudstjenesteId)?.Dato;
+  if (!dato) {
+    return { success: false, message: arrangementId ? "Arrangementet finnes ikke." : "Gudstjenesten finnes ikke." };
   }
   const iDag = new Date().toISOString().split("T")[0];
-  if (gud.Dato < iDag) {
+  if (dato < iDag) {
     return {
       success: false,
       message: "Du kan ikke melde deg på en gudstjeneste som allerede er passert.",
@@ -198,7 +215,7 @@ export function situasjonRollerForGudstjeneste(
     )
     .map((rolle) => {
       const personer = db.tildelinger
-        .filter((t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID)
+        .filter((t) => erHendelseRad(t, gudstjenesteId) && t.RolleID === rolle.RolleID)
         .filter((t) => hentSvarStatus(db, t.TildelingID) !== "Avvist")
         .map((t) => ({
           navn: tildelingVisningsnavn(db, t),
@@ -248,14 +265,15 @@ export function ledigePlasserForRolle(behov: number, bekreftet: number): number 
 export function summerBemanning(
   db: DatabaseState,
   gudstjenesteId: string,
-  roller: Rolle[]
+  roller: Rolle[],
+  arrangementId?: string
 ): Bemanningstall {
   const totalt = tomtBemanningstall();
   for (const rolle of roller) {
-    const behov = getEffektivtBehov(db, gudstjenesteId, rolle);
+    const behov = getEffektivtBehov(db, gudstjenesteId, rolle, arrangementId);
     totalt.behov += behov;
     const tildelinger = db.tildelinger.filter(
-      (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID
+      (t) => erHendelseRad(t, gudstjenesteId, arrangementId) && t.RolleID === rolle.RolleID
     );
     let bekreftet = 0;
     let venter = 0;
@@ -733,12 +751,13 @@ export function settDeltakelseForPerson(
   gudstjenesteId: string,
   rolleId: string,
   status: DeltakelseStatus,
-  kommentar?: string
+  kommentar?: string,
+  arrangementId?: string
 ): DatabaseState {
   const now = new Date().toISOString().split("T")[0];
   const eksisterende = db.tildelinger.filter(
     (t) =>
-      t.GudstjenesteID === gudstjenesteId &&
+      erHendelseRad(t, gudstjenesteId, arrangementId) &&
       t.PersonID === personId &&
       t.RolleID === rolleId
   );
@@ -758,7 +777,7 @@ export function settDeltakelseForPerson(
   let tildelingId = eksisterende[0]?.TildelingID;
   if (!tildelingId) {
     const rolle = db.roller.find((r) => r.RolleID === rolleId);
-    if (rolle && erRolleHardFull(db, gudstjenesteId, rolle)) {
+    if (rolle && erRolleHardFull(db, gudstjenesteId, rolle, arrangementId)) {
       return db;
     }
     tildelingId = nesteNummerertId(tildelinger, "TildelingID", "T");
@@ -766,7 +785,8 @@ export function settDeltakelseForPerson(
       ...tildelinger,
       {
         TildelingID: tildelingId,
-        GudstjenesteID: gudstjenesteId,
+        GudstjenesteID: arrangementId ? "" : gudstjenesteId,
+        ArrangementID: arrangementId,
         RolleID: rolleId,
         PersonID: personId,
         OpprettetDato: now,
@@ -825,14 +845,15 @@ export function tildelEksternPerson(
   gudstjenesteId: string,
   rolleId: string,
   navn: string,
-  kommentar?: string
+  kommentar?: string,
+  arrangementId?: string
 ): DatabaseState {
   const visningsnavn = navn.trim();
   if (!visningsnavn) return db;
   const nøkkel = visningsnavn.toLowerCase();
   const allerede = db.tildelinger.find(
     (t) =>
-      t.GudstjenesteID === gudstjenesteId &&
+      erHendelseRad(t, gudstjenesteId, arrangementId) &&
       t.RolleID === rolleId &&
       (t.EksternNavn || "").trim().toLowerCase() === nøkkel &&
       hentSvarStatus(db, t.TildelingID) !== "Avvist"
@@ -840,14 +861,15 @@ export function tildelEksternPerson(
   if (allerede) return db;
 
   const rolle = db.roller.find((r) => r.RolleID === rolleId);
-  if (rolle && erRolleHardFull(db, gudstjenesteId, rolle)) return db;
+  if (rolle && erRolleHardFull(db, gudstjenesteId, rolle, arrangementId)) return db;
 
   const now = new Date().toISOString().split("T")[0];
   const personId = nesteEksternPersonId(db.tildelinger);
   const tildelingId = nesteNummerertId(db.tildelinger, "TildelingID", "T");
   const nyTildeling: Tildeling = {
     TildelingID: tildelingId,
-    GudstjenesteID: gudstjenesteId,
+    GudstjenesteID: arrangementId ? "" : gudstjenesteId,
+    ArrangementID: arrangementId,
     RolleID: rolleId,
     PersonID: personId,
     EksternNavn: visningsnavn,
@@ -864,7 +886,8 @@ export function tildelEksternPerson(
     gudstjenesteId,
     rolleId,
     "Avventer",
-    kommentar || "Ekstern person (ikke i menighetsregisteret)"
+    kommentar || "Ekstern person (ikke i menighetsregisteret)",
+    arrangementId
   );
 }
 
@@ -961,15 +984,48 @@ export function personHarAktivTildeling(
   db: DatabaseState,
   personId: string,
   gudstjenesteId: string,
-  rolleId: string
+  rolleId: string,
+  arrangementId?: string
 ): boolean {
   return db.tildelinger.some(
     (t) =>
-      t.GudstjenesteID === gudstjenesteId &&
+      erHendelseRad(t, gudstjenesteId, arrangementId) &&
       t.RolleID === rolleId &&
       t.PersonID === personId &&
       hentSvarStatus(db, t.TildelingID) !== "Avvist"
   );
+}
+
+export function settTjenestebehov(
+  db: DatabaseState,
+  rolleId: string,
+  antall: number,
+  gudstjenesteId: string,
+  arrangementId?: string
+): DatabaseState {
+  const now = new Date().toISOString().split("T")[0];
+  const existingIndex = db.tjenestebehov.findIndex(
+    (tb) => erHendelseRad(tb, gudstjenesteId, arrangementId) && tb.RolleID === rolleId
+  );
+  const tjenestebehov =
+    existingIndex >= 0
+      ? db.tjenestebehov.map((tb, i) =>
+          i === existingIndex ? { ...tb, Antall: antall, Aktiv: true, SistEndret: now } : tb
+        )
+      : [
+          ...db.tjenestebehov,
+          {
+            TjenestebehovID: nesteNummerertId(db.tjenestebehov, "TjenestebehovID", "TB"),
+            GudstjenesteID: arrangementId ? "" : gudstjenesteId,
+            ArrangementID: arrangementId,
+            RolleID: rolleId,
+            Antall: antall,
+            Aktiv: true,
+            OpprettetDato: now,
+            SistEndret: now,
+          },
+        ];
+  return { ...db, tjenestebehov };
 }
 
 /** Ett felt: fornavn alene, eller fornavn + etternavn når det står i kilden / skrives inn. */

@@ -22,6 +22,9 @@ import {
   GudstjenesterImport,
   RollebeskrivelseImport,
   MalAktivitet,
+  Mal,
+  MalPost,
+  MalTilleggsvakt,
 } from "../types/database";
 
 export const initialGruppetyper: Gruppetype[] = [
@@ -917,4 +920,58 @@ export const initialMalaktiviteter: MalAktivitet[] = [
   mal("MA017", 17, "Lovsang (avslutningssang)", 2, "R005"),
   mal("MA018", 18, "Kirkekaffe", 0, "R008"),
 ];
+
+export const MAL_GUDSTJENESTE_ID = "MAL001";
+export const MAL_GRUPPEMØTE_ID = "MAL002";
+
+/** Nye arrangementmaler — rører ikke malaktiviteter. */
+export const initialMaler: Mal[] = [
+  {
+    MalID: MAL_GUDSTJENESTE_ID,
+    Navn: "Gudstjeneste (ny)",
+    Aktiv: true,
+    OpprettetDato: MAL_DATO,
+    SistEndret: MAL_DATO,
+  },
+  {
+    MalID: MAL_GRUPPEMØTE_ID,
+    Navn: "Gruppemøte",
+    Aktiv: true,
+    OpprettetDato: MAL_DATO,
+    SistEndret: MAL_DATO,
+  },
+];
+
+/** Kopi av standardprogrammet. Egne MP-ID-er. */
+export const initialMalposter: MalPost[] = initialMalaktiviteter.map((m, i) => ({
+  MalPostID: `MP${String(i + 1).padStart(3, "0")}`,
+  MalID: MAL_GUDSTJENESTE_ID,
+  Rekkefolge: m.Rekkefolge,
+  Tittel: m.Tittel,
+  VarighetMin: m.VarighetMin,
+  RolleID: m.RolleID || "",
+  ForStart: Boolean(m.ForStart),
+  Merknad: m.Merknad || "",
+  OpprettetDato: MAL_DATO,
+  SistEndret: MAL_DATO,
+}));
+
+/** Tjenesteroller som ikke ligger i kjøreplanen (unik RolleID på postene). */
+export const initialMalTilleggsvakter: MalTilleggsvakt[] = [
+  { RolleID: "R006", Antall: 1 },
+  { RolleID: "R007", Antall: 1 },
+  { RolleID: "R009", Antall: 2 },
+  { RolleID: "R010", Antall: 2 },
+  { RolleID: "R011", Antall: 2 },
+  { RolleID: "R012", Antall: 1 },
+  { RolleID: "R013", Antall: 1 },
+].map((rad, i) => ({
+  MalTilleggsvaktID: `MTV${String(i + 1).padStart(3, "0")}`,
+  MalID: MAL_GUDSTJENESTE_ID,
+  RolleID: rad.RolleID,
+  Antall: rad.Antall,
+  Aktiv: true,
+  OpprettetDato: MAL_DATO,
+  SistEndret: MAL_DATO,
+}));
 
