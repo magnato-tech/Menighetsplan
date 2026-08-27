@@ -119,6 +119,17 @@ export function arrangementSynligForPerson(
   return personErIGruppe(db, personId, gruppeId);
 }
 
+/** Kirkekalender-Ja (EksternKalenderID) med i iCal og Min side uansett gruppe. */
+export function arrangementMedIIcal(
+  db: DatabaseState,
+  personId: string,
+  arrangement: { Aktiv?: boolean; GruppeID?: string; EksternKalenderID?: string }
+): boolean {
+  if (arrangement.Aktiv === false) return false;
+  if (String(arrangement.EksternKalenderID || "").trim()) return true;
+  return arrangementSynligForPerson(db, personId, arrangement);
+}
+
 export function kalenderHendelserForPerson(db: DatabaseState, personId: string): KalenderHendelse[] {
   const guds: KalenderHendelse[] = (db.gudstjenester || []).map((g) => ({
     kind: "gudstjeneste",
@@ -129,7 +140,7 @@ export function kalenderHendelserForPerson(db: DatabaseState, personId: string):
     sted: g.Sted || "",
   }));
   const ar: KalenderHendelse[] = (db.arrangementer || [])
-    .filter((a) => arrangementSynligForPerson(db, personId, a))
+    .filter((a) => arrangementMedIIcal(db, personId, a))
     .map((a) => ({
       kind: "arrangement" as const,
       id: a.ArrangementID,

@@ -648,6 +648,8 @@ var NON_ADMIN_WRITABLE_SHEETS = {
   grupper: true,
   gruppemedlemmer: true,
   gudstjenester: true,
+  arrangementer: true,
+  kalenderoppgaver: true,
   tjenestebehov: true,
   tildelinger: true,
   svar: true,
@@ -880,20 +882,6 @@ function saveDatabase(state, isAdmin) {
         "MalTilleggsvaktID"
       );
     }
-    if (state.arrangementer) {
-      state.arrangementer = flettInnManglendeRader_(
-        state.arrangementer,
-        readSheet_(ss, MASTER_SHEETS.arrangementer),
-        "ArrangementID"
-      );
-    }
-    if (state.kalenderoppgaver) {
-      state.kalenderoppgaver = flettInnManglendeRader_(
-        state.kalenderoppgaver,
-        readSheet_(ss, MASTER_SHEETS.kalenderoppgaver),
-        "KalenderoppgaveID"
-      );
-    }
     if (state.innstillinger) {
       state.innstillinger = flettInnManglendeRader_(
         state.innstillinger,
@@ -902,14 +890,40 @@ function saveDatabase(state, isAdmin) {
       );
     }
   }
+  if (state.arrangementer) {
+    state.arrangementer = flettInnManglendeRader_(
+      state.arrangementer,
+      readSheet_(ss, MASTER_SHEETS.arrangementer),
+      "ArrangementID"
+    );
+  }
+  if (state.kalenderoppgaver) {
+    state.kalenderoppgaver = flettInnManglendeRader_(
+      state.kalenderoppgaver,
+      readSheet_(ss, MASTER_SHEETS.kalenderoppgaver),
+      "KalenderoppgaveID"
+    );
+  }
   if (isAdmin === false && state.gudstjenester) {
     state.gudstjenester = mergeGudstjenesteInnhold_(
       state.gudstjenester,
       readSheet_(ss, MASTER_SHEETS.gudstjenester)
     );
   }
+  var skrevet = {};
+  var kalenderForst = ["arrangementer", "kalenderoppgaver"];
+  var k;
   var key;
+  for (k = 0; k < kalenderForst.length; k++) {
+    key = kalenderForst[k];
+    if (state[key] === undefined || state[key] === null) continue;
+    if (isAdmin === false && !NON_ADMIN_WRITABLE_SHEETS[key]) continue;
+    if (!skalSkriveArk_(ss, key, MASTER_SHEETS[key], state[key])) continue;
+    writeSheet_(ss, MASTER_SHEETS[key], state[key]);
+    skrevet[key] = true;
+  }
   for (key in MASTER_SHEETS) {
+    if (skrevet[key]) continue;
     if (state[key] === undefined || state[key] === null) continue;
     if (isAdmin === false && !NON_ADMIN_WRITABLE_SHEETS[key]) continue;
     if (!skalSkriveArk_(ss, key, MASTER_SHEETS[key], state[key])) continue;
@@ -1898,7 +1912,7 @@ function minIcalSvar_(token) {
       return icsSvar_(tomIcs_());
     }
     var cache = CacheService.getScriptCache();
-    var nokkel = "minIcal_v4_" + t;
+    var nokkel = "minIcal_v5_" + t;
     var cached = cache.get(nokkel);
     if (cached) return icsSvar_(cached);
     var state = loadDatabaseForIcal_();
@@ -1951,6 +1965,12 @@ function arrangementSynligForPerson_(state, personId, arrangement) {
   var gruppeId = String(arrangement.GruppeID || "").trim();
   if (!gruppeId) return true;
   return erMedlemAvGruppe_(state, personId, gruppeId);
+}
+
+function arrangementMedIIcal_(state, personId, arrangement) {
+  if (!arrangement || arrangement.Aktiv === false) return false;
+  if (String(arrangement.EksternKalenderID || "").trim()) return true;
+  return arrangementSynligForPerson_(state, personId, arrangement);
 }
 
 function parseKlokkeMin_(tid) {
@@ -2062,7 +2082,7 @@ function byggPersonIcs_(state, personId) {
   }
   var arr = state.arrangementer || [];
   for (i = 0; i < arr.length; i++) {
-    if (!arrangementSynligForPerson_(state, personId, arr[i])) continue;
+    if (!arrangementMedIIcal_(state, personId, arr[i])) continue;
     var a = arr[i];
     var aStart = a.Tid || "12:00";
     var aSlutt = hendelseSluttTid_(state, "arrangement", a.ArrangementID, aStart);

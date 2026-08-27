@@ -1049,9 +1049,10 @@ async function pumpRemoteSave(): Promise<void> {
           break;
         }
         if (payload.data) {
+          const nyeste = pendingRemoteState || state;
           persistLocalState(
             applyLoadedState(
-              normalizeState(flettLastetMedLokalCache(payload.data as Partial<DatabaseState>, state))
+              normalizeState(flettLastetMedLokalCache(payload.data as Partial<DatabaseState>, nyeste))
             )
           );
         }

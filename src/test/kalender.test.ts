@@ -310,6 +310,14 @@ function tomDb(): DatabaseState {
   assert.match(icsAda, /SUMMARY:Bønnemøte fra kirken/);
   assert.match(icsBo, /SUMMARY:Bønnemøte fra kirken/);
   assert.match(icsBo, /DTSTART;TZID=Europe\/Oslo:20261013T190000/);
+  const kirke = db.arrangementer.find((a) => a.Tittel === "Bønnemøte fra kirken")!;
+  db = {
+    ...db,
+    arrangementer: db.arrangementer.map((a) =>
+      a.ArrangementID === kirke.ArrangementID ? { ...a, GruppeID: "G008" } : a
+    ),
+  };
+  assert.match(byggPersonIcs(db, "P002"), /SUMMARY:Bønnemøte fra kirken/);
   db = opprettArrangement(db, {
     tittel: "Husgruppe lukket",
     dato: "2026-10-14",
