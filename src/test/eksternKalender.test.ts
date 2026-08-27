@@ -308,6 +308,20 @@ END:VCALENDAR`;
     gammel
   );
   assert.equal(urort.arrangementer?.[0].Tittel, "Ny");
+  const union = flettManglendeKalenderdata(
+    {
+      arrangementer: [
+        {
+          ...gammel.arrangementer[0],
+          ArrangementID: "AR002",
+          Tittel: "Ny bønn",
+        },
+      ],
+      kalenderoppgaver: [],
+    },
+    gammel
+  );
+  assert.equal(union.arrangementer?.length, 2);
 }
 
 console.log("eksternKalender.test.ts: alle tester ok");

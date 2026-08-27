@@ -204,6 +204,7 @@ function tomDb(): DatabaseState {
 {
   const db = tomDb();
   const ics = byggPersonIcs(db, "P001");
+  assert.match(ics, /BEGIN:VTIMEZONE/);
   assert.match(ics, /TZID=Europe\/Oslo/);
   assert.match(ics, /DTSTART;TZID=Europe\/Oslo:20261011T110000/);
   assert.doesNotMatch(ics, /VALUE=DATE/);
@@ -263,8 +264,8 @@ function tomDb(): DatabaseState {
   const ics = minIcalHttpsUrl("https://script.google.com/macros/s/x/exec", "mk_abc");
   const u = googleKalenderAbonnerUrl(ics);
   assert.match(u, /^https:\/\/calendar\.google\.com\/calendar\/r\?cid=/);
-  assert.ok(u.includes(encodeURIComponent(ics)));
-  assert.ok(u.includes(encodeURIComponent("action=minIcal")));
+  assert.ok(u.includes(encodeURIComponent("webcal://script.google.com/macros/s/x/exec?action=minIcal&t=mk_abc")));
+  assert.ok(!u.includes(encodeURIComponent(ics)), "cid skal være webcal, ikke https");
   assert.equal(googleKalenderAbonnerUrl(""), "");
 }
 

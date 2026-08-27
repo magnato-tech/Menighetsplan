@@ -175,6 +175,28 @@ function icsStamp(): string {
   return new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
 }
 
+/** Google Kalender avviser TZID uten VTIMEZONE. */
+const ICS_VTIMEZONE_OSLO = [
+  "BEGIN:VTIMEZONE",
+  "TZID:Europe/Oslo",
+  "X-LIC-LOCATION:Europe/Oslo",
+  "BEGIN:DAYLIGHT",
+  "TZOFFSETFROM:+0100",
+  "TZOFFSETTO:+0200",
+  "TZNAME:CEST",
+  "DTSTART:19700329T020000",
+  "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+  "END:DAYLIGHT",
+  "BEGIN:STANDARD",
+  "TZOFFSETFROM:+0200",
+  "TZOFFSETTO:+0100",
+  "TZNAME:CET",
+  "DTSTART:19701025T030000",
+  "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+  "END:STANDARD",
+  "END:VTIMEZONE",
+];
+
 export function byggPersonIcs(db: DatabaseState, personId: string): string {
   const hendelser = kalenderHendelserForPerson(db, personId);
   const linjer = [
@@ -185,6 +207,7 @@ export function byggPersonIcs(db: DatabaseState, personId: string): string {
     "METHOD:PUBLISH",
     "X-WR-CALNAME:Menighetsplan",
     "X-WR-TIMEZONE:Europe/Oslo",
+    ...ICS_VTIMEZONE_OSLO,
   ];
   const stamp = icsStamp();
   for (const h of hendelser) {
@@ -220,11 +243,11 @@ export function minIcalWebcalUrl(httpsUrl: string): string {
   return String(httpsUrl || "").replace(/^https:/i, "webcal:").replace(/^http:/i, "webcal:");
 }
 
-/** Åpner Google Kalender med «legg til fra URL» — samme mønster som kirkens nettside. */
+/** Åpner Google Kalender med «legg til fra URL». cid må være webcal:// — https:// gir «sjekk nettadressen». */
 export function googleKalenderAbonnerUrl(icsHttpsUrl: string): string {
   const ics = String(icsHttpsUrl || "").trim();
   if (!ics) return "";
-  return `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(ics)}`;
+  return `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(minIcalWebcalUrl(ics))}`;
 }
 
 export function oppdaterInnstillinger(

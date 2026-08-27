@@ -19,6 +19,7 @@ import {
   setDevDataSource,
   erMedITjenestegruppe,
   REMOTE_SAVE_FEIL_EVENT,
+  harPaagaaendeRemoteSave,
   type DevDataSource,
 } from "./services/dataService";
 import {
@@ -108,6 +109,16 @@ export default function App() {
     };
     window.addEventListener(REMOTE_SAVE_FEIL_EVENT, onFeil);
     return () => window.removeEventListener(REMOTE_SAVE_FEIL_EVENT, onFeil);
+  }, []);
+
+  useEffect(() => {
+    const advar = (e: BeforeUnloadEvent) => {
+      if (!harPaagaaendeRemoteSave()) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", advar);
+    return () => window.removeEventListener("beforeunload", advar);
   }, []);
 
   useEffect(() => {

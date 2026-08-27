@@ -131,10 +131,10 @@ export const PersonlenkeInnstillinger: React.FC<PersonlenkeInnstillingerProps> =
       </div>
       {status && <p className="text-xs text-emerald-800 font-medium">{status}</p>}
       <p className="text-[11px] text-slate-500 leading-relaxed">
-        Utestengt fra live-siden? Åpne appen lokalt med ekte data (Innstillinger → Datakilde), kopier
-        lenken her, og lim den inn i nettleseren mot live-adressen. Du kan også lese kolonnen{" "}
-        <strong>SikkerhetsToken</strong> i arket Personer og åpne{" "}
-        <span className="font-mono">?t=mk_…</span> på live-adressen.
+        Utestengt fra live-siden? Live bruker alltid Google-arket (ingen Datakilde-fane). Lokalt:
+        Innstillinger, øverst: Datakilde → Ekte data. Kopier lenken her, og lim den inn mot
+        live-adressen. Du kan også lese kolonnen <strong>SikkerhetsToken</strong> i arket Personer og
+        åpne <span className="font-mono">?t=mk_…</span> på live-adressen.
       </p>
     </div>
   );

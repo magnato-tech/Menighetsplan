@@ -281,7 +281,34 @@ function flettArrangementRader<T extends RadMedArrangement>(
   return [...utenGjenopprettet, ...fraGammel];
 }
 
-/** Når ny state mangler kalender, ta arrangementer og oppgaver fra eldre lagring. */
+function flettRaderEtterId<T>(ny: T[], gammel: T[], idAv: (rad: T) => string): T[] {
+  const map = new Map<string, T>();
+  for (const rad of gammel) {
+    const id = idAv(rad);
+    if (id) map.set(id, rad);
+  }
+  for (const rad of ny) {
+    const id = idAv(rad);
+    if (id) map.set(id, rad);
+  }
+  const sett = new Set<string>();
+  const ut: T[] = [];
+  for (const rad of ny) {
+    const id = idAv(rad);
+    if (!id || sett.has(id)) continue;
+    sett.add(id);
+    ut.push(map.get(id)!);
+  }
+  for (const rad of gammel) {
+    const id = idAv(rad);
+    if (!id || sett.has(id)) continue;
+    sett.add(id);
+    ut.push(rad);
+  }
+  return ut;
+}
+
+/** Ark og lokal cache slås sammen på ID, slik at tom/gammel lasting ikke sletter Ja-arrangementer. */
 export function flettManglendeKalenderdata(
   ny: Partial<DatabaseState>,
   gammel: Partial<DatabaseState> | null | undefined
@@ -291,23 +318,31 @@ export function flettManglendeKalenderdata(
   const gammelArr = Array.isArray(gammel.arrangementer) ? gammel.arrangementer : [];
   const nyOpp = Array.isArray(ny.kalenderoppgaver) ? ny.kalenderoppgaver : [];
   const gammelOpp = Array.isArray(gammel.kalenderoppgaver) ? gammel.kalenderoppgaver : [];
-  const brukArr = nyArr.length === 0 && gammelArr.length > 0;
-  const brukOpp = nyOpp.length === 0 && gammelOpp.length > 0;
-  if (!brukArr && !brukOpp) return ny;
-  const arrangementer = brukArr ? gammelArr : nyArr;
-  const kalenderoppgaver = brukOpp ? gammelOpp : nyOpp;
+  const arrangementer = flettRaderEtterId(nyArr, gammelArr, (a) => a.ArrangementID);
+  const kalenderoppgaver = flettRaderEtterId(
+    nyOpp,
+    gammelOpp,
+    (o) => o.KalenderoppgaveID
+  );
+  const sammeArr =
+    arrangementer.length === nyArr.length && arrangementer.every((a, i) => a === nyArr[i]);
+  const sammeOpp =
+    kalenderoppgaver.length === nyOpp.length && kalenderoppgaver.every((o, i) => o === nyOpp[i]);
+  if (sammeArr && sammeOpp) return ny;
   const ids = new Set(arrangementer.map((a) => a.ArrangementID));
-  if (!brukArr) {
-    return { ...ny, arrangementer, kalenderoppgaver };
-  }
+  const laTilArr = arrangementer.length > nyArr.length;
   return {
     ...ny,
     arrangementer,
     kalenderoppgaver,
-    tjenestebehov: flettArrangementRader(ny.tjenestebehov, gammel.tjenestebehov, ids),
-    tildelinger: flettArrangementRader(ny.tildelinger, gammel.tildelinger, ids),
-    programaktiviteter: flettArrangementRader(ny.programaktiviteter, gammel.programaktiviteter, ids),
-    programinstanser: flettArrangementRader(ny.programinstanser, gammel.programinstanser, ids),
+    ...(laTilArr
+      ? {
+          tjenestebehov: flettArrangementRader(ny.tjenestebehov, gammel.tjenestebehov, ids),
+          tildelinger: flettArrangementRader(ny.tildelinger, gammel.tildelinger, ids),
+          programaktiviteter: flettArrangementRader(ny.programaktiviteter, gammel.programaktiviteter, ids),
+          programinstanser: flettArrangementRader(ny.programinstanser, gammel.programinstanser, ids),
+        }
+      : {}),
   };
 }
 
@@ -916,6 +951,10 @@ export function saveDatabase(state: DatabaseState): void {
   void pumpRemoteSave();
 }
 
+export function harPaagaaendeRemoteSave(): boolean {
+  return remoteSaveInFlight || pendingRemoteState !== null;
+}
+
 async function pumpRemoteSave(): Promise<void> {
   if (remoteSaveInFlight) return;
   if (!pendingRemoteState) {
@@ -945,27 +984,41 @@ async function pumpRemoteSave(): Promise<void> {
   pendingRemoteState = null;
   remoteSaveInFlight = true;
 
+  const kropp = JSON.stringify({ action: "save", data: stateForRemoteSave(state), ...ident });
+  let sisteFeil = "";
   try {
-    const response = await fetch(base, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "save", data: stateForRemoteSave(state), ...ident }),
-    });
-    const payload = await response.json().catch(() => null);
-    if (!payload?.ok) {
-      const melding = payload?.error || response.statusText;
-      console.error("Kunne ikke lagre til Google Sheets:", melding);
-      varsleRemoteSaveFeil(String(melding || "Ukjent feil"));
-    } else if (payload.data) {
-      persistLocalState(
-        applyLoadedState(
-          normalizeState(flettLastetMedLokalCache(payload.data as Partial<DatabaseState>, state))
-        )
-      );
+    for (let forsok = 0; forsok < 3; forsok++) {
+      try {
+        const response = await fetch(base, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: kropp,
+          keepalive: true,
+        });
+        const payload = await response.json().catch(() => null);
+        if (!payload?.ok) {
+          sisteFeil = String(payload?.error || response.statusText || "Ukjent feil");
+          if (forsok < 2) continue;
+          console.error("Kunne ikke lagre til Google Sheets:", sisteFeil);
+          varsleRemoteSaveFeil(sisteFeil);
+          break;
+        }
+        if (payload.data) {
+          persistLocalState(
+            applyLoadedState(
+              normalizeState(flettLastetMedLokalCache(payload.data as Partial<DatabaseState>, state))
+            )
+          );
+        }
+        sisteFeil = "";
+        break;
+      } catch (e) {
+        sisteFeil = e instanceof Error ? e.message : String(e);
+        if (forsok < 2) continue;
+        console.error("Kunne ikke lagre til Google Sheets:", e);
+        varsleRemoteSaveFeil(sisteFeil);
+      }
     }
-  } catch (e) {
-    console.error("Kunne ikke lagre til Google Sheets:", e);
-    varsleRemoteSaveFeil(e instanceof Error ? e.message : String(e));
   } finally {
     remoteSaveInFlight = false;
     if (pendingRemoteState) {
@@ -1025,9 +1078,14 @@ export async function switchDevDataSource(source: DevDataSource): Promise<Databa
   }
   setDevDataSource(source);
   if (source === "mock") {
-    return populateMockDatabase();
+    return loadLocalDatabase();
   }
-  return loadDatabase();
+  const lastet = await loadDatabase();
+  const fraMock = lesLocalJson(MOCK_STORAGE_KEY);
+  const flettet = applyLoadedState(normalizeState(flettLastetMedLokalCache(lastet, fraMock)));
+  saveDatabase(flettet);
+  await whenRemoteSaveIdle();
+  return flettet;
 }
 
 export async function resetDatabase(): Promise<DatabaseState> {

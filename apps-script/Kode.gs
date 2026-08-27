@@ -1830,6 +1830,29 @@ function hentKorrigertEksternIcal_(onsketUrl) {
   return ics;
 }
 
+function icsVtimezoneOslo_() {
+  return [
+    "BEGIN:VTIMEZONE",
+    "TZID:Europe/Oslo",
+    "X-LIC-LOCATION:Europe/Oslo",
+    "BEGIN:DAYLIGHT",
+    "TZOFFSETFROM:+0100",
+    "TZOFFSETTO:+0200",
+    "TZNAME:CEST",
+    "DTSTART:19700329T020000",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+    "END:DAYLIGHT",
+    "BEGIN:STANDARD",
+    "TZOFFSETFROM:+0200",
+    "TZOFFSETTO:+0100",
+    "TZNAME:CET",
+    "DTSTART:19701025T030000",
+    "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+    "END:STANDARD",
+    "END:VTIMEZONE",
+  ];
+}
+
 function tomIcs_() {
   return [
     "BEGIN:VCALENDAR",
@@ -1839,9 +1862,10 @@ function tomIcs_() {
     "METHOD:PUBLISH",
     "X-WR-CALNAME:Menighetsplan",
     "X-WR-TIMEZONE:Europe/Oslo",
-    "END:VCALENDAR",
-    "",
-  ].join("\r\n");
+  ]
+    .concat(icsVtimezoneOslo_())
+    .concat(["END:VCALENDAR", ""])
+    .join("\r\n");
 }
 
 function icsSvar_(ics) {
@@ -1857,12 +1881,11 @@ function minIcalSvar_(token) {
     }
     var person = findPersonByMagicToken_(state, token);
     if (!person) {
-      return ContentService.createTextOutput("Ugyldig kalenderlenke.")
-        .setMimeType(ContentService.MimeType.TEXT);
+      return icsSvar_(tomIcs_());
     }
     return icsSvar_(byggPersonIcs_(state, person.PersonID));
   } catch (err) {
-    return ContentService.createTextOutput(String(err)).setMimeType(ContentService.MimeType.TEXT);
+    return icsSvar_(tomIcs_());
   }
 }
 
@@ -1981,7 +2004,7 @@ function byggPersonIcs_(state, personId) {
     "METHOD:PUBLISH",
     "X-WR-CALNAME:Menighetsplan",
     "X-WR-TIMEZONE:Europe/Oslo",
-  ];
+  ].concat(icsVtimezoneOslo_());
   var stamp = Utilities.formatDate(new Date(), "UTC", "yyyyMMdd'T'HHmmss'Z'");
   var guds = state.gudstjenester || [];
   var i;

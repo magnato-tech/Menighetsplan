@@ -15,6 +15,8 @@ import {
   saveDatabase,
   synkKalenderoppgaver,
   kalenderHendelserForPerson,
+  shouldWriteToRemote,
+  whenRemoteSaveIdle,
 } from "../services/dataService";
 import { ArrangementDetaljView } from "./ArrangementDetaljView";
 import { KalenderAbonner } from "./KalenderAbonner";
@@ -166,6 +168,9 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
     dbRef.current = neste;
     saveDatabase(neste);
     onUpdateDb(neste);
+    if (shouldWriteToRemote()) {
+      void whenRemoteSaveIdle();
+    }
   };
 
   const oppdaterDb = (fn: (forrige: DatabaseState) => DatabaseState) => {
@@ -187,6 +192,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
       );
       const resultat = synkKalenderoppgaver(dbRef.current, ics);
       persister(resultat.db);
+      if (shouldWriteToRemote()) await whenRemoteSaveIdle();
       setVisSynkListe(true);
       setSynkStatus(
         resultat.nye
@@ -301,6 +307,13 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
           )}
         </div>
       </div>
+
+      {modus === "admin" && !shouldWriteToRemote() && (
+        <p className="text-xs text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+          Mock-data: arrangementene lagres bare i denne nettleseren, ikke i Google-arket. Bytt til
+          Ekte data under Innstillinger — da følger kalenderen med uten ny synk.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {(
