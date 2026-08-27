@@ -20,6 +20,13 @@ function formatDatoLang(dato: string): string {
   });
 }
 
+function formatKlOverskrift(tid: string): string {
+  const t = String(tid || "").trim();
+  const m = /^(\d{1,2}):(\d{2})/.exec(t);
+  if (m) return `kl ${parseInt(m[1], 10)}.${m[2]}`;
+  return t ? `kl ${t}` : "";
+}
+
 interface ProgramPdfArkProps {
   db: DatabaseState;
   gudstjeneste: Gudstjeneste;
@@ -35,7 +42,9 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
 }) => {
   const linjer = programForGudstjeneste(db, gudstjeneste.GudstjenesteID);
   const medTid = beregnProgramtider(linjer, gudstjeneste.Tid || "11:00");
-  const sluttid = medTid.length > 0 ? medTid[medTid.length - 1].slutt : gudstjeneste.Tid;
+  const startTid =
+    gudstjeneste.Tid || medTid.find((p) => !p.ForStart)?.start || "11:00";
+  const klokke = formatKlOverskrift(startTid);
   const ovrig = visOvrigBemanning
     ? øvrigBemanningForProgram(db, gudstjeneste.GudstjenesteID)
     : [];
@@ -57,8 +66,7 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
         </h1>
         <p className={`text-slate-700 ${kompakt ? "text-xs mt-1" : "text-sm mt-1.5"}`}>
           {formatDatoLang(gudstjeneste.Dato)}
-          {gudstjeneste.Tid ? ` · ${gudstjeneste.Tid}` : ""}
-          {sluttid ? `–${sluttid}` : ""}
+          {klokke ? ` · ${klokke}` : ""}
           {gudstjeneste.Sted ? ` · ${gudstjeneste.Sted}` : ""}
         </p>
         {gudstjeneste.Bibeltekst && (
