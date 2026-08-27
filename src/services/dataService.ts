@@ -13,3 +13,4 @@ export * from "./mal";
 export * from "./persistens";
 export * from "./arrangementer";
 export * from "./eksternKalender";
+export * from "./kalender";

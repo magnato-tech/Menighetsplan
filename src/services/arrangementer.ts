@@ -19,6 +19,7 @@ export function opprettArrangement(
     opprettetAv?: string;
     eksternKalenderID?: string;
     malId?: string;
+    gruppeId?: string;
   }
 ): DatabaseState {
   const tittel = felt.tittel.trim();
@@ -36,6 +37,7 @@ export function opprettArrangement(
     OpprettetAv: felt.opprettetAv,
     EksternKalenderID: felt.eksternKalenderID || undefined,
     MalID: malId,
+    GruppeID: String(felt.gruppeId || "").trim() || undefined,
     Aktiv: true,
     OpprettetDato: now,
     SistEndret: now,

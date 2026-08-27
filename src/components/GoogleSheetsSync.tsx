@@ -9,6 +9,9 @@ import {
   shouldWriteToRemote,
   useRemoteData,
   isSessionMockOverride,
+  hentInnstillinger,
+  oppdaterInnstillinger,
+  saveDatabase,
 } from "../services/dataService";
 import { PersonlenkeInnstillinger } from "./PersonlenkeInnstillinger";
 import {
@@ -133,6 +136,37 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           onUpdateDb={onUpdateDb}
         />
       )}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Kalender for andre</h2>
+        <p className="text-xs text-slate-600">
+          Av som standard. Når du skrur på, får brukere lesekalender og/eller abonnement med
+          gudstjenester, åpne treff og egne gruppemøter — ikke kirkesynk og ikke opprette/slette.
+        </p>
+        {(
+          [
+            ["visKalenderMinSide", "Vis kalender på Min side"],
+            ["visKalenderGruppeleder", "Vis kalender hos gruppeleder"],
+            ["visKalenderIcal", "Tillat abonnement på personlig kalender (iCal)"],
+          ] as const
+        ).map(([felt, merke]) => {
+          const i = hentInnstillinger(db);
+          return (
+            <label key={felt} className="flex items-start gap-3 text-sm text-slate-800 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={i[felt]}
+                onChange={(e) => {
+                  const neste = oppdaterInnstillinger(db, { [felt]: e.target.checked });
+                  saveDatabase(neste);
+                  onUpdateDb(neste);
+                }}
+              />
+              <span>{merke}</span>
+            </label>
+          );
+        })}
+      </div>
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
       {import.meta.env.DEV && onSwitchDataSource && (
         <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 space-y-3">

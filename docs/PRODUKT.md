@@ -41,7 +41,9 @@ Admin ser alle grupper. Gruppeleder ser bare gruppens roller. Begge bruker samme
 
 ## Kalender (admin)
 
-Admin-fanen **Kalender** viser bare det som ligger i appen: gudstjenester og arrangementer. Appen er fasit. **Synk mot kirkekalenderen** sammenligner med kirkens iCal og lager oppgaver når noe mangler i appen — ingenting kopieres automatisk. **Legg inn** oppretter et tomt arrangement (samme mulighet for program og bemanning som en søndag), synlig kun for administrator. **Ikke nå** lagrer at hendelsen er avvist.
+Admin-fanen **Kalender** viser bare det som ligger i appen: gudstjenester og arrangementer. Appen er fasit. **Synk mot kirkekalenderen** sammenligner med kirkens iCal og lager oppgaver når noe mangler i appen — ingenting kopieres automatisk. **Legg inn** kan velge mal og valgfri gruppe (tom gruppe = åpent treff). **Ikke nå** lagrer at hendelsen er avvist.
+
+Under **Innstillinger** kan admin skru på (standard av): lesekalender på Min side, lesekalender hos gruppeleder, og personlig **iCal-abonnement**. Leseflaten har én knapp **Abonner** som åpner Google Kalender (legg til fra URL) med den personlige `minIcal`-feeden.
 
 ## Grupper og register
 
@@ -70,6 +72,7 @@ Importer forretningslogikk fra `src/services/dataService.ts` (fatade). Filene un
 | `mal.ts` | Arrangementmaler, bemanning fra kjøreplan + tilleggsvakter |
 | `arrangementer.ts` | Opprette og slette arrangementer |
 | `eksternKalender.ts` | iCal-parse, tidsretting, synk-oppgaver |
+| `kalender.ts` | Lesesynlighet, innstillinger, personlig iCal |
 | `tilgang.ts` | Token, personlenke, `hentTilgang`, skjuling av andres kontakt |
 | `persistens.ts` | Last/lagre, mock/remote, Sheets-kø |
 | `innlogging.ts` | Sesjon, Google-JWT, URL-token |

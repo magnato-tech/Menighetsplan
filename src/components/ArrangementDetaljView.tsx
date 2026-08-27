@@ -30,6 +30,7 @@ interface ArrangementDetaljViewProps {
   selectedPersonId?: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   onClose: () => void;
+  lese?: boolean;
 }
 
 function formatDatoNo(iso: string): string {
@@ -48,6 +49,7 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
   selectedPersonId,
   onUpdateDb,
   onClose,
+  lese = false,
 }) => {
   const [fane, setFane] = useState<"bemanning" | "kjoreplan">("bemanning");
   const [behovRolle, setBehovRolle] = useState<Rolle | null>(null);
@@ -99,6 +101,7 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
             </p>
           </div>
           <div className="flex items-center gap-1">
+            {!lese && (
             <button
               type="button"
               onClick={() => {
@@ -111,6 +114,7 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
             >
               <Trash2 className="w-4 h-4" />
             </button>
+            )}
             <button
               type="button"
               onClick={onClose}
@@ -171,6 +175,8 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
                     </span>
                     <span className="text-xs text-slate-500">behov {behov}</span>
                     <div className="ml-auto flex gap-1">
+                      {!lese && (
+                        <>
                       <IkonHandling
                         label="Juster behov"
                         Icon={Sliders}
@@ -195,6 +201,8 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
                           onClick={() => persister(fjernArrangementVakt(db, arId, rolle.RolleID))}
                         />
                       )}
+                        </>
+                      )}
                     </div>
                   </div>
                   {tildelinger.length === 0 ? (
@@ -206,6 +214,8 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
                         return (
                           <li key={t.TildelingID} className="flex items-center gap-2 text-sm">
                             <span className="flex-1">{tildelingVisningsnavn(db, t)}</span>
+                            {!lese && (
+                              <>
                             <IkonHandling
                               label="Bekreft"
                               Icon={Check}
@@ -229,6 +239,8 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
                                 })
                               }
                             />
+                              </>
+                            )}
                           </li>
                         );
                       })}
@@ -239,7 +251,7 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
             })
             )}
             </div>
-            {visLeggTilVakt && rollerSomKanLegges.length > 0 && (
+            {visLeggTilVakt && !lese && rollerSomKanLegges.length > 0 && (
               <label className="mt-3 px-3 flex items-center gap-2 text-xs text-slate-600">
                 <Plus className="w-3.5 h-3.5" />
                 Legg til vakt
@@ -267,7 +279,7 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
           <GudstjenesteProgramView
             db={db}
             gudstjeneste={visningsGud}
-            redigerbar
+            redigerbar={!lese}
             selectedPersonId={selectedPersonId}
             iDialog
             arrangementId={arId}

@@ -293,6 +293,12 @@ export interface MalTilleggsvakt {
   SistEndret: string;
 }
 
+export interface AppInnstillinger {
+  visKalenderMinSide: boolean;
+  visKalenderGruppeleder: boolean;
+  visKalenderIcal: boolean;
+}
+
 export type KalenderoppgaveStatus = "Åpen" | "Avvist" | "Opprettet";
 
 export interface Kalenderoppgave {
@@ -329,6 +335,7 @@ export interface DatabaseState {
   programinstanser: Programinstans[];
   arrangementer: Arrangement[];
   kalenderoppgaver: Kalenderoppgave[];
+  innstillinger?: AppInnstillinger;
   personerImport: PersonerImport[];
   gudstjenesterImport: GudstjenesterImport[];
   rollebeskrivelseImport: RollebeskrivelseImport[];

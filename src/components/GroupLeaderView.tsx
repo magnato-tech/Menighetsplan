@@ -11,6 +11,9 @@ import {
   erEksternPersonId,
   sikreGruppemedlemskap,
   AppView,
+  visKalenderForPerson,
+  visProgramIkon,
+  kanRedigereProgram,
 } from "../services/dataService";
 import { Person } from "../types/database";
 import { GruppeMedlemListe } from "./GruppeMedlemListe";
@@ -21,6 +24,8 @@ import {
   type TildelForesporsel,
 } from "./SondagBemanning";
 import type { ArkVisning } from "./Planleggingsark";
+import { KalenderView } from "./KalenderView";
+import { ProgramLeserModal } from "./ProgramLeserModal";
 import { Users, Shield, Search, HelpCircle } from "lucide-react";
 import type { LederSeksjon } from "./MobilBunnmeny";
 
@@ -81,6 +86,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [eksternForesporsel, setEksternForesporsel] = useState<string | null>(null);
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
   const [guideVisning, setGuideVisning] = useState<ArkVisning | undefined>(undefined);
   const [guideApneForsteKort, setGuideApneForsteKort] = useState(false);
   const [activeGruppeId, setActiveGruppeId] = useState(ALLE_GRUPPER);
@@ -321,6 +327,44 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         </div>
       </div>
 
+      {visKalenderForPerson(db, selectedPersonId, "gruppeleder") && (
+        <div className="flex gap-2">
+          {(
+            [
+              ["gruppe", "Gruppe"],
+              ["kalender", "Kalender"],
+            ] as const
+          ).map(([id, merke]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onLederSeksjon?.(id)}
+              className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
+                (id === "kalender" ? lederSeksjon === "kalender" : lederSeksjon !== "kalender")
+                  ? "bg-[#2d5a3f] text-white"
+                  : "bg-slate-100 text-slate-700"
+              }`}
+            >
+              {merke}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {lederSeksjon === "kalender" && visKalenderForPerson(db, selectedPersonId, "gruppeleder") ? (
+        <KalenderView
+          db={db}
+          onUpdateDb={onUpdateDb}
+          vis
+          modus="les"
+          selectedPersonId={selectedPersonId}
+          visAbonner={visKalenderForPerson(db, selectedPersonId, "ical")}
+          onApneGudstjeneste={(id) => {
+            if (visProgramIkon(db, selectedPersonId, id)) setLeserGudstjenesteId(id);
+          }}
+        />
+      ) : (
+      <>
       <SondagBemanning
         db={db}
         onUpdateDb={onUpdateDb}
@@ -376,6 +420,8 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           onLeggTilMedlem={handleLeggTilMedlem}
         />
       </div>
+      </>
+      )}
 
       {assignModal && (
         <div className="fixed inset-0 bg-slate-900/60 z-50 animate-fadeIn flex items-end sm:items-center justify-center sm:p-4">
@@ -539,6 +585,22 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           </div>
         </div>
       )}
+
+      {leserGudstjenesteId &&
+        (() => {
+          const gud = db.gudstjenester.find((g) => g.GudstjenesteID === leserGudstjenesteId);
+          if (!gud) return null;
+          return (
+            <ProgramLeserModal
+              db={db}
+              gudstjeneste={gud}
+              selectedPersonId={selectedPersonId}
+              redigerbar={kanRedigereProgram(db, selectedPersonId, gud.GudstjenesteID)}
+              onClose={() => setLeserGudstjenesteId(null)}
+              onUpdateDb={onUpdateDb}
+            />
+          );
+        })()}
 
       <GroupLeaderGuide
         open={guideOpen}

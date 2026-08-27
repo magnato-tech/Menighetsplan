@@ -153,6 +153,10 @@ var MASTER_SHEETS = {
       "OpprettetDato", "SistEndret",
     ],
   },
+  innstillinger: {
+    name: "Innstillinger",
+    columns: ["Nøkkel", "Verdi"],
+  },
 };
 
 /** Kolonner F–Q i Gudstjenester_import → Roller.RolleID */
@@ -524,6 +528,10 @@ function doGet(e) {
       return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
     }
 
+    if (action === "minIcal") {
+      return minIcalSvar_(params.t);
+    }
+
     if (action === "inspectImport") {
       return json_({ ok: false, error: "inspectImport krever innlogget POST." });
     }
@@ -638,19 +646,28 @@ function sanitizeStateForViewer_(state, personId, isAdmin) {
     renset.push(kopi);
   }
   state.personer = renset;
-  state.arrangementer = [];
+  var synlige = {};
+  var arr = state.arrangementer || [];
+  var a;
+  var nesteArr = [];
+  for (a = 0; a < arr.length; a++) {
+    if (!arrangementSynligForPerson_(state, personId, arr[a])) continue;
+    nesteArr.push(arr[a]);
+    synlige[arr[a].ArrangementID] = true;
+  }
+  state.arrangementer = nesteArr;
   state.kalenderoppgaver = [];
   state.tjenestebehov = (state.tjenestebehov || []).filter(function (r) {
-    return !r.ArrangementID;
+    return !r.ArrangementID || synlige[r.ArrangementID];
   });
   state.tildelinger = (state.tildelinger || []).filter(function (r) {
-    return !r.ArrangementID;
+    return !r.ArrangementID || synlige[r.ArrangementID];
   });
   state.programaktiviteter = (state.programaktiviteter || []).filter(function (r) {
-    return !r.ArrangementID;
+    return !r.ArrangementID || synlige[r.ArrangementID];
   });
   state.programinstanser = (state.programinstanser || []).filter(function (r) {
-    return !r.ArrangementID;
+    return !r.ArrangementID || synlige[r.ArrangementID];
   });
   return state;
 }
@@ -1636,4 +1653,196 @@ function hentKorrigertEksternIcal_() {
   cache.put("eksternIcal", ics, 600);
   return ics;
 }
+
+function tomIcs_() {
+  return [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Menighetsplan//NO",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "X-WR-CALNAME:Menighetsplan",
+    "X-WR-TIMEZONE:Europe/Oslo",
+    "END:VCALENDAR",
+    "",
+  ].join("\r\n");
+}
+
+function icsSvar_(ics) {
+  var mime = ContentService.MimeType.ICAL || ContentService.MimeType.TEXT;
+  return ContentService.createTextOutput(ics).setMimeType(mime);
+}
+
+function minIcalSvar_(token) {
+  try {
+    var state = loadDatabase();
+    if (!innstillingErSan_(state, "visKalenderIcal")) {
+      return icsSvar_(tomIcs_());
+    }
+    var person = findPersonByMagicToken_(state, token);
+    if (!person) {
+      return ContentService.createTextOutput("Ugyldig kalenderlenke.")
+        .setMimeType(ContentService.MimeType.TEXT);
+    }
+    return icsSvar_(byggPersonIcs_(state, person.PersonID));
+  } catch (err) {
+    return ContentService.createTextOutput(String(err)).setMimeType(ContentService.MimeType.TEXT);
+  }
+}
+
+function innstillingErSan_(state, nokkel) {
+  var rader = state.innstillinger || [];
+  var i;
+  for (i = 0; i < rader.length; i++) {
+    if (String(rader[i].Nøkkel || "").trim() === nokkel) {
+      return String(rader[i].Verdi || "").trim().toLowerCase() === "true";
+    }
+  }
+  return false;
+}
+
+function erMedlemAvGruppe_(state, personId, gruppeId) {
+  var grupper = state.grupper || [];
+  var i;
+  for (i = 0; i < grupper.length; i++) {
+    if (grupper[i].GruppeID !== gruppeId) continue;
+    if (grupper[i].GruppelederID === personId || grupper[i].NestlederID === personId) return true;
+  }
+  var gm = state.gruppemedlemmer || [];
+  for (i = 0; i < gm.length; i++) {
+    if (gm[i].Aktiv === false) continue;
+    if (gm[i].PersonID === personId && gm[i].GruppeID === gruppeId) return true;
+  }
+  return false;
+}
+
+function arrangementSynligForPerson_(state, personId, arrangement) {
+  if (!arrangement || arrangement.Aktiv === false) return false;
+  var gruppeId = String(arrangement.GruppeID || "").trim();
+  if (!gruppeId) return true;
+  return erMedlemAvGruppe_(state, personId, gruppeId);
+}
+
+function parseKlokkeMin_(tid) {
+  var m = /^(\d{1,2}):(\d{2})/.exec(String(tid || "").trim());
+  if (!m) return 11 * 60;
+  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+}
+
+function formatKlokkeMin_(min) {
+  var wrapped = ((min % (24 * 60)) + 24 * 60) % (24 * 60);
+  var h = Math.floor(wrapped / 60);
+  var mm = wrapped % 60;
+  return (h < 10 ? "0" : "") + h + ":" + (mm < 10 ? "0" : "") + mm;
+}
+
+function programForHendelse_(state, gudId, arrId) {
+  var rader = state.programaktiviteter || [];
+  var ut = [];
+  var i;
+  for (i = 0; i < rader.length; i++) {
+    var p = rader[i];
+    if (arrId) {
+      if (p.ArrangementID === arrId) ut.push(p);
+    } else if (p.GudstjenesteID === gudId && !p.ArrangementID) {
+      ut.push(p);
+    }
+  }
+  ut.sort(function (a, b) {
+    return (a.Rekkefolge || 0) - (b.Rekkefolge || 0);
+  });
+  return ut;
+}
+
+function beregnSisteSlutt_(linjer, startTid) {
+  var sorted = linjer.slice().sort(function (a, b) {
+    return (a.Rekkefolge || 0) - (b.Rekkefolge || 0);
+  });
+  var prefix = 0;
+  var i;
+  for (i = 0; i < sorted.length; i++) {
+    if (!sorted[i].ForStart) break;
+    prefix += Math.max(0, Number(sorted[i].VarighetMin) || 0);
+  }
+  var cursor = parseKlokkeMin_(startTid) - prefix;
+  var slutt = formatKlokkeMin_(cursor);
+  for (i = 0; i < sorted.length; i++) {
+    var dur = Math.max(0, Number(sorted[i].VarighetMin) || 0);
+    cursor += dur;
+    slutt = formatKlokkeMin_(cursor);
+  }
+  return slutt;
+}
+
+function hendelseSluttTid_(state, kind, id, startTid) {
+  var linjer = kind === "gudstjeneste" ? programForHendelse_(state, id, "") : programForHendelse_(state, "", id);
+  if (linjer.length) return beregnSisteSlutt_(linjer, startTid);
+  return formatKlokkeMin_(parseKlokkeMin_(startTid) + (kind === "gudstjeneste" ? 90 : 60));
+}
+
+function icsEscape_(tekst) {
+  return String(tekst || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function icsDatoTid_(dato, tid) {
+  var d = String(dato || "").replace(/-/g, "");
+  var m = /^(\d{1,2}):(\d{2})/.exec(String(tid || "").trim());
+  var hh = m ? (m[1].length === 1 ? "0" + m[1] : m[1]) : "11";
+  var mm = m ? m[2] : "00";
+  return d + "T" + hh + mm + "00";
+}
+
+function byggPersonIcs_(state, personId) {
+  var linjer = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//Menighetsplan//NO",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "X-WR-CALNAME:Menighetsplan",
+    "X-WR-TIMEZONE:Europe/Oslo",
+  ];
+  var stamp = Utilities.formatDate(new Date(), "UTC", "yyyyMMdd'T'HHmmss'Z'");
+  var guds = state.gudstjenester || [];
+  var i;
+  for (i = 0; i < guds.length; i++) {
+    var g = guds[i];
+    var start = g.Tid || "11:00";
+    var slutt = hendelseSluttTid_(state, "gudstjeneste", g.GudstjenesteID, start);
+    linjer.push(
+      "BEGIN:VEVENT",
+      "UID:gudstjeneste-" + g.GudstjenesteID + "@menighetsplan",
+      "DTSTAMP:" + stamp,
+      "DTSTART;TZID=Europe/Oslo:" + icsDatoTid_(g.Dato, start),
+      "DTEND;TZID=Europe/Oslo:" + icsDatoTid_(g.Dato, slutt),
+      "SUMMARY:" + icsEscape_(g.Tema || "Gudstjeneste")
+    );
+    if (g.Sted) linjer.push("LOCATION:" + icsEscape_(g.Sted));
+    linjer.push("END:VEVENT");
+  }
+  var arr = state.arrangementer || [];
+  for (i = 0; i < arr.length; i++) {
+    if (!arrangementSynligForPerson_(state, personId, arr[i])) continue;
+    var a = arr[i];
+    var aStart = a.Tid || "12:00";
+    var aSlutt = hendelseSluttTid_(state, "arrangement", a.ArrangementID, aStart);
+    linjer.push(
+      "BEGIN:VEVENT",
+      "UID:arrangement-" + a.ArrangementID + "@menighetsplan",
+      "DTSTAMP:" + stamp,
+      "DTSTART;TZID=Europe/Oslo:" + icsDatoTid_(a.Dato, aStart),
+      "DTEND;TZID=Europe/Oslo:" + icsDatoTid_(a.Dato, aSlutt),
+      "SUMMARY:" + icsEscape_(a.Tittel)
+    );
+    if (a.Sted) linjer.push("LOCATION:" + icsEscape_(a.Sted));
+    linjer.push("END:VEVENT");
+  }
+  linjer.push("END:VCALENDAR", "");
+  return linjer.join("\r\n");
+}
+
 

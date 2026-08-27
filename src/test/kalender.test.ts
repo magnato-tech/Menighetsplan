@@ -1,0 +1,254 @@
+import "./polyfill";
+import assert from "node:assert/strict";
+import type { DatabaseState } from "../types/database";
+import {
+  arrangementSynligForPerson,
+  byggPersonIcs,
+  hentInnstillinger,
+  innstillingerTilRader,
+  kalenderHendelserForPerson,
+  minIcalHttpsUrl,
+  oppdaterInnstillinger,
+  parseInnstillinger,
+  standardInnstillinger,
+  visKalenderForPerson,
+  googleKalenderAbonnerUrl,
+} from "../services/kalender";
+import { opprettArrangement } from "../services/arrangementer";
+
+function tomDb(): DatabaseState {
+  return {
+    gruppetyper: [],
+    personer: [
+      {
+        PersonID: "P001",
+        Navn: "Ada Medlem",
+        Fornavn: "Ada",
+        Etternavn: "Medlem",
+        Epost: "",
+        Telefon: "",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        PersonID: "P002",
+        Navn: "Bo Utenfor",
+        Fornavn: "Bo",
+        Etternavn: "Utenfor",
+        Epost: "",
+        Telefon: "",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    grupper: [
+      {
+        GruppeID: "G008",
+        Gruppenavn: "Husgruppe sør",
+        GruppetypeID: "GT004",
+        GruppelederID: "P001",
+        Beskrivelse: "",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    gruppemedlemmer: [],
+    roller: [],
+    personroller: [],
+    rollebeskrivelser: [],
+    gudstjenester: [
+      {
+        GudstjenesteID: "GUD001",
+        Dato: "2026-10-11",
+        Tid: "11:00",
+        Sted: "Bedehuset",
+        Tema: "Sendt ut i verden",
+      },
+    ],
+    tjenestebehov: [],
+    tildelinger: [],
+    svar: [],
+    malaktiviteter: [],
+    maler: [],
+    malposter: [],
+    malTilleggsvakter: [],
+    programaktiviteter: [
+      {
+        ProgramAktivitetID: "PA001",
+        GudstjenesteID: "GUD001",
+        Rekkefolge: 1,
+        Tittel: "Velkommen",
+        VarighetMin: 15,
+        ForStart: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        ProgramAktivitetID: "PA002",
+        GudstjenesteID: "GUD001",
+        Rekkefolge: 2,
+        Tittel: "Talen",
+        VarighetMin: 20,
+        ForStart: false,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    programinstanser: [],
+    arrangementer: [],
+    kalenderoppgaver: [],
+    innstillinger: standardInnstillinger(),
+    personerImport: [],
+    gudstjenesterImport: [],
+    rollebeskrivelseImport: [],
+  };
+}
+
+{
+  const i = hentInnstillinger(tomDb());
+  assert.equal(i.visKalenderMinSide, false);
+  assert.equal(i.visKalenderGruppeleder, false);
+  assert.equal(i.visKalenderIcal, false);
+  assert.equal(visKalenderForPerson(tomDb(), "P001", "minSide"), false);
+  assert.deepEqual(parseInnstillinger(undefined), standardInnstillinger());
+  assert.equal(parseInnstillinger([{ Nøkkel: "visKalenderIcal", Verdi: "true" }]).visKalenderIcal, true);
+
+  const på = oppdaterInnstillinger(tomDb(), {
+    visKalenderMinSide: true,
+    visKalenderGruppeleder: true,
+    visKalenderIcal: true,
+  });
+  assert.equal(visKalenderForPerson(på, "P001", "minSide"), true);
+  assert.equal(visKalenderForPerson(på, "P001", "gruppeleder"), true);
+  assert.equal(visKalenderForPerson(på, "P001", "ical"), true);
+
+  const lagret = {
+    visKalenderMinSide: true,
+    visKalenderGruppeleder: false,
+    visKalenderIcal: true,
+  };
+  assert.deepEqual(parseInnstillinger(innstillingerTilRader(lagret)), lagret);
+}
+
+{
+  let db = tomDb();
+  db = opprettArrangement(db, {
+    tittel: "Bønn og faste",
+    dato: "2026-10-13",
+    tid: "19:00",
+    sted: "Bedehuset",
+  });
+  db = opprettArrangement(db, {
+    tittel: "Husgruppe",
+    dato: "2026-10-14",
+    tid: "19:00",
+    sted: "",
+    gruppeId: "G008",
+  });
+  db = {
+    ...db,
+    arrangementer: [
+      ...db.arrangementer,
+      {
+        ArrangementID: "AR099",
+        Dato: "2026-10-15",
+        Tid: "18:00",
+        Sted: "",
+        Tittel: "Slettet grill",
+        Beskrivelse: "",
+        Aktiv: false,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+  };
+  const aapen = db.arrangementer.find((a) => a.Tittel === "Bønn og faste")!;
+  const hus = db.arrangementer.find((a) => a.Tittel === "Husgruppe")!;
+  const slettet = db.arrangementer.find((a) => a.ArrangementID === "AR099")!;
+  assert.equal(arrangementSynligForPerson(db, "P001", aapen), true);
+  assert.equal(arrangementSynligForPerson(db, "P002", aapen), true);
+  assert.equal(arrangementSynligForPerson(db, "P001", hus), true);
+  assert.equal(arrangementSynligForPerson(db, "P002", hus), false);
+  assert.equal(arrangementSynligForPerson(db, "P001", slettet), false);
+
+  const forAda = kalenderHendelserForPerson(db, "P001");
+  const forBo = kalenderHendelserForPerson(db, "P002");
+  assert.equal(forAda.some((h) => h.kind === "gudstjeneste" && h.id === "GUD001"), true);
+  assert.equal(forAda.some((h) => h.tittel === "Bønn og faste"), true);
+  assert.equal(forAda.some((h) => h.tittel === "Husgruppe"), true);
+  assert.equal(forAda.some((h) => h.tittel === "Slettet grill"), false);
+  assert.equal(forBo.some((h) => h.tittel === "Husgruppe"), false);
+  assert.equal(forBo.some((h) => h.tittel === "Bønn og faste"), true);
+}
+
+{
+  const db = tomDb();
+  const ics = byggPersonIcs(db, "P001");
+  assert.match(ics, /TZID=Europe\/Oslo/);
+  assert.match(ics, /DTSTART;TZID=Europe\/Oslo:20261011T110000/);
+  assert.doesNotMatch(ics, /VALUE=DATE/);
+  assert.match(ics, /DTEND;TZID=Europe\/Oslo:20261011T112000/);
+  assert.match(ics, /UID:gudstjeneste-GUD001@menighetsplan/);
+}
+
+{
+  let db = tomDb();
+  db = opprettArrangement(db, {
+    tittel: "Husgruppe",
+    dato: "2026-10-14",
+    tid: "19:00",
+    sted: "",
+    gruppeId: "G008",
+  });
+  const ada = byggPersonIcs(db, "P001");
+  const bo = byggPersonIcs(db, "P002");
+  assert.match(ada, /SUMMARY:Husgruppe/);
+  assert.doesNotMatch(bo, /SUMMARY:Husgruppe/);
+  assert.match(ada, /DTSTART;TZID=Europe\/Oslo:20261014T190000/);
+  assert.match(ada, /DTEND;TZID=Europe\/Oslo:20261014T200000/);
+}
+
+{
+  let db = tomDb();
+  db = {
+    ...db,
+    grupper: db.grupper.map((g) =>
+      g.GruppeID === "G008" ? { ...g, NestlederID: "P002" } : g
+    ),
+  };
+  db = opprettArrangement(db, {
+    tittel: "Husgruppe nestleder",
+    dato: "2026-10-14",
+    tid: "19:00",
+    sted: "",
+    gruppeId: "G008",
+  });
+  const hus = db.arrangementer.find((a) => a.Tittel === "Husgruppe nestleder")!;
+  assert.equal(arrangementSynligForPerson(db, "P001", hus), true);
+  assert.equal(arrangementSynligForPerson(db, "P002", hus), true);
+}
+
+{
+  assert.equal(
+    minIcalHttpsUrl("https://script.google.com/macros/s/x/exec/", "mk_abc"),
+    "https://script.google.com/macros/s/x/exec?action=minIcal&t=mk_abc"
+  );
+  assert.equal(
+    minIcalHttpsUrl("https://script.google.com/macros/s/x/exec?foo=1", "mk_abc"),
+    "https://script.google.com/macros/s/x/exec?action=minIcal&t=mk_abc"
+  );
+  assert.equal(minIcalHttpsUrl("", "mk_abc"), "");
+  assert.equal(minIcalHttpsUrl("https://script.google.com/macros/s/x/exec", ""), "");
+
+  const ics = minIcalHttpsUrl("https://script.google.com/macros/s/x/exec", "mk_abc");
+  const u = googleKalenderAbonnerUrl(ics);
+  assert.match(u, /^https:\/\/calendar\.google\.com\/calendar\/r\?cid=/);
+  assert.ok(u.includes(encodeURIComponent(ics)));
+  assert.ok(u.includes(encodeURIComponent("action=minIcal")));
+  assert.equal(googleKalenderAbonnerUrl(""), "");
+}
+
+console.log("kalender.test.ts: alle tester ok");

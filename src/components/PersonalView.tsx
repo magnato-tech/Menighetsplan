@@ -11,6 +11,7 @@ import {
   velgDatoForPerson,
   kanRedigereProgram,
   visProgramIkon,
+  visKalenderForPerson,
 } from "../services/dataService";
 import { Rolle } from "../types/database";
 import { RoleDescriptionModal } from "./RoleDescriptionModal";
@@ -19,6 +20,7 @@ import { IkonHandling } from "./IkonHandling";
 import { GudstjenesteRolleOversikt } from "./GudstjenesteRolleOversikt";
 import { ProgramLeserModal } from "./ProgramLeserModal";
 import { InteresseSkjema } from "./InteresseSkjema";
+import { KalenderView } from "./KalenderView";
 import {
   Clock3,
   Check,
@@ -130,6 +132,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
   const [visAlleSondager, setVisAlleSondager] = useState(false);
   const [holdLandingVelkomst, setHoldLandingVelkomst] = useState(false);
+  const [minSideFane, setMinSideFane] = useState<"oppgaver" | "kalender">("oppgaver");
 
   const openDatePicker = (rolle: Rolle) => {
     if (!hentPåmeldingsRoller(db, selectedPersonId).some((r) => r.RolleID === rolle.RolleID)) {
@@ -159,6 +162,9 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
 
   const visningsRoller = hentPåmeldingsRoller(db, person.PersonID);
   const personensRoller = visningsRoller;
+  const visKalenderFane =
+    visKalenderForPerson(db, person.PersonID, "minSide") ||
+    visKalenderForPerson(db, person.PersonID, "ical");
 
   // Formater listen over roller i hilsningsteksten ("Møtevert, Nattverd og Kirkekaffe")
   const rolleNavnTekst = (() => {
@@ -297,6 +303,42 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
         </div>
       </div>
 
+      {visKalenderFane && (
+        <div className="flex gap-2">
+          {(
+            [
+              ["oppgaver", "Oppgaver"],
+              ["kalender", "Kalender"],
+            ] as const
+          ).map(([id, merke]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setMinSideFane(id)}
+              className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
+                minSideFane === id ? "bg-[#2d5a3f] text-white" : "bg-slate-100 text-slate-700"
+              }`}
+            >
+              {merke}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visKalenderFane && minSideFane === "kalender" ? (
+        <KalenderView
+          db={db}
+          onUpdateDb={onUpdateDb}
+          vis
+          modus="les"
+          selectedPersonId={person.PersonID}
+          visAbonner={visKalenderForPerson(db, person.PersonID, "ical")}
+          onApneGudstjeneste={(id) => {
+            if (visProgramIkon(db, person.PersonID, id)) setLeserGudstjenesteId(id);
+          }}
+        />
+      ) : (
+      <>
       {/* Oppgaver gruppert per gudstjeneste-dato */}
       {(() => {
         const iDag = new Date().toISOString().split("T")[0];
@@ -486,6 +528,8 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           </div>
         );
       })()}
+      </>
+      )}
 
       {/* Påmelding: nesten fullskjerm */}
       {datePickerRolle && (

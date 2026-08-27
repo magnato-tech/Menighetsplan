@@ -26,6 +26,7 @@ import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa
 import { synkGruppeledergruppe } from "./grupper";
 import { sikreSmagruppelederRolle } from "./roller";
 import { sikreStandardMaler } from "./mal";
+import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger } from "./kalender";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
 const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
@@ -52,8 +53,12 @@ export function stateForRemoteSave(
   state: DatabaseState,
   harFullPersondata = sisteLastHaddeFullPersondata
 ): DatabaseState {
-  if (harFullPersondata) return state;
-  const neste = { ...state } as DatabaseState & { personer?: DatabaseState["personer"] };
+  const medInnstillinger = {
+    ...state,
+    innstillinger: innstillingerTilRader(hentInnstillinger(state)) as unknown as DatabaseState["innstillinger"],
+  };
+  if (harFullPersondata) return medInnstillinger;
+  const neste = { ...medInnstillinger } as DatabaseState & { personer?: DatabaseState["personer"] };
   delete neste.personer;
   return neste;
 }
@@ -206,6 +211,7 @@ function emptyState(): DatabaseState {
     programinstanser: [],
     arrangementer: [],
     kalenderoppgaver: [],
+    innstillinger: standardInnstillinger(),
     personerImport: [],
     gudstjenesterImport: [],
     rollebeskrivelseImport: [],
@@ -244,6 +250,7 @@ function normalizeState(parsed: Partial<DatabaseState> | null | undefined): Data
     kalenderoppgaver: Array.isArray(parsed.kalenderoppgaver)
       ? parsed.kalenderoppgaver
       : base.kalenderoppgaver,
+    innstillinger: parseInnstillinger(parsed.innstillinger),
     personerImport: Array.isArray(parsed.personerImport) ? parsed.personerImport : base.personerImport,
     gudstjenesterImport: Array.isArray(parsed.gudstjenesterImport) ? parsed.gudstjenesterImport : base.gudstjenesterImport,
     rollebeskrivelseImport: Array.isArray(parsed.rollebeskrivelseImport)
@@ -372,6 +379,7 @@ export function loadLocalDatabase(): DatabaseState {
           programinstanser: Array.isArray(parsed.programinstanser) ? parsed.programinstanser : [],
           arrangementer: Array.isArray(parsed.arrangementer) ? parsed.arrangementer : [],
           kalenderoppgaver: Array.isArray(parsed.kalenderoppgaver) ? parsed.kalenderoppgaver : [],
+          innstillinger: parseInnstillinger(parsed.innstillinger),
           personerImport: Array.isArray(parsed.personerImport) ? parsed.personerImport : initialPersonerImport,
           gudstjenesterImport: Array.isArray(parsed.gudstjenesterImport) ? parsed.gudstjenesterImport : initialGudstjenesterImport,
           rollebeskrivelseImport: Array.isArray(parsed.rollebeskrivelseImport)
@@ -404,6 +412,7 @@ export function loadLocalDatabase(): DatabaseState {
     programinstanser: [],
     arrangementer: [],
     kalenderoppgaver: [],
+    innstillinger: standardInnstillinger(),
     personerImport: initialPersonerImport,
     gudstjenesterImport: initialGudstjenesterImport,
     rollebeskrivelseImport: initialRollebeskrivelseImport,
@@ -451,6 +460,7 @@ export function applyLoadedState(state: DatabaseState): DatabaseState {
   let fixed: DatabaseState = fyllManglendeTilgangsnivaa({
     ...state,
     personer,
+    innstillinger: parseInnstillinger(state.innstillinger),
     gudstjenester: (state.gudstjenester || []).map((g) => {
       const Sted = rensSted(g.Sted);
       return Sted === g.Sted ? g : { ...g, Sted };
@@ -807,6 +817,7 @@ export function populateMockDatabase(): DatabaseState {
     programinstanser: [],
     arrangementer: [],
     kalenderoppgaver: [],
+    innstillinger: standardInnstillinger(),
     personerImport: initialPersonerImport,
     gudstjenesterImport: initialGudstjenesterImport,
     rollebeskrivelseImport: initialRollebeskrivelseImport,

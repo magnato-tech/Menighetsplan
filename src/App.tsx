@@ -530,6 +530,12 @@ export default function App() {
             setLederSeksjon("medlemmer");
             setFokusMedlemmerNokkel((n) => n + 1);
           }}
+          onFokusKalender={() => {
+            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
+            setDatePickerRolle(null);
+            setActiveView("leader");
+            setLederSeksjon("kalender");
+          }}
         />
       )}
     </div>

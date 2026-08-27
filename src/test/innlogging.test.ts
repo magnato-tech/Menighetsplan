@@ -205,6 +205,16 @@ const lagretUtenAdmin = stateForRemoteSave(utenEpost, false);
 assert.equal("personer" in lagretUtenAdmin, false);
 const lagretSomAdmin = stateForRemoteSave(utenEpost, true);
 assert.equal(lagretSomAdmin.personer.length, utenEpost.personer.length);
+assert.ok(Array.isArray(lagretSomAdmin.innstillinger));
+const innstillingRader = lagretSomAdmin.innstillinger as unknown as { Nøkkel: string; Verdi: string }[];
+assert.deepEqual(
+  innstillingRader.map((r) => r.Nøkkel).sort(),
+  ["visKalenderGruppeleder", "visKalenderIcal", "visKalenderMinSide"]
+);
+assert.equal(
+  innstillingRader.every((r) => r.Verdi === "true" || r.Verdi === "false"),
+  true
+);
 
 const magnarUtenNivaa = {
   ...db,

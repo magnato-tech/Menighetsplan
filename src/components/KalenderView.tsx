@@ -11,8 +11,10 @@ import {
   opprettArrangement,
   saveDatabase,
   synkKalenderoppgaver,
+  kalenderHendelserForPerson,
 } from "../services/dataService";
 import { ArrangementDetaljView } from "./ArrangementDetaljView";
+import { KalenderAbonner } from "./KalenderAbonner";
 
 type KalenderFilter = "alle" | "arrangement" | "gudstjeneste";
 type Visning = "maaned" | "liste";
@@ -72,6 +74,8 @@ interface KalenderViewProps {
   vis: boolean;
   selectedPersonId?: string;
   onApneGudstjeneste?: (gudstjenesteId: string) => void;
+  modus?: "admin" | "les";
+  visAbonner?: boolean;
 }
 
 export const KalenderView: React.FC<KalenderViewProps> = ({
@@ -80,6 +84,8 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
   vis,
   selectedPersonId,
   onApneGudstjeneste,
+  modus = "admin",
+  visAbonner = false,
 }) => {
   const [nå, setNå] = useState(() => new Date());
   const [visning, setVisning] = useState<Visning>("maaned");
@@ -95,6 +101,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
     sted: "Bedehuset",
     beskrivelse: "",
     malId: "",
+    gruppeId: "",
   });
   const [oppgaveMal, setOppgaveMal] = useState<Record<string, string>>({});
   const [apentArrangementId, setApentArrangementId] = useState<string | null>(null);
@@ -103,6 +110,9 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
   const month = nå.getMonth();
 
   const hendelser = useMemo((): KalenderRad[] => {
+    if (modus === "les" && selectedPersonId) {
+      return kalenderHendelserForPerson(db, selectedPersonId);
+    }
     const guds: KalenderRad[] = (db.gudstjenester || []).map((g) => ({
       kind: "gudstjeneste" as const,
       id: g.GudstjenesteID,
@@ -122,7 +132,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
         sted: a.Sted,
       }));
     return [...guds, ...ar].sort((a, b) => a.dato.localeCompare(b.dato) || a.tid.localeCompare(b.tid));
-  }, [db.gudstjenester, db.arrangementer]);
+  }, [db, modus, selectedPersonId]);
 
   const filtrert = useMemo(
     () => hendelser.filter((h) => filter === "alle" || h.kind === filter),
@@ -139,7 +149,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
   }, [filtrert]);
 
   const rutenett = useMemo(() => maanedRutenett(year, month), [year, month]);
-  const apneOppgaver = (db.kalenderoppgaver || []).filter((o) => o.Status === "Åpen");
+  const apneOppgaver = modus === "admin" ? (db.kalenderoppgaver || []).filter((o) => o.Status === "Åpen") : [];
   const apentArrangement = (db.arrangementer || []).find((a) => a.ArrangementID === apentArrangementId);
   const maler = aktiveMaler(db);
 
@@ -175,7 +185,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
     if (neste === db) return;
     persister(neste);
     setNyApen(false);
-    setNyFelt((prev) => ({ ...prev, tittel: "", beskrivelse: "", malId: "" }));
+    setNyFelt((prev) => ({ ...prev, tittel: "", beskrivelse: "", malId: "", gruppeId: "" }));
   };
 
   const apneHendelse = (h: KalenderRad) => {
@@ -223,6 +233,8 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          {modus === "admin" && (
+            <>
           <button
             type="button"
             onClick={() => {
@@ -247,6 +259,11 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
             <RefreshCw className={`w-3.5 h-3.5 ${laster ? "animate-spin" : ""}`} />
             Synk mot kirkekalenderen
           </button>
+            </>
+          )}
+          {visAbonner && selectedPersonId && (
+            <KalenderAbonner db={db} personId={selectedPersonId} />
+          )}
         </div>
       </div>
 
@@ -427,7 +444,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
         </ul>
       )}
 
-      {nyApen && (
+      {nyApen && modus === "admin" && (
         <div className="fixed inset-0 bg-slate-900/60 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
@@ -480,6 +497,23 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
                   </select>
                 </label>
               )}
+              <label className="block text-slate-600">
+                Gruppe (valgfritt — tom = synlig for alle når kalender er på)
+                <select
+                  value={nyFelt.gruppeId}
+                  onChange={(e) => setNyFelt((p) => ({ ...p, gruppeId: e.target.value }))}
+                  className="mt-1 w-full border border-slate-300 rounded-xl p-2 text-sm text-slate-900"
+                >
+                  <option value="">Åpent arrangement</option>
+                  {(db.grupper || [])
+                    .filter((g) => g.Aktiv !== false)
+                    .map((g) => (
+                      <option key={g.GruppeID} value={g.GruppeID}>
+                        {g.Gruppenavn}
+                      </option>
+                    ))}
+                </select>
+              </label>
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <button type="button" onClick={() => setNyApen(false)} className="px-3 py-2 text-xs cursor-pointer">
@@ -504,6 +538,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
           selectedPersonId={selectedPersonId}
           onUpdateDb={onUpdateDb}
           onClose={() => setApentArrangementId(null)}
+          lese={modus === "les"}
         />
       )}
     </div>
