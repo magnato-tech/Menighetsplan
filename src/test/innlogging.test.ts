@@ -79,6 +79,17 @@ assert.equal(finnPersonMedMagiskToken(db, "mk_0ph37tc1uch9a6"), undefined);
 assert.ok(admin!.SikkerhetsToken && !/^mk_[0-9a-z]{14}$/i.test(admin!.SikkerhetsToken));
 assert.equal(finnPersonMedMagiskToken(db, admin!.SikkerhetsToken!)?.PersonID, admin!.PersonID);
 
+{
+  const gammel = "mk_0ph37tc1uch9a6";
+  const medGammel: DatabaseState = {
+    ...db,
+    personer: db.personer.map((p) =>
+      p.PersonID === admin!.PersonID ? { ...p, SikkerhetsToken: gammel } : p
+    ),
+  };
+  assert.equal(finnPersonMedMagiskToken(medGammel, gammel)?.PersonID, admin!.PersonID);
+}
+
 const tilfeldigA = genererTilfeldigSikkerhetsToken();
 const tilfeldigB = genererTilfeldigSikkerhetsToken();
 assert.equal(erMagiskLenkeToken(tilfeldigA), true);

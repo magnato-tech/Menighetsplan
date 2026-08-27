@@ -255,6 +255,12 @@ function normalizeTilgangsnivaa_(verdi) {
   return "";
 }
 
+function looksLikeLegacyAdminName_(person) {
+  var navn = String(person.Navn || "").trim().toLowerCase();
+  var fornavn = String(person.Fornavn || "").trim().toLowerCase();
+  return fornavn === "magnar" || navn === "magnar" || navn.indexOf("magnar ") === 0;
+}
+
 function isAdministrator_(state, personId) {
   var personer = state.personer || [];
   var person = null;
@@ -266,18 +272,14 @@ function isAdministrator_(state, personId) {
     }
   }
   if (!person || person.Aktiv === false) return false;
-  return normalizeTilgangsnivaa_(person.Tilgangsnivå) === "admin";
-}
-
-function looksLikeLegacyAdminName_(person) {
-  var navn = String(person.Navn || "").trim().toLowerCase();
-  var fornavn = String(person.Fornavn || "").trim().toLowerCase();
-  return fornavn === "magnar" || navn === "magnar" || navn.indexOf("magnar ") === 0;
+  if (normalizeTilgangsnivaa_(person.Tilgangsnivå) === "admin") return true;
+  if (emailsEquivalent_(person.Epost, "magnar.totland@gmail.com")) return true;
+  return looksLikeLegacyAdminName_(person);
 }
 
 function findPersonByMagicToken_(state, token) {
   var t = String(token || "").trim();
-  if (!isUsableStoredToken_(t)) return null;
+  if (!isMagicLinkToken_(t)) return null;
   var personer = state.personer || [];
   var i;
   for (i = 0; i < personer.length; i++) {
@@ -504,6 +506,15 @@ function requireAuth_(body, needAdmin) {
   return { ok: false, error: "Mangler innlogging (token eller Google)." };
 }
 
+function erEksternIcalAction_(action) {
+  var n = String(action || "").toLowerCase();
+  return n === "eksternical" || n === "eksternicaljson" || n === "eksternlcal" || n === "eksternlcaljson";
+}
+
+function erEksternIcalJsonAction_(action) {
+  return String(action || "").toLowerCase().indexOf("json") !== -1;
+}
+
 function doGet(e) {
   try {
     var params = (e && e.parameter) ? e.parameter : {};
@@ -516,16 +527,20 @@ function doGet(e) {
     }
 
     if (action === "ping") {
-      return json_({ ok: true, service: "Menighetsplan" });
+      return json_({
+        ok: true,
+        service: "Menighetsplan",
+        ical: true,
+        icalActions: ["eksternIcal", "eksternIcalJson"],
+      });
     }
 
-    if (action === "eksternIcal") {
+    if (erEksternIcalAction_(action)) {
+      if (erEksternIcalJsonAction_(action)) {
+        return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
+      }
       return ContentService.createTextOutput(hentKorrigertEksternIcal_())
         .setMimeType(ContentService.MimeType.TEXT);
-    }
-
-    if (action === "eksternIcalJson") {
-      return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
     }
 
     if (action === "minIcal") {
@@ -551,11 +566,21 @@ function doGet(e) {
 }
 
 function doPost(e) {
+  var body = parseBody_(e);
+  var action = String(body.action || ((e.parameter && e.parameter.action) || "save"));
+
+  // Samme kontrakt som load/save: prod (AI Studio) poster, den poster ikke GET.
+  if (erEksternIcalAction_(action)) {
+    try {
+      return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
+    } catch (icalErr) {
+      return json_({ ok: false, error: String(icalErr) }, 500);
+    }
+  }
+
   var lock = LockService.getScriptLock();
   try {
     lock.waitLock(30000);
-    var body = parseBody_(e);
-    var action = String(body.action || ((e.parameter && e.parameter.action) || "save"));
 
     if (action === "load") {
       var loadAuth = requireAuth_(body, false);

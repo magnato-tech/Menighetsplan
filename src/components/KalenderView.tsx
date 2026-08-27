@@ -5,8 +5,10 @@ import {
   avvisKalenderoppgave,
   aktiveMaler,
   foreslaMalId,
+  DEFAULT_REMOTE_SCRIPT_URL,
   getCustomScriptUrl,
   hentEksternIcalTekst,
+  synkFeilMedKilde,
   leggInnKalenderoppgave,
   opprettArrangement,
   saveDatabase,
@@ -163,7 +165,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
     setFeil("");
     setSynkStatus("");
     try {
-      const ics = await hentEksternIcalTekst(getCustomScriptUrl());
+      const ics = await hentEksternIcalTekst(getCustomScriptUrl(), undefined, DEFAULT_REMOTE_SCRIPT_URL);
       const resultat = synkKalenderoppgaver(db, ics);
       persister(resultat.db);
       setSynkStatus(
@@ -173,7 +175,9 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
       );
     } catch (err) {
       const raa = String((err as Error)?.message || err);
-      setFeil(raa === "Failed to fetch" ? "Kunne ikke hente kalenderen fra nettsiden. Prøv igjen." : raa);
+      const tekst =
+        raa === "Failed to fetch" ? "Kunne ikke hente kalenderen fra nettsiden. Prøv igjen." : raa;
+      setFeil(synkFeilMedKilde(tekst, getCustomScriptUrl()));
     } finally {
       setLaster(false);
     }

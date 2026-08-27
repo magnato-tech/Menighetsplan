@@ -7,6 +7,13 @@ import {
   korrigerIcalHeldagsTilKlokkeslett,
   leggInnKalenderoppgave,
   synkKalenderoppgaver,
+  icsTekstFraSvar,
+  icalGasPostInit,
+  icalHentUrlKandidater,
+  icalHentUrlKandidaterForSynk,
+  erKjentEksternIcalAction,
+  EKSTERN_ICAL_ACTIONS,
+  synkFeilMedKilde,
 } from "../services/eksternKalender";
 import { slettArrangement } from "../services/arrangementer";
 import type { DatabaseState } from "../types/database";
@@ -146,6 +153,68 @@ END:VCALENDAR`;
   assert.equal(synk.nye, 1);
   assert.equal(synk.db.kalenderoppgaver[0].Status, "Åpen");
   assert.equal(synk.db.kalenderoppgaver[0].ArrangementID, undefined);
+}
+
+{
+  const exec = "https://script.google.com/macros/s/PRODDEPLOY/exec";
+  const dev = icalHentUrlKandidater(exec, "dev");
+  assert.equal(dev[0], `${exec}?action=eksternIcalJson`, "H: GAS først, samme sti som prod");
+  assert.equal(dev[dev.length - 1], "/kirke-ical", "H: Vite-proxy bare som siste utvei");
+  assert.equal(dev.includes("/kirke-ical"), true);
+  const prod = icalHentUrlKandidater(exec, "prod");
+  assert.equal(prod.includes("/kirke-ical"), false, "H: prod har ikke /kirke-ical");
+  assert.deepEqual(prod, [`${exec}?action=eksternIcalJson`, `${exec}?action=eksternIcal`]);
+}
+
+{
+  const gammel = "https://script.google.com/macros/s/GAMMEL/exec";
+  const gjeldende = "https://script.google.com/macros/s/PRODDEPLOY/exec";
+  const urls = icalHentUrlKandidaterForSynk(gammel, gjeldende, "prod");
+  assert.equal(urls.length, 4, "F: gammel localStorage-URL + default /exec");
+  assert.equal(urls.filter((u) => u.includes("GAMMEL")).length, 2);
+  assert.equal(urls.filter((u) => u.includes("PRODDEPLOY")).length, 2);
+  assert.deepEqual(icalHentUrlKandidaterForSynk(gjeldende, gjeldende, "prod").length, 2);
+}
+
+{
+  const kirke = icalGasPostInit("/kirke-ical");
+  assert.equal(kirke.init.method, undefined, "H: kirkefeeden er GET");
+  const gas = icalGasPostInit("https://script.google.com/macros/s/x/exec?action=eksternIcal");
+  assert.equal(gas.init.method, "POST", "B: prod poster som load/save");
+  assert.equal(JSON.parse(String(gas.init.body)).action, "eksternIcalJson");
+  const typo = icalGasPostInit("https://script.google.com/macros/s/x/exec?action=eksternlcal");
+  assert.equal(typo.init.method, "POST", "G: I/l-variant skal også postes");
+}
+
+{
+  assert.equal(erKjentEksternIcalAction("eksternIcal"), true);
+  assert.equal(erKjentEksternIcalAction("eksternIcalJson"), true);
+  assert.equal(erKjentEksternIcalAction("eksternlcal"), true);
+  assert.equal(erKjentEksternIcalAction("load"), false);
+  assert.deepEqual([...EKSTERN_ICAL_ACTIONS], ["eksternIcal", "eksternIcalJson"]);
+}
+
+{
+  assert.equal(icsTekstFraSvar("BEGIN:VCALENDAR"), "BEGIN:VCALENDAR");
+  assert.match(icsTekstFraSvar(JSON.stringify({ ok: true, ics: "BEGIN:VCALENDAR" })), /BEGIN:VCALENDAR/);
+  assert.throws(
+    () => icsTekstFraSvar(JSON.stringify({ ok: false, error: "Ukjent action: eksternIcal" })),
+    /Ukjent action: eksternIcal/
+  );
+}
+
+{
+  const feil = synkFeilMedKilde(
+    "Ukjent action: eksternIcal",
+    "https://script.google.com/macros/s/AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw/exec"
+  );
+  assert.match(feil, /Ukjent action: eksternIcal/);
+  assert.match(feil, /Wwt7vw\/exec/);
+  assert.equal(synkFeilMedKilde("feil", ""), "feil");
+}
+
+{
+  assert.equal(icalHentUrlKandidater("", "prod").length, 0);
 }
 
 console.log("eksternKalender.test.ts: alle tester ok");

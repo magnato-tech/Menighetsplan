@@ -148,8 +148,9 @@ export const Startside: React.FC<StartsideProps> = ({
               <div ref={googleKnappRef} className="flex justify-center min-h-10" />
             ) : (
               <p className="text-xs text-slate-500">
-                Google-innlogging er ikke satt opp ennå (mangler klient-ID). Bruk din personlige
-                admin-lenke inntil videre, eller sett VITE_GOOGLE_CLIENT_ID.
+                Google-innlogging mangler klient-ID i denne byggen. En personlenke virker bare
+                hvis den ligger i Google-arket (ikke en lenke kopiert fra mock-data). For å komme
+                inn her og nå: bruk knappen under.
               </p>
             )}
             {onFortsettLokalt && (

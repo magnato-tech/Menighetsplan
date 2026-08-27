@@ -5,6 +5,24 @@ import { opprettArrangement } from "./arrangementer";
 export const KIRKE_ICAL_KATEGORI_URL =
   "https://lillesandmisjonskirke.no/er/functions/calendar/shareplanneritems.aspx?categoryid=81";
 
+export const EKSTERN_ICAL_ACTIONS = ["eksternIcal", "eksternIcalJson"] as const;
+
+/** I og l forveksles i UI; prod kan også sende annen casing. */
+export function erKjentEksternIcalAction(action: string): boolean {
+  const n = String(action || "").toLowerCase();
+  return n === "eksternical" || n === "eksternicaljson" || n === "eksternlcal" || n === "eksternlcaljson";
+}
+
+export function synkFeilMedKilde(melding: string, execUrl: string): string {
+  const base = String(execUrl || "")
+    .trim()
+    .replace(/\/$/, "")
+    .split("?")[0];
+  if (!base) return melding;
+  const hale = base.replace(/^https:\/\/script\.google\.com\/macros\/s\//i, "s/");
+  return `${melding} (${hale.slice(-24)})`;
+}
+
 export function icalAbonnementUrl(execUrl: string): string {
   const base = String(execUrl || "")
     .trim()
@@ -204,19 +222,37 @@ export function icsTekstFraSvar(raw: string): string {
   const trimmet = String(raw || "").trim();
   if (trimmet.startsWith("{")) {
     const parsed = JSON.parse(trimmet) as { ok?: boolean; ics?: string; error?: string };
+    // #region agent log
+    fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
+      body: JSON.stringify({
+        sessionId: "e5cdf3",
+        runId: "pre-fix",
+        hypothesisId: "A",
+        location: "eksternKalender.ts:icsTekstFraSvar",
+        message: "JSON calendar response",
+        data: {
+          ok: parsed.ok,
+          error: parsed.error || "",
+          hasIcs: Boolean(parsed.ics),
+          icsLen: String(parsed.ics || "").length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
     if (parsed.ics) return parsed.ics;
     throw new Error(parsed.error || "Kalendersvaret manglet ics.");
   }
   return String(raw || "");
 }
 
-function icalHentUrlKandidater(execUrl = ""): string[] {
+export function icalHentUrlKandidater(
+  execUrl = "",
+  modus: "dev" | "prod" = import.meta.env?.DEV ? "dev" : "prod"
+): string[] {
   const urls: string[] = [];
-  if (import.meta.env?.DEV) {
-    urls.push("/kirke-ical");
-    urls.push("/gas-api?action=eksternIcalJson");
-    urls.push("/gas-api?action=eksternIcal");
-  }
   const base = String(execUrl || "")
     .trim()
     .replace(/\/$/, "")
@@ -225,15 +261,82 @@ function icalHentUrlKandidater(execUrl = ""): string[] {
     urls.push(`${base}?action=eksternIcalJson`);
     urls.push(icalAbonnementUrl(base));
   }
+  if (modus === "dev") {
+    urls.push("/gas-api?action=eksternIcalJson");
+    urls.push("/gas-api?action=eksternIcal");
+    urls.push("/kirke-ical");
+  }
   return [...new Set(urls)];
 }
 
+/** Custom URL i prod-localStorage kan peke på gammel /exec; fallback er den vi deployer. */
+export function icalHentUrlKandidaterForSynk(
+  execUrl: string,
+  fallbackUrl = "",
+  modus: "dev" | "prod" = import.meta.env?.DEV ? "dev" : "prod"
+): string[] {
+  const primaer = icalHentUrlKandidater(execUrl, modus);
+  const fb = String(fallbackUrl || "")
+    .trim()
+    .replace(/\/$/, "")
+    .split("?")[0];
+  const exec = String(execUrl || "")
+    .trim()
+    .replace(/\/$/, "")
+    .split("?")[0];
+  if (!fb || fb === exec) return primaer;
+  return [...new Set([...primaer, ...icalHentUrlKandidater(fb, modus)])];
+}
+
+export function icalGasPostInit(url: string, signal?: AbortSignal): { fetchUrl: string; init: RequestInit } {
+  const action = new URL(url, "http://localhost").searchParams.get("action") || "";
+  if (!erKjentEksternIcalAction(action)) {
+    return { fetchUrl: url, init: { signal } };
+  }
+  return {
+    fetchUrl: url.split("?")[0],
+    init: {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "eksternIcalJson" }),
+      signal,
+    },
+  };
+}
+
 async function hentIcalFraUrl(url: string, signal?: AbortSignal): Promise<string> {
-  const res = await fetch(url, { signal });
+  const { fetchUrl, init } = icalGasPostInit(url, signal);
+  const res = await fetch(fetchUrl, init);
+  const text = await res.text();
+  // #region agent log
+  fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
+    body: JSON.stringify({
+      sessionId: "e5cdf3",
+      runId: "post-fix",
+      hypothesisId: "C",
+      location: "eksternKalender.ts:hentIcalFraUrl",
+      message: "ical HTTP attempt",
+      data: {
+        url: fetchUrl.split("?")[0],
+        action: new URL(url, "http://localhost").searchParams.get("action") || "",
+        method: init.method || "GET",
+        status: res.status,
+        ok: res.ok,
+        contentType: res.headers.get("content-type") || "",
+        bodyStart: text.slice(0, 160),
+        isJson: text.trim().startsWith("{"),
+        isIcs: text.includes("BEGIN:VCALENDAR"),
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   if (!res.ok) {
     throw new Error(`Kunne ikke hente kalender (${res.status})`);
   }
-  const ics = icsTekstFraSvar(await res.text());
+  const ics = icsTekstFraSvar(text);
   if (!ics.includes("BEGIN:VCALENDAR")) {
     throw new Error("Kalenderfeeden var ugyldig.");
   }
@@ -241,8 +344,33 @@ async function hentIcalFraUrl(url: string, signal?: AbortSignal): Promise<string
 }
 
 /** Dev: Vite-proxy, deretter GAS. Prod: GAS JSON. */
-export async function hentEksternIcalTekst(execUrl = "", signal?: AbortSignal): Promise<string> {
-  const urls = icalHentUrlKandidater(execUrl);
+export async function hentEksternIcalTekst(
+  execUrl = "",
+  signal?: AbortSignal,
+  fallbackUrl = ""
+): Promise<string> {
+  const urls = icalHentUrlKandidaterForSynk(execUrl, fallbackUrl);
+  // #region agent log
+  fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
+    body: JSON.stringify({
+      sessionId: "e5cdf3",
+      runId: "pre-fix",
+      hypothesisId: "D",
+      location: "eksternKalender.ts:hentEksternIcalTekst",
+      message: "ical URL candidates",
+      data: {
+        dev: Boolean(import.meta.env?.DEV),
+        prod: Boolean(import.meta.env?.PROD),
+        execHost: String(execUrl || "").split("?")[0].replace(/\/$/, ""),
+        actions: urls.map((u) => new URL(u, "http://localhost").searchParams.get("action") || u),
+        count: urls.length,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
   let siste = "Kunne ikke hente kalenderen fra nettsiden.";
   for (const url of urls) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -251,6 +379,24 @@ export async function hentEksternIcalTekst(execUrl = "", signal?: AbortSignal): 
     } catch (err) {
       if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) throw err;
       siste = err instanceof Error ? err.message : String(err);
+      // #region agent log
+      fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
+        body: JSON.stringify({
+          sessionId: "e5cdf3",
+          runId: "pre-fix",
+          hypothesisId: "D",
+          location: "eksternKalender.ts:hentEksternIcalTekst:catch",
+          message: "ical candidate failed",
+          data: {
+            action: new URL(url, "http://localhost").searchParams.get("action") || url,
+            error: siste,
+          },
+          timestamp: Date.now(),
+        }),
+      }).catch(() => {});
+      // #endregion
     }
   }
   throw new Error(siste);

@@ -58,7 +58,7 @@ export function fornySikkerhetsToken(db: DatabaseState, personId: string): Datab
 export function finnPersonMedMagiskToken(db: DatabaseState, token: string): Person | undefined {
   if (!token || !db?.personer) return undefined;
   const clean = token.trim();
-  if (!erMagiskLenkeToken(clean) || erGammelHashLenke(clean)) return undefined;
+  if (!erMagiskLenkeToken(clean)) return undefined;
   return db.personer.find((p) => String(p.SikkerhetsToken || "").trim() === clean);
 }
 
