@@ -47,19 +47,63 @@ export function korrigerIcalHeldagsTilKlokkeslett(ics: string): string {
   );
 }
 
-function icalDatoTid(verdi: string): { dato: string; tid: string } {
+function utcTilOslo(
+  y: number,
+  mo: number,
+  d: number,
+  h: number,
+  mi: number,
+  s: number
+): { dato: string; tid: string } {
+  const utc = new Date(Date.UTC(y, mo - 1, d, h, mi, s));
+  const deler = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Oslo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(utc);
+  const les = (type: string) => deler.find((p) => p.type === type)?.value || "";
+  return {
+    dato: `${les("year")}-${les("month")}-${les("day")}`,
+    tid: `${les("hour")}:${les("minute")}`,
+  };
+}
+
+function icalDatoTid(verdi: string, utc = false): { dato: string; tid: string } {
   const v = String(verdi || "").trim();
-  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?/.exec(v);
+  const m = /^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2}))?(Z)?$/i.exec(v);
   if (!m) return { dato: "", tid: "" };
+  const somUtc = utc || Boolean(m[7]);
+  if (m[4] && somUtc) {
+    return utcTilOslo(
+      Number(m[1]),
+      Number(m[2]),
+      Number(m[3]),
+      Number(m[4]),
+      Number(m[5]),
+      Number(m[6])
+    );
+  }
   const dato = `${m[1]}-${m[2]}-${m[3]}`;
   const tid = m[4] ? `${m[4]}:${m[5]}` : "";
   return { dato, tid };
 }
 
+function feltLinje(blokk: string, navn: string): { params: string; verdi: string } {
+  const re = new RegExp(`^${navn}(;[^:]*)?:(.*)$`, "im");
+  const treff = re.exec(blokk);
+  if (!treff) return { params: "", verdi: "" };
+  return {
+    params: treff[1] || "",
+    verdi: treff[2].trim().replace(/\\n/g, "\n").replace(/\\,/g, ","),
+  };
+}
+
 function feltVerdi(blokk: string, navn: string): string {
-  const re = new RegExp(`^${navn}(?:;[^:]*)?:(.*)$`, "im");
-  const m = re.exec(blokk);
-  return m ? m[1].trim().replace(/\\n/g, "\n").replace(/\\,/g, ",") : "";
+  return feltLinje(blokk, navn).verdi;
 }
 
 export interface IcalHendelse {
@@ -77,7 +121,9 @@ export function icalHendelser(ics: string): IcalHendelse[] {
   const ut: IcalHendelse[] = [];
   for (const raa of blokker) {
     const blokk = raa.split(/END:VEVENT/i)[0] || "";
-    const start = icalDatoTid(feltVerdi(blokk, "DTSTART"));
+    const startFelt = feltLinje(blokk, "DTSTART");
+    const startUtc = /TZID=UTC/i.test(startFelt.params);
+    const start = icalDatoTid(startFelt.verdi, startUtc);
     if (!start.dato) continue;
     ut.push({
       uid: feltVerdi(blokk, "UID"),

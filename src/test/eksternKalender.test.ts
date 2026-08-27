@@ -16,6 +16,7 @@ import {
   synkFeilMedKilde,
 } from "../services/eksternKalender";
 import { slettArrangement } from "../services/arrangementer";
+import { flettManglendeKalenderdata } from "../services/persistens";
 import type { DatabaseState } from "../types/database";
 
 function tomDb(): DatabaseState {
@@ -81,6 +82,26 @@ END:VCALENDAR`;
   assert.equal(hendelser[0].dato, "2026-09-06");
   assert.equal(hendelser[0].tid, "11:00");
   assert.equal(hendelser[1].tittel, "Bønnemøte");
+}
+
+{
+  const kirkeIcs = `BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:uid-gud-utc@kirke
+DTSTART;VALUE=DATE:20260913T090000Z
+SUMMARY:Gudstjeneste
+END:VEVENT
+BEGIN:VEVENT
+UID:uid-gud-vinter@kirke
+DTSTART;VALUE=DATE:20261108T100000Z
+SUMMARY:Gudstjeneste
+END:VEVENT
+END:VCALENDAR`;
+  const hendelser = icalHendelser(kirkeIcs);
+  assert.equal(hendelser[0].dato, "2026-09-13");
+  assert.equal(hendelser[0].tid, "11:00", "09:00Z om sommeren er 11:00 i Oslo");
+  assert.equal(hendelser[1].dato, "2026-11-08");
+  assert.equal(hendelser[1].tid, "11:00", "10:00Z om vinteren er 11:00 i Oslo");
 }
 
 {
@@ -215,6 +236,63 @@ END:VCALENDAR`;
 
 {
   assert.equal(icalHentUrlKandidater("", "prod").length, 0);
+}
+
+{
+  const gammel = {
+    arrangementer: [
+      {
+        ArrangementID: "AR001",
+        Dato: "2026-10-10",
+        Tid: "18:00",
+        Sted: "Bedehuset",
+        Tittel: "Bønn for Norge",
+        Beskrivelse: "",
+        Aktiv: true,
+        OpprettetDato: "2026-08-27",
+        SistEndret: "2026-08-27",
+      },
+    ],
+    kalenderoppgaver: [
+      {
+        KalenderoppgaveID: "KO001",
+        EksternUID: "uid-1",
+        Dato: "2026-10-10",
+        Tid: "18:00",
+        Sted: "Bedehuset",
+        Tittel: "Bønn for Norge",
+        Beskrivelse: "",
+        Status: "Opprettet" as const,
+        ArrangementID: "AR001",
+        OpprettetDato: "2026-08-27",
+        SistEndret: "2026-08-27",
+      },
+    ],
+    tjenestebehov: [
+      {
+        TjenestebehovID: "TB-AR",
+        GudstjenesteID: "",
+        ArrangementID: "AR001",
+        RolleID: "R001",
+        Antall: 1,
+        Aktiv: true,
+        OpprettetDato: "2026-08-27",
+        SistEndret: "2026-08-27",
+      },
+    ],
+  };
+  const flettet = flettManglendeKalenderdata(
+    { arrangementer: [], kalenderoppgaver: [], tjenestebehov: [] },
+    gammel
+  );
+  assert.equal(flettet.arrangementer?.length, 1);
+  assert.equal(flettet.kalenderoppgaver?.[0].Status, "Opprettet");
+  assert.equal(flettet.tjenestebehov?.length, 1);
+  const urort = flettManglendeKalenderdata(
+    { arrangementer: [{ ...gammel.arrangementer[0], Tittel: "Ny" }], kalenderoppgaver: [] },
+    gammel
+  );
+  assert.equal(urort.arrangementer?.[0].Tittel, "Ny");
 }
 
 console.log("eksternKalender.test.ts: alle tester ok");

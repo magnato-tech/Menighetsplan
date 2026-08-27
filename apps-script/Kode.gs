@@ -822,6 +822,15 @@ function fyllSikkerhetsTokens() {
   return personer.length;
 }
 
+/** Tom klient-state skal ikke slette Arrangementer/Kalenderoppgaver som allerede ligger i arket. */
+function skalSkriveArk_(ss, key, spec, records) {
+  if (!Array.isArray(records)) return false;
+  if (records.length > 0) return true;
+  if (key !== "arrangementer" && key !== "kalenderoppgaver") return true;
+  var eksisterende = readSheet_(ss, spec);
+  return !eksisterende || eksisterende.length === 0;
+}
+
 function saveDatabase(state, isAdmin) {
   ensureSchema_();
   var ss = getSpreadsheet_();
@@ -841,8 +850,9 @@ function saveDatabase(state, isAdmin) {
   }
   var key;
   for (key in MASTER_SHEETS) {
-    if (!state[key]) continue;
+    if (state[key] === undefined || state[key] === null) continue;
     if (isAdmin === false && !NON_ADMIN_WRITABLE_SHEETS[key]) continue;
+    if (!skalSkriveArk_(ss, key, MASTER_SHEETS[key], state[key])) continue;
     writeSheet_(ss, MASTER_SHEETS[key], state[key]);
   }
   // Import-faner skrives aldri.

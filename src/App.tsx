@@ -18,6 +18,7 @@ import {
   getDevDataSource,
   setDevDataSource,
   erMedITjenestegruppe,
+  REMOTE_SAVE_FEIL_EVENT,
   type DevDataSource,
 } from "./services/dataService";
 import {
@@ -72,6 +73,7 @@ export default function App() {
   });
   const [startFeil, setStartFeil] = useState<string | null>(null);
   const [innloggetViaGoogle, setInnloggetViaGoogle] = useState(false);
+  const [remoteSaveFeil, setRemoteSaveFeil] = useState<string | null>(null);
 
   const fetchRemote = useCallback(() => {
     let cancelled = false;
@@ -97,6 +99,15 @@ export default function App() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  useEffect(() => {
+    const onFeil = (e: Event) => {
+      const melding = (e as CustomEvent<string>).detail;
+      setRemoteSaveFeil(melding || "Kunne ikke lagre til Google Sheets.");
+    };
+    window.addEventListener(REMOTE_SAVE_FEIL_EVENT, onFeil);
+    return () => window.removeEventListener(REMOTE_SAVE_FEIL_EVENT, onFeil);
   }, []);
 
   useEffect(() => {
@@ -423,6 +434,18 @@ export default function App() {
           Utvikling: mock-data. Leser og skriver ikke til Google Sheets. Bytt under Administrator → Innstillinger.
         </div>
       )}
+      {remoteSaveFeil && (
+        <div className="bg-rose-100 text-rose-950 px-4 py-2 text-xs font-medium text-center border-b border-rose-200 flex items-center justify-center gap-3">
+          <span>Lagring til Google Sheets feilet: {remoteSaveFeil}</span>
+          <button
+            type="button"
+            className="underline font-semibold cursor-pointer"
+            onClick={() => setRemoteSaveFeil(null)}
+          >
+            Skjul
+          </button>
+        </div>
+      )}
       {/* Banner når administrator tester visning som en annen person */}
       {adminSimulatingPersonId && (
         <div className="bg-amber-500 text-slate-950 px-4 py-2 text-xs font-medium flex items-center justify-between shadow-sm sticky top-0 z-40">
@@ -473,7 +496,6 @@ export default function App() {
             onDatePickerRolleChange={setDatePickerRolle}
             visOppgaverArk={visOppgaverArk}
             onOppgaverArkChange={setVisOppgaverArk}
-            onAvbrytLanding={handleLoggUt}
           />
         )}
 

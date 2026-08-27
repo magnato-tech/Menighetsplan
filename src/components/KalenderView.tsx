@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Plus, RefreshCw, X } from "lucide-react";
 import {
   DatabaseState,
@@ -107,6 +107,8 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
   });
   const [oppgaveMal, setOppgaveMal] = useState<Record<string, string>>({});
   const [apentArrangementId, setApentArrangementId] = useState<string | null>(null);
+  const dbRef = useRef(db);
+  dbRef.current = db;
 
   const year = nå.getFullYear();
   const month = nå.getMonth();
@@ -156,8 +158,15 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
   const maler = aktiveMaler(db);
 
   const persister = (neste: DatabaseState) => {
+    dbRef.current = neste;
     saveDatabase(neste);
     onUpdateDb(neste);
+  };
+
+  const oppdaterDb = (fn: (forrige: DatabaseState) => DatabaseState) => {
+    const neste = fn(dbRef.current);
+    if (neste === dbRef.current) return;
+    persister(neste);
   };
 
   const kjorSynk = async () => {
@@ -166,7 +175,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
     setSynkStatus("");
     try {
       const ics = await hentEksternIcalTekst(getCustomScriptUrl(), undefined, DEFAULT_REMOTE_SCRIPT_URL);
-      const resultat = synkKalenderoppgaver(db, ics);
+      const resultat = synkKalenderoppgaver(dbRef.current, ics);
       persister(resultat.db);
       setSynkStatus(
         resultat.nye
@@ -185,8 +194,8 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
 
   const lagreNytt = () => {
     const malId = nyFelt.malId || foreslaMalId(db, nyFelt.tittel);
-    const neste = opprettArrangement(db, { ...nyFelt, malId, opprettetAv: selectedPersonId });
-    if (neste === db) return;
+    const neste = opprettArrangement(dbRef.current, { ...nyFelt, malId, opprettetAv: selectedPersonId });
+    if (neste === dbRef.current) return;
     persister(neste);
     setNyApen(false);
     setNyFelt((prev) => ({ ...prev, tittel: "", beskrivelse: "", malId: "", gruppeId: "" }));
@@ -361,14 +370,18 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => persister(leggInnKalenderoppgave(db, o.KalenderoppgaveID, selectedPersonId, valgtMal))}
+                    onClick={() =>
+                      oppdaterDb((forrige) =>
+                        leggInnKalenderoppgave(forrige, o.KalenderoppgaveID, selectedPersonId, valgtMal)
+                      )
+                    }
                     className="min-h-11 px-3 py-1.5 bg-[#2d5a3f] text-white text-xs font-semibold rounded-xl cursor-pointer"
                   >
                     Ja, {malNavn}
                   </button>
                   <button
                     type="button"
-                    onClick={() => persister(avvisKalenderoppgave(db, o.KalenderoppgaveID))}
+                    onClick={() => oppdaterDb((forrige) => avvisKalenderoppgave(forrige, o.KalenderoppgaveID))}
                     className="min-h-11 px-3 py-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer"
                   >
                     Ikke nå

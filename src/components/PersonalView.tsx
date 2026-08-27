@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import {
   DatabaseState,
   getEffektivtBehov,
   getMaksAntall,
   erRolleHardFull,
   hentSvarStatus,
-  erMedITjenestegruppe,
   hentPåmeldingsRoller,
+  trengerForstereise,
   svarPaaTildeling,
   velgDatoForPerson,
   kanRedigereProgram,
@@ -43,10 +43,8 @@ interface PersonalViewProps {
   onDatePickerRolleChange: (rolle: Rolle | null) => void;
   visOppgaverArk?: boolean;
   onOppgaverArkChange?: (apen: boolean) => void;
-  onAvbrytLanding?: () => void;
 }
 
-type PåmeldingsFilter = "ledige" | "mine" | "alle";
 type PåmeldingsStatus = "ledig" | "min-venter" | "min-bekreftet" | "full" | "stengt";
 
 function formatDato(dato: string): string {
@@ -127,28 +125,44 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   onDatePickerRolleChange,
   visOppgaverArk = false,
   onOppgaverArkChange,
-  onAvbrytLanding,
 }) => {
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
-  const [datePickerFilter, setDatePickerFilter] = useState<"ledige" | "mine" | "alle">("alle");
   const [visHeleBemanningFor, setVisHeleBemanningFor] = useState<Record<string, boolean>>({});
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
   const [visAlleSondager, setVisAlleSondager] = useState(false);
-  const [holdLandingVelkomst, setHoldLandingVelkomst] = useState(false);
   const [minSideFane, setMinSideFane] = useState<"oppgaver" | "kalender">("oppgaver");
   const [visMineGrupper, setVisMineGrupper] = useState(false);
+  const [harLukketForsteDatoer, setHarLukketForsteDatoer] = useState(false);
 
   const openDatePicker = (rolle: Rolle) => {
     if (!hentPåmeldingsRoller(db, selectedPersonId).some((r) => r.RolleID === rolle.RolleID)) {
       return;
     }
-    setDatePickerFilter("alle");
     onDatePickerRolleChange(rolle);
   };
 
+  const lukkDatoer = () => {
+    setHarLukketForsteDatoer(true);
+    onDatePickerRolleChange(null);
+  };
+
   useEffect(() => {
-    if (datePickerRolle) setDatePickerFilter("alle");
-  }, [datePickerRolle?.RolleID]);
+    setHarLukketForsteDatoer(false);
+  }, [selectedPersonId]);
+
+  useLayoutEffect(() => {
+    if (harLukketForsteDatoer) return;
+    if (datePickerRolle) return;
+    if (!trengerForstereise(db, selectedPersonId)) return;
+    const roller = hentPåmeldingsRoller(db, selectedPersonId);
+    if (roller.length === 1) onDatePickerRolleChange(roller[0]);
+  }, [
+    db,
+    selectedPersonId,
+    datePickerRolle,
+    harLukketForsteDatoer,
+    onDatePickerRolleChange,
+  ]);
 
   const person = db.personer.find((p) => p.PersonID === selectedPersonId);
 
@@ -230,23 +244,49 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
     }
   };
 
-  const trengerLanding = !erMedITjenestegruppe(db, person.PersonID) || holdLandingVelkomst;
-  if (trengerLanding) {
+  const forstereise = trengerForstereise(db, person.PersonID);
+  const trengerOppgavevalg = forstereise && visningsRoller.length === 0;
+  if (trengerOppgavevalg) {
     return (
       <InteresseSkjema
         landing
         db={db}
         personId={person.PersonID}
-        onUpdateDb={(neste) => {
-          onUpdateDb(neste);
-          if (erMedITjenestegruppe(neste, person.PersonID)) setHoldLandingVelkomst(true);
-        }}
-        onFerdig={() => {
-          setHoldLandingVelkomst(false);
-          onOppgaverArkChange?.(false);
-        }}
-        onAvbryt={onAvbrytLanding}
+        onUpdateDb={onUpdateDb}
+        onFerdig={() => onOppgaverArkChange?.(false)}
       />
+    );
+  }
+
+  if (forstereise && visningsRoller.length === 1 && !datePickerRolle && !harLukketForsteDatoer) {
+    return <div className="min-h-[40vh]" aria-busy="true" />;
+  }
+
+  if (forstereise && visningsRoller.length > 1 && !datePickerRolle && !harLukketForsteDatoer) {
+    return (
+      <div className="max-w-lg mx-auto px-4 sm:px-6 py-8">
+        <div className="bg-white rounded-3xl p-4 sm:p-8 border border-slate-200/90 shadow-xs space-y-4">
+          <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+            Hei {person.Fornavn}
+          </h2>
+          <p className="text-sm text-slate-600 leading-relaxed">
+            Hvilken oppgave vil du sette deg opp på nå?
+          </p>
+          <div className="space-y-2">
+            {visningsRoller.map((rolle) => (
+              <button
+                key={rolle.RolleID}
+                type="button"
+                onClick={() => openDatePicker(rolle)}
+                className="w-full min-h-14 flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#2d5a3f] hover:bg-[#234731] text-white text-left cursor-pointer"
+              >
+                <RolleIkon rollenavn={rolle.Rollenavn} className="w-10 h-10" />
+                <span className="text-base font-bold">{rolle.Rollenavn}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -552,17 +592,9 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           <div className="bg-white w-full sheet-panel sm:h-auto sm:max-h-[100dvh] sm:max-w-5xl sm:my-4 sm:rounded-3xl shadow-2xl border-0 sm:border sm:border-slate-200 flex flex-col overflow-hidden">
             <div className="px-4 sm:px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-3 shrink-0">
               <div>
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Meld deg på
-                </span>
                 <h3 className="text-xl sm:text-2xl font-bold text-slate-900">
-                  {datePickerRolle.Rollenavn}
+                  Hvilke søndager kan du være på {datePickerRolle.Rollenavn}?
                 </h3>
-                {getMaksAntall(datePickerRolle) != null && (
-                  <p className="text-sm text-slate-600 mt-1">
-                    {datePickerRolle.Behov} av maks {getMaksAntall(datePickerRolle)}
-                  </p>
-                )}
                 {(() => {
                   const gruppe = datePickerRolle.GruppeID
                     ? db.grupper.find((g) => g.GruppeID === datePickerRolle.GruppeID)
@@ -571,18 +603,20 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                     ? db.personer.find((p) => p.PersonID === gruppe.GruppelederID)
                     : undefined;
                   const lederNavn = leder?.Fornavn || leder?.Navn;
-                  return (
+                  return lederNavn ? (
                     <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                      {lederNavn
-                        ? `Gruppeleder ${lederNavn} får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen.`
-                        : "Gruppeleder får beskjed når du melder deg på, og følger opp og koordinerer det som skjer i gruppen."}
+                      Gruppeleder {lederNavn} får beskjed når du melder deg på.
+                    </p>
+                  ) : (
+                    <p className="text-sm text-slate-600 mt-2 leading-relaxed">
+                      Gruppeleder får beskjed når du melder deg på.
                     </p>
                   );
                 })()}
               </div>
               <button
                 type="button"
-                onClick={() => onDatePickerRolleChange(null)}
+                onClick={lukkDatoer}
                 className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition cursor-pointer shrink-0"
                 aria-label="Lukk"
               >
@@ -592,75 +626,22 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
 
             {(() => {
               const rader = byggPåmeldingsrader(db, person.PersonID, datePickerRolle);
-              const antallLedige = rader.filter((r) => r.status === "ledig").length;
-              const antallMine = rader.filter(
-                (r) => r.status === "min-venter" || r.status === "min-bekreftet"
-              ).length;
-              const antallFulle = rader.filter((r) => r.status === "full").length;
-              const antallStengt = rader.filter((r) => r.status === "stengt").length;
-              const filtrert = rader.filter((r) => {
-                if (datePickerFilter === "ledige") return r.status === "ledig";
-                if (datePickerFilter === "mine") {
-                  return r.status === "min-venter" || r.status === "min-bekreftet";
-                }
-                return true;
-              });
 
               return (
                 <>
-                  <div className="px-4 sm:px-6 py-3 flex flex-wrap gap-2 shrink-0">
-                    {(
-                      [
-                        ["alle", `Alle (${rader.length})`],
-                        ["ledige", `Ledige (${antallLedige})`],
-                        ["mine", `Mine (${antallMine})`],
-                      ] as const
-                    ).map(([id, label]) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setDatePickerFilter(id)}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition ${
-                          datePickerFilter === id
-                            ? "bg-[#2d5a3f] text-white"
-                            : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                        }`}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                    <span className="text-xs text-slate-400 self-center ml-auto">
-                      {antallStengt > 0
-                        ? `${antallStengt} fulle`
-                        : `${antallFulle} med dekket veiledende behov`}
-                    </span>
-                  </div>
-
-                  <div className="flex-1 overflow-y-auto px-4 sm:px-6 pb-4 space-y-2">
-                    {filtrert.length === 0 ? (
+                  <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-2">
+                    {rader.length === 0 ? (
                       <div className="text-center py-12 text-sm text-slate-500">
-                        Ingen gudstjenester i dette filteret.
+                        Ingen kommende gudstjenester.
                       </div>
                     ) : (
-                      filtrert.map((rad) => {
+                      rader.map((rad) => {
                         const {
                           gudstjeneste: g,
-                          behov,
-                          maks,
-                          ledige,
-                          bekreftetAntall,
                           personerPå,
                           status,
                         } = rad;
                         const kanMelde = status === "ledig" || status === "full";
-                        const kapasitetTekst =
-                          maks != null
-                            ? `${bekreftetAntall} av maks ${maks}${
-                                status === "stengt" ? " · fullt" : ledige > 0 ? ` · ${ledige} ledig` : ""
-                              }`
-                            : `${bekreftetAntall} av ${behov} bekreftet (veiledende)${
-                                ledige > 0 ? ` · ${ledige} ledig` : " · kan overbookes"
-                              }`;
                         return (
                           <div
                             key={g.GudstjenesteID}
@@ -687,7 +668,6 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                                 {g.Tema || "Gudstjeneste"}
                                 {g.Sted ? ` · ${g.Sted}` : ""}
                               </div>
-                              <div className="text-xs text-slate-500">{kapasitetTekst}</div>
                               {personerPå.filter(
                                 (p) =>
                                   p.status === "Bekreftet" || p.personId === person.PersonID
@@ -753,7 +733,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
                   <div className="px-4 sm:px-6 py-3 border-t border-slate-100 flex shrink-0 sheet-safe-bottom bg-white/95">
                     <button
                       type="button"
-                      onClick={() => onDatePickerRolleChange(null)}
+                      onClick={lukkDatoer}
                       className="min-h-11 w-full px-4 bg-[#2d5a3f] hover:bg-[#234731] text-white text-sm font-semibold rounded-xl transition cursor-pointer"
                     >
                       Ferdig

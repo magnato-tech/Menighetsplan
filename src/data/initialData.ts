@@ -296,6 +296,91 @@ export const initialPersoner: Person[] = [
     OpprettetDato: "2026-01-08",
     SistEndret: "2026-01-08",
   },
+  {
+    PersonID: "P015",
+    Navn: "Solveig Berg",
+    Fornavn: "Solveig",
+    Etternavn: "Berg",
+    Epost: "solveig.berg@example.com",
+    Telefon: "913 22 110",
+    Fødselsår: 1964,
+    Adresse: "Kirkeveien 8",
+    Postnummer: "4790",
+    Poststed: "Lillesand",
+    Notat: "Hjelper på kjøkkenet. Vanlig medlem.",
+    Tilgangsnivå: "bruker",
+    Aktiv: true,
+    OpprettetDato: "2026-01-09",
+    SistEndret: "2026-01-09",
+  },
+  {
+    PersonID: "P016",
+    Navn: "Bjørn Nilsen",
+    Fornavn: "Bjørn",
+    Etternavn: "Nilsen",
+    Epost: "bjorn.nilsen@example.com",
+    Telefon: "918 44 221",
+    Fødselsår: 1978,
+    Adresse: "Storgata 21",
+    Postnummer: "4790",
+    Poststed: "Lillesand",
+    Notat: "Barnekirke. Vanlig medlem.",
+    Tilgangsnivå: "bruker",
+    Aktiv: true,
+    OpprettetDato: "2026-01-09",
+    SistEndret: "2026-01-09",
+  },
+  {
+    PersonID: "P017",
+    Navn: "Liv Haugen",
+    Fornavn: "Liv",
+    Etternavn: "Haugen",
+    Epost: "liv.haugen@example.com",
+    Telefon: "909 55 332",
+    Fødselsår: 1958,
+    Adresse: "Havnegata 3",
+    Postnummer: "4790",
+    Poststed: "Lillesand",
+    Notat: "Møtevert. Vanlig medlem.",
+    Tilgangsnivå: "bruker",
+    Aktiv: true,
+    OpprettetDato: "2026-01-09",
+    SistEndret: "2026-01-09",
+  },
+  {
+    PersonID: "P018",
+    Navn: "Per Holm",
+    Fornavn: "Per",
+    Etternavn: "Holm",
+    Epost: "per.holm@example.com",
+    Telefon: "922 66 443",
+    Fødselsår: 1992,
+    Adresse: "Skoleveien 14",
+    Postnummer: "4790",
+    Poststed: "Lillesand",
+    Notat: "Lovsang. Vanlig medlem.",
+    Tilgangsnivå: "bruker",
+    Aktiv: true,
+    OpprettetDato: "2026-01-09",
+    SistEndret: "2026-01-09",
+  },
+  {
+    PersonID: "P019",
+    Navn: "Grete Moen",
+    Fornavn: "Grete",
+    Etternavn: "Moen",
+    Epost: "grete.moen@example.com",
+    Telefon: "915 77 554",
+    Fødselsår: 1971,
+    Adresse: "Åsveien 9",
+    Postnummer: "4790",
+    Poststed: "Lillesand",
+    Notat: "Ny, har ikke huket av oppgaver ennå.",
+    Tilgangsnivå: "bruker",
+    Aktiv: true,
+    OpprettetDato: "2026-01-09",
+    SistEndret: "2026-01-09",
+  },
 ];
 
 export const initialGrupper: Gruppe[] = [
@@ -421,6 +506,10 @@ export const initialGruppemedlemmer: Gruppemedlem[] = [
   { GruppeMedlemID: "GM019", GruppeID: "G008", PersonID: "P012", Medlemsrolle: "Nestleder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { GruppeMedlemID: "GM020", GruppeID: "G009", PersonID: "P001", Medlemsrolle: "Leder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
   { GruppeMedlemID: "GM021", GruppeID: "G009", PersonID: "P002", Medlemsrolle: "Nestleder", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM022", GruppeID: "G006", PersonID: "P015", Medlemsrolle: "Medlem", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM023", GruppeID: "G004", PersonID: "P016", Medlemsrolle: "Medlem", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM024", GruppeID: "G005", PersonID: "P017", Medlemsrolle: "Medlem", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { GruppeMedlemID: "GM025", GruppeID: "G002", PersonID: "P018", Medlemsrolle: "Medlem", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
 ];
 
 export const initialRoller: Rolle[] = [
@@ -629,6 +718,11 @@ export const initialPersonroller: Personrolle[] = [
 
   // Olav Hauge
   { PersonRolleID: "PR030", PersonID: "P014", RolleID: "R005", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+
+  { PersonRolleID: "PR031", PersonID: "P015", RolleID: "R010", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { PersonRolleID: "PR032", PersonID: "P016", RolleID: "R004", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { PersonRolleID: "PR033", PersonID: "P017", RolleID: "R008", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
+  { PersonRolleID: "PR034", PersonID: "P018", RolleID: "R005", Aktiv: true, OpprettetDato: "2026-01-10", SistEndret: "2026-01-10" },
 ];
 
 export const initialRollebeskrivelser: Rollebeskrivelse[] = [
@@ -834,6 +928,7 @@ export const initialTildelinger: Tildeling[] = [
   { TildelingID: "T015", GudstjenesteID: "GUD002", RolleID: "R003", PersonID: "P011", OpprettetDato: "2026-01-15", SistEndret: "2026-01-15" }, // Astrid Forbønn
   { TildelingID: "T016", GudstjenesteID: "GUD002", RolleID: "R006", PersonID: "P009", OpprettetDato: "2026-01-15", SistEndret: "2026-01-15" }, // Henrik Lyd
   { TildelingID: "T017", GudstjenesteID: "GUD002", RolleID: "R009", PersonID: "P012", OpprettetDato: "2026-01-15", SistEndret: "2026-01-15" }, // Thomas Rigging
+  { TildelingID: "T018", GudstjenesteID: "GUD003", RolleID: "R004", PersonID: "P016", OpprettetDato: "2026-01-20", SistEndret: "2026-01-20" }, // Bjørn Barnekirke
 ];
 
 export const initialSvar: Svar[] = [
@@ -855,6 +950,7 @@ export const initialSvar: Svar[] = [
   { SvarID: "S015", TildelingID: "T015", PersonID: "P011", Svar: "Venter", SvartDato: "" },
   { SvarID: "S016", TildelingID: "T016", PersonID: "P009", Svar: "Bekreftet", SvartDato: "2026-01-21" },
   { SvarID: "S017", TildelingID: "T017", PersonID: "P012", Svar: "Bekreftet", SvartDato: "2026-01-22" },
+  { SvarID: "S018", TildelingID: "T018", PersonID: "P016", Svar: "Bekreftet", SvartDato: "2026-01-22" },
 ];
 
 // Historiske import-kildedata som beholdes urørt for migrering/innsyn

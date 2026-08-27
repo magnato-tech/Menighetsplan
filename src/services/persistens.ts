@@ -28,7 +28,9 @@ import { sikreSmagruppelederRolle } from "./roller";
 import { sikreStandardMaler } from "./mal";
 import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger } from "./kalender";
 
-const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v2_mock";
+const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v3_mock";
+const ELDRE_MOCK_STORAGE_KEYS = ["gudstjenesteplanlegger_db_v2_mock"];
+export const REMOTE_SAVE_FEIL_EVENT = "menighetsplan-remote-save-feil";
 const REMOTE_CACHE_KEY = "gudstjenesteplanlegger_db_v2_remote";
 const DEV_SOURCE_KEY = "gudstjenesteplanlegger_dev_data_source";
 const SCRIPT_URL_STORAGE_KEY = "gudstjenesteplanlegger_apps_script_url";
@@ -43,6 +45,11 @@ export function hentSisteLastetPersonId(): string | null {
 
 function noterPersondataFraServer(isAdmin: unknown): void {
   sisteLastHaddeFullPersondata = isAdmin === true;
+}
+
+function varsleRemoteSaveFeil(melding: string) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(REMOTE_SAVE_FEIL_EVENT, { detail: melding }));
 }
 
 /**
@@ -259,6 +266,69 @@ function normalizeState(parsed: Partial<DatabaseState> | null | undefined): Data
   };
 }
 
+type RadMedArrangement = { ArrangementID?: string };
+
+function flettArrangementRader<T extends RadMedArrangement>(
+  ny: T[] | undefined,
+  gammel: T[] | undefined,
+  ids: Set<string>
+): T[] {
+  const nå = ny || [];
+  const forrige = gammel || [];
+  const utenGjenopprettet = nå.filter((r) => !r.ArrangementID || !ids.has(r.ArrangementID));
+  const fraGammel = forrige.filter((r) => r.ArrangementID && ids.has(r.ArrangementID));
+  return [...utenGjenopprettet, ...fraGammel];
+}
+
+/** Når ny state mangler kalender, ta arrangementer og oppgaver fra eldre lagring. */
+export function flettManglendeKalenderdata(
+  ny: Partial<DatabaseState>,
+  gammel: Partial<DatabaseState> | null | undefined
+): Partial<DatabaseState> {
+  if (!gammel) return ny;
+  const nyArr = Array.isArray(ny.arrangementer) ? ny.arrangementer : [];
+  const gammelArr = Array.isArray(gammel.arrangementer) ? gammel.arrangementer : [];
+  const nyOpp = Array.isArray(ny.kalenderoppgaver) ? ny.kalenderoppgaver : [];
+  const gammelOpp = Array.isArray(gammel.kalenderoppgaver) ? gammel.kalenderoppgaver : [];
+  const brukArr = nyArr.length === 0 && gammelArr.length > 0;
+  const brukOpp = nyOpp.length === 0 && gammelOpp.length > 0;
+  if (!brukArr && !brukOpp) return ny;
+  const arrangementer = brukArr ? gammelArr : nyArr;
+  const kalenderoppgaver = brukOpp ? gammelOpp : nyOpp;
+  const ids = new Set(arrangementer.map((a) => a.ArrangementID));
+  if (!brukArr) {
+    return { ...ny, arrangementer, kalenderoppgaver };
+  }
+  return {
+    ...ny,
+    arrangementer,
+    kalenderoppgaver,
+    tjenestebehov: flettArrangementRader(ny.tjenestebehov, gammel.tjenestebehov, ids),
+    tildelinger: flettArrangementRader(ny.tildelinger, gammel.tildelinger, ids),
+    programaktiviteter: flettArrangementRader(ny.programaktiviteter, gammel.programaktiviteter, ids),
+    programinstanser: flettArrangementRader(ny.programinstanser, gammel.programinstanser, ids),
+  };
+}
+
+function lesLocalJson(key: string): Partial<DatabaseState> | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<DatabaseState>;
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function flettKalenderFraEldreMock(parsed: Partial<DatabaseState>): Partial<DatabaseState> {
+  let neste = parsed;
+  for (const key of ELDRE_MOCK_STORAGE_KEYS) {
+    neste = flettManglendeKalenderdata(neste, lesLocalJson(key));
+  }
+  return neste;
+}
+
 function gruppenavnNokkel(navn: string): string {
   return String(navn || "").trim().toLowerCase();
 }
@@ -348,9 +418,17 @@ function fjernDuplikateTildelinger(state: DatabaseState): {
 
 export function loadLocalDatabase(): DatabaseState {
   try {
-    const saved = localStorage.getItem(MOCK_STORAGE_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
+    const lagret = lesLocalJson(MOCK_STORAGE_KEY);
+    const fraEldre = lagret ? flettKalenderFraEldreMock(lagret) : lesLocalJson(ELDRE_MOCK_STORAGE_KEYS[0]);
+    const parsed = fraEldre || lagret;
+    if (parsed) {
+      if (parsed !== lagret) {
+        try {
+          localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(parsed));
+        } catch {
+          // Ignorer — innlasting skal fortsatt virke.
+        }
+      }
       if (
         Array.isArray(parsed.personer) &&
         Array.isArray(parsed.grupper) &&
@@ -550,7 +628,15 @@ export async function loadDatabase(): Promise<DatabaseState> {
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
       noterPersondataFraServer(payload.isAdmin);
-      const state = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
+      const cache = lesLocalJson(REMOTE_CACHE_KEY);
+      const data = { ...payload.data } as Partial<DatabaseState>;
+      if (!Array.isArray(payload.data.arrangementer) && cache?.arrangementer) {
+        data.arrangementer = cache.arrangementer;
+      }
+      if (!Array.isArray(payload.data.kalenderoppgaver) && cache?.kalenderoppgaver) {
+        data.kalenderoppgaver = cache.kalenderoppgaver;
+      }
+      const state = rensLastetPersondata(applyLoadedState(normalizeState(data)));
       if (payload.personId) {
         sisteLastetPersonId = String(payload.personId);
         lagreAdminSesjonPersonId(sisteLastetPersonId);
@@ -757,6 +843,7 @@ async function pumpRemoteSave(): Promise<void> {
     ident = requireRemoteAuth();
   } catch (e) {
     console.error("Kunne ikke lagre til Google Sheets:", e instanceof Error ? e.message : e);
+    varsleRemoteSaveFeil(e instanceof Error ? e.message : String(e));
     pendingRemoteState = null;
     notifyRemoteSaveIdle();
     return;
@@ -774,10 +861,13 @@ async function pumpRemoteSave(): Promise<void> {
     });
     const payload = await response.json().catch(() => null);
     if (!payload?.ok) {
-      console.error("Kunne ikke lagre til Google Sheets:", payload?.error || response.statusText);
+      const melding = payload?.error || response.statusText;
+      console.error("Kunne ikke lagre til Google Sheets:", melding);
+      varsleRemoteSaveFeil(String(melding || "Ukjent feil"));
     }
   } catch (e) {
     console.error("Kunne ikke lagre til Google Sheets:", e);
+    varsleRemoteSaveFeil(e instanceof Error ? e.message : String(e));
   } finally {
     remoteSaveInFlight = false;
     if (pendingRemoteState) {

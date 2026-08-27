@@ -7,6 +7,7 @@ import {
   bekreftelseKonsekvensTekst,
   grupperAFølge,
   hentPåmeldingsRoller,
+  trengerForstereise,
   mineGrupperForPerson,
   oppsummerRolleendring,
   settPersonroller,
@@ -460,6 +461,101 @@ test("avlysKommendeOppgaverIGruppe tar kun gruppens kommende tildelinger", () =>
   assert.equal(db.svar.find((s) => s.TildelingID === "T-LYD")?.Svar, "Avvist");
   assert.equal(db.svar.find((s) => s.TildelingID === "T-LYD")?.Kommentar, "Fjernet fra tjenestegruppe");
   assert.equal(db.svar.find((s) => s.TildelingID === "T-KJOKKEN")?.Svar, "Bekreftet");
+});
+
+test("trengerForstereise er true uten tildeling", () => {
+  assert.equal(trengerForstereise(tomDb(), "P001"), true);
+});
+
+test("trengerForstereise er false med kommende bekreftet oppgave", () => {
+  const db = tomDb();
+  db.gudstjenester = [
+    {
+      GudstjenesteID: "GUD-FREMTID",
+      Dato: "2099-06-01",
+      Tid: "11:00",
+      Sted: "Bedehuset",
+      Tema: "Test",
+    },
+  ];
+  db.tildelinger = [
+    {
+      TildelingID: "T1",
+      GudstjenesteID: "GUD-FREMTID",
+      RolleID: "R010",
+      PersonID: "P001",
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.svar = [
+    {
+      SvarID: "S1",
+      TildelingID: "T1",
+      PersonID: "P001",
+      Svar: "Bekreftet",
+      SvartDato: "2026-01-02",
+    },
+  ];
+  assert.equal(trengerForstereise(db, "P001"), false);
+  assert.equal(trengerForstereise(db, "P002"), true);
+});
+
+test("trengerForstereise er true når kommende tildeling er avvist", () => {
+  const db = tomDb();
+  db.gudstjenester = [
+    {
+      GudstjenesteID: "GUD-FREMTID",
+      Dato: "2099-06-01",
+      Tid: "11:00",
+      Sted: "Bedehuset",
+      Tema: "Test",
+    },
+  ];
+  db.tildelinger = [
+    {
+      TildelingID: "T1",
+      GudstjenesteID: "GUD-FREMTID",
+      RolleID: "R010",
+      PersonID: "P001",
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.svar = [
+    {
+      SvarID: "S1",
+      TildelingID: "T1",
+      PersonID: "P001",
+      Svar: "Avvist",
+      SvartDato: "2026-01-02",
+    },
+  ];
+  assert.equal(trengerForstereise(db, "P001"), true);
+});
+
+test("trengerForstereise er false med kommende oppgave uten svar (venter)", () => {
+  const db = tomDb();
+  db.gudstjenester = [
+    {
+      GudstjenesteID: "GUD-FREMTID",
+      Dato: "2099-06-01",
+      Tid: "11:00",
+      Sted: "Bedehuset",
+      Tema: "Test",
+    },
+  ];
+  db.tildelinger = [
+    {
+      TildelingID: "T1",
+      GudstjenesteID: "GUD-FREMTID",
+      RolleID: "R010",
+      PersonID: "P001",
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  assert.equal(trengerForstereise(db, "P001"), false);
 });
 
 if (failed > 0) {

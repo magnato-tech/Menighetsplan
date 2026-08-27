@@ -21,8 +21,6 @@ interface InteresseSkjemaProps {
   personId: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   onFerdig?: () => void;
-  /** Landing: forlat uten å lagre (f.eks. tilbake til startsiden). */
-  onAvbryt?: () => void;
   landing?: boolean;
 }
 
@@ -37,7 +35,6 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
   personId,
   onUpdateDb,
   onFerdig,
-  onAvbryt,
   landing = false,
 }) => {
   const person = db.personer.find((p) => p.PersonID === personId);
@@ -68,12 +65,6 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
     if (!kanGaVidere) return;
 
     if (landing) {
-      const grupper = grupperAFølge(db, personId, valgte);
-      if (grupper.length > 0) {
-        setVelkomst(velkomstForGrupper(db, grupper));
-        setSteg("velkomst");
-        return;
-      }
       const etter = settPersonroller(db, personId, valgte);
       onUpdateDb(etter);
       onFerdig?.();
@@ -132,9 +123,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
                 <span className="text-2xl">👋</span>
               </h2>
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Velkommen til Lillesand Misjonskirke. Huk av oppgavene du kan tenke deg. Da
-                hører du til gruppen, men du vises bare på de oppgavene du har valgt.
-                Gruppeleder tar kontakt.
+                Huk av det du vil bidra med. Deretter velger du hvilke søndager du kan.
               </p>
             </div>
           )}
@@ -269,15 +258,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
     <div className={`flex gap-2 ${landing ? "w-full" : "flex-wrap justify-end pt-4 sheet-safe-bottom"}`}>
       {steg === "velg" && (
         <>
-          {landing ? (
-            <button
-              type="button"
-              onClick={() => onAvbryt?.()}
-              className="min-h-11 flex-1 px-4 text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer"
-            >
-              Tilbake
-            </button>
-          ) : (
+          {!landing && (
             <button
               type="button"
               onClick={() => onFerdig?.()}
@@ -291,11 +272,11 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
             onClick={gåFraVelg}
             disabled={!kanGaVidere}
             className={`min-h-11 px-4 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl cursor-pointer inline-flex items-center justify-center gap-1.5 ${
-              landing ? "flex-1" : ""
+              landing ? "w-full" : ""
             }`}
           >
             <Check className="w-4 h-4" />
-            Lagre
+            {landing ? "Velg søndager" : "Lagre"}
           </button>
         </>
       )}

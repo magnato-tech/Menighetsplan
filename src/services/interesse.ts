@@ -55,6 +55,18 @@ export function erMedITjenestegruppe(db: DatabaseState, personId: string): boole
   return false;
 }
 
+/** True til personen har minst én kommende, ikke-avvist tildeling. */
+export function trengerForstereise(db: DatabaseState, personId: string): boolean {
+  const iDagStr = iDag();
+  return !db.tildelinger.some((t) => {
+    if (t.PersonID !== personId) return false;
+    const gudstjeneste = db.gudstjenester.find((g) => g.GudstjenesteID === t.GudstjenesteID);
+    if (!gudstjeneste || gudstjeneste.Dato < iDagStr) return false;
+    const svar = db.svar.find((s) => s.TildelingID === t.TildelingID)?.Svar || "Venter";
+    return svar !== "Avvist";
+  });
+}
+
 export function tjenesteRoller(db: DatabaseState): Rolle[] {
   return (db.roller || []).filter((r) => {
     if (!r.Aktiv || !r.GruppeID) return false;
