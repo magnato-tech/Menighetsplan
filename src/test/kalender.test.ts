@@ -8,6 +8,7 @@ import {
   innstillingerTilRader,
   kalenderHendelserForPerson,
   minIcalHttpsUrl,
+  minIcalOffentligUrl,
   oppdaterInnstillinger,
   parseInnstillinger,
   flettManglendeInnstillinger,
@@ -267,6 +268,19 @@ function tomDb(): DatabaseState {
   assert.ok(u.includes(encodeURIComponent("webcal://script.google.com/macros/s/x/exec?action=minIcal&t=mk_abc")));
   assert.ok(!u.includes(encodeURIComponent(ics)), "cid skal være webcal, ikke https");
   assert.equal(googleKalenderAbonnerUrl(""), "");
+
+  assert.equal(
+    minIcalOffentligUrl("mk_abc"),
+    "https://gudstjenesteplanlegger2-0.vercel.app/kalender.ics?t=mk_abc"
+  );
+  assert.equal(minIcalOffentligUrl(""), "");
+  const offentlig = minIcalOffentligUrl("mk_abc");
+  const googleOffentlig = googleKalenderAbonnerUrl(offentlig);
+  assert.ok(
+    googleOffentlig.includes(
+      encodeURIComponent("webcal://gudstjenesteplanlegger2-0.vercel.app/kalender.ics?t=mk_abc")
+    )
+  );
 }
 
 console.log("kalender.test.ts: alle tester ok");

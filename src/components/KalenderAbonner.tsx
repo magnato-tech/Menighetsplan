@@ -2,9 +2,8 @@ import React, { useState } from "react";
 import { CalendarPlus, Copy } from "lucide-react";
 import {
   DatabaseState,
-  getCustomScriptUrl,
   googleKalenderAbonnerUrl,
-  minIcalHttpsUrl,
+  minIcalOffentligUrl,
 } from "../services/dataService";
 
 interface KalenderAbonnerProps {
@@ -14,7 +13,7 @@ interface KalenderAbonnerProps {
 
 export const KalenderAbonner: React.FC<KalenderAbonnerProps> = ({ db, personId }) => {
   const person = db.personer.find((p) => p.PersonID === personId);
-  const icsUrl = minIcalHttpsUrl(getCustomScriptUrl(), String(person?.SikkerhetsToken || "").trim());
+  const icsUrl = minIcalOffentligUrl(String(person?.SikkerhetsToken || "").trim());
   const googleUrl = googleKalenderAbonnerUrl(icsUrl);
   const [kopiert, setKopiert] = useState(false);
 

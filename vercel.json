@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/kalender.ics", "destination": "/api/min-ical" },
+    { "source": "/((?!api/).*)", "destination": "/index.html" }
+  ]
+}

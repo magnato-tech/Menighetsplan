@@ -239,6 +239,18 @@ export function minIcalHttpsUrl(execUrl: string, token: string): string {
   return `${base}?action=minIcal&t=${encodeURIComponent(t)}`;
 }
 
+/** Offentlig ICS uten Apps Script-omdirigering — samme type adresse som kirkens webcal. */
+export const OFFENTLIG_APP_URL = "https://gudstjenesteplanlegger2-0.vercel.app";
+
+export function minIcalOffentligUrl(token: string, origin = OFFENTLIG_APP_URL): string {
+  const t = String(token || "").trim();
+  const base = String(origin || "")
+    .trim()
+    .replace(/\/$/, "");
+  if (!base || !t) return "";
+  return `${base}/kalender.ics?t=${encodeURIComponent(t)}`;
+}
+
 export function minIcalWebcalUrl(httpsUrl: string): string {
   return String(httpsUrl || "").replace(/^https:/i, "webcal:").replace(/^http:/i, "webcal:");
 }
