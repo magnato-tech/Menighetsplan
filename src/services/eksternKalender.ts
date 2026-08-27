@@ -222,26 +222,6 @@ export function icsTekstFraSvar(raw: string): string {
   const trimmet = String(raw || "").trim();
   if (trimmet.startsWith("{")) {
     const parsed = JSON.parse(trimmet) as { ok?: boolean; ics?: string; error?: string };
-    // #region agent log
-    fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-      body: JSON.stringify({
-        sessionId: "e5cdf3",
-        runId: "pre-fix",
-        hypothesisId: "A",
-        location: "eksternKalender.ts:icsTekstFraSvar",
-        message: "JSON calendar response",
-        data: {
-          ok: parsed.ok,
-          error: parsed.error || "",
-          hasIcs: Boolean(parsed.ics),
-          icsLen: String(parsed.ics || "").length,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     if (parsed.ics) return parsed.ics;
     throw new Error(parsed.error || "Kalendersvaret manglet ics.");
   }
@@ -308,31 +288,6 @@ async function hentIcalFraUrl(url: string, signal?: AbortSignal): Promise<string
   const { fetchUrl, init } = icalGasPostInit(url, signal);
   const res = await fetch(fetchUrl, init);
   const text = await res.text();
-  // #region agent log
-  fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-    body: JSON.stringify({
-      sessionId: "e5cdf3",
-      runId: "post-fix",
-      hypothesisId: "C",
-      location: "eksternKalender.ts:hentIcalFraUrl",
-      message: "ical HTTP attempt",
-      data: {
-        url: fetchUrl.split("?")[0],
-        action: new URL(url, "http://localhost").searchParams.get("action") || "",
-        method: init.method || "GET",
-        status: res.status,
-        ok: res.ok,
-        contentType: res.headers.get("content-type") || "",
-        bodyStart: text.slice(0, 160),
-        isJson: text.trim().startsWith("{"),
-        isIcs: text.includes("BEGIN:VCALENDAR"),
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   if (!res.ok) {
     throw new Error(`Kunne ikke hente kalender (${res.status})`);
   }
@@ -350,27 +305,6 @@ export async function hentEksternIcalTekst(
   fallbackUrl = ""
 ): Promise<string> {
   const urls = icalHentUrlKandidaterForSynk(execUrl, fallbackUrl);
-  // #region agent log
-  fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-    body: JSON.stringify({
-      sessionId: "e5cdf3",
-      runId: "pre-fix",
-      hypothesisId: "D",
-      location: "eksternKalender.ts:hentEksternIcalTekst",
-      message: "ical URL candidates",
-      data: {
-        dev: Boolean(import.meta.env?.DEV),
-        prod: Boolean(import.meta.env?.PROD),
-        execHost: String(execUrl || "").split("?")[0].replace(/\/$/, ""),
-        actions: urls.map((u) => new URL(u, "http://localhost").searchParams.get("action") || u),
-        count: urls.length,
-      },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {});
-  // #endregion
   let siste = "Kunne ikke hente kalenderen fra nettsiden.";
   for (const url of urls) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -379,24 +313,6 @@ export async function hentEksternIcalTekst(
     } catch (err) {
       if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) throw err;
       siste = err instanceof Error ? err.message : String(err);
-      // #region agent log
-      fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-        body: JSON.stringify({
-          sessionId: "e5cdf3",
-          runId: "pre-fix",
-          hypothesisId: "D",
-          location: "eksternKalender.ts:hentEksternIcalTekst:catch",
-          message: "ical candidate failed",
-          data: {
-            action: new URL(url, "http://localhost").searchParams.get("action") || url,
-            error: siste,
-          },
-          timestamp: Date.now(),
-        }),
-      }).catch(() => {});
-      // #endregion
     }
   }
   throw new Error(siste);

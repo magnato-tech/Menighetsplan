@@ -503,7 +503,7 @@ export function meldPaaFrivillig(
     return { success: false, message: "Personen finnes ikke eller er ikke aktiv." };
   }
 
-  // 2. Valider at personen kan velge rollen (personrolle eller medlemskap i tjenestegruppen)
+  // 2. Valider at personen har huket av rollen (ikke bare medlemskap i gruppen)
   const kanVelgeRollen = hentPåmeldingsRoller(db, personID).some((r) => r.RolleID === rolleID);
   if (!kanVelgeRollen) {
     return {
@@ -619,7 +619,7 @@ export function velgDatoForPerson(
   if (!kanVelgeRollen) {
     return {
       success: false,
-      message: "Du kan bare velge oppgaver i tjenestegrupper du er med i.",
+      message: "Du kan bare velge oppgaver du har meldt deg på.",
     };
   }
 

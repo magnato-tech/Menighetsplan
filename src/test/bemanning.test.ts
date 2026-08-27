@@ -94,6 +94,14 @@ function tomDb(): DatabaseState {
         OpprettetDato: "2026-01-01",
         SistEndret: "2026-01-01",
       },
+      {
+        PersonRolleID: "PR003",
+        PersonID: "P003",
+        RolleID: "R009",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
     ],
     rollebeskrivelser: [],
     gudstjenester: [
@@ -250,6 +258,17 @@ test("B: velgDatoForPerson blokkerer ikke når veiledende behov er dekket", "B",
   assert.ok(result.updatedDb);
   const tall = summerBemanning(result.updatedDb!, "GUD001", [rolle()]);
   assert.equal(tall.bekreftet, 3);
+});
+
+test("B: velgDatoForPerson krever huket oppgave, ikke bare gruppemedlemskap", "B", () => {
+  let db = tomDb();
+  db = {
+    ...db,
+    personroller: db.personroller.filter((pr) => pr.PersonID !== "P003"),
+  };
+  const result = velgDatoForPerson(db, "P003", "GUD001", "R009");
+  assert.equal(result.success, false);
+  assert.match(result.message, /meldt deg på/i);
 });
 
 test("B: meldPaaFrivillig tillater overbooking", "B", () => {

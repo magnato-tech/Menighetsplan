@@ -7,6 +7,7 @@ import {
   bekreftelseKonsekvensTekst,
   grupperAFølge,
   hentPåmeldingsRoller,
+  mineGrupperForPerson,
   oppsummerRolleendring,
   settPersonroller,
   avlysKommendeOppgaverIGruppe,
@@ -159,7 +160,29 @@ test("settPersonroller huk Lyd plasserer automatisk i Teknikk", () => {
   assert.deepEqual(aktiveTjenesteRolleIds(etter, "P001"), ["R006"]);
   assert.equal(erMedITjenestegruppe(etter, "P001"), true);
   const paaMelding = hentPåmeldingsRoller(etter, "P001").map((r) => r.RolleID);
-  assert.deepEqual(paaMelding, ["R007", "R006"]);
+  assert.deepEqual(paaMelding, ["R006"]);
+});
+
+test("mineGrupperForPerson viser gruppe og leder, ikke søskenoppgaver", () => {
+  const etter = settPersonroller(tomDb(), "P001", ["R006"]);
+  const kort = mineGrupperForPerson(etter, "P001");
+  assert.equal(kort.length, 1);
+  assert.equal(kort[0].gruppeId, "G003");
+  assert.equal(kort[0].tilknytning, "Medlem");
+  assert.deepEqual(kort[0].mineOppgaver, ["Lyd"]);
+  assert.equal(kort[0].lederNavn, "Leder");
+});
+
+test("påmelding viser bare hukede oppgaver, ikke resten av gruppen", () => {
+  const etter = settPersonroller(tomDb(), "P001", ["R006"]);
+  const ids = hentPåmeldingsRoller(etter, "P001").map((r) => r.RolleID);
+  assert.deepEqual(ids, ["R006"]);
+  assert.equal(ids.includes("R007"), false);
+});
+
+test("gruppeleder uten hukede oppgaver får ikke alle gruppens roller på Min side", () => {
+  const db = tomDb();
+  assert.deepEqual(hentPåmeldingsRoller(db, "P010"), []);
 });
 
 test("huk av Lyd og Bilde deaktiverer medlemskap for vanlig medlem", () => {

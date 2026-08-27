@@ -5,6 +5,7 @@ import {
   erGruppeledergruppe,
   erObligatoriskIGruppelederteam,
   erTjenestegruppe,
+  finnTjenestegrupperForPerson,
   sikreGruppemedlemskap,
 } from "./grupper";
 import { saveDatabase } from "./persistens";
@@ -163,21 +164,21 @@ export function bekreftelseKonsekvensTekst(input: BekreftelseKonsekvens): string
 
   if (!input.varMedITjenestegruppe && nye.length > 0) {
     if (nye.length === 1) {
-      return `Velkommen til ${nye[0]}. Nå kan du velge oppgaver fra tjenestegruppen ${nye[0]}.`;
+      return `Velkommen til ${nye[0]}. Nå kan du sette deg opp på oppgavene du har valgt i tjenestegruppen ${nye[0]}.`;
     }
-    return `Velkommen til ${joinerNavn(nye)}. Nå kan du velge oppgaver fra disse tjenestegruppene.`;
+    return `Velkommen til ${joinerNavn(nye)}. Nå kan du sette deg opp på oppgavene du har valgt i disse tjenestegruppene.`;
   }
 
   if (forlater.length > 0 && nye.length > 0) {
     const til =
       nye.length === 1 ? `tjenestegruppen ${nye[0]}` : "disse tjenestegruppene";
-    return `Du bytter fra ${joinerNavn(forlater)} til ${joinerNavn(nye)}. Kommende oppgaver i ${joinerNavn(forlater)} trekkes tilbake. Nå kan du velge oppgaver fra ${til}.`;
+    return `Du bytter fra ${joinerNavn(forlater)} til ${joinerNavn(nye)}. Kommende oppgaver i ${joinerNavn(forlater)} trekkes tilbake. Nå kan du sette deg opp på oppgavene du har valgt i ${til}.`;
   }
 
   if (nye.length > 0) {
     const til =
       nye.length === 1 ? `tjenestegruppen ${nye[0]}` : "disse tjenestegruppene";
-    return `Du blir med i ${joinerNavn(nye)}. Nå kan du velge oppgaver fra ${til}.`;
+    return `Du blir med i ${joinerNavn(nye)}. Nå kan du sette deg opp på oppgavene du har valgt i ${til}.`;
   }
 
   if (forlater.length > 0) {
@@ -381,11 +382,59 @@ export function velkomstForGrupper(db: DatabaseState, grupper: Gruppe[]): Gruppe
 }
 
 /**
- * Roller personen kan melde seg på: kun oppgaver i tjenestegrupper
- * vedkommende er medlem (eller leder/nestleder) av.
+ * Roller personen kan sette seg opp på: kun oppgaver vedkommende har huket av,
+ * og som fortsatt ligger i en tjenestegruppe hen er med i.
+ * Medlemskap alene åpner ikke resten av gruppens oppgaver.
  */
 export function hentPåmeldingsRoller(db: DatabaseState, personId: string): Rolle[] {
+  const valgte = new Set(aktiveTjenesteRolleIds(db, personId));
   return tjenesteRoller(db)
-    .filter((rolle) => Boolean(rolle.GruppeID) && erMedlemAvGruppe(db, personId, rolle.GruppeID))
+    .filter(
+      (rolle) =>
+        valgte.has(rolle.RolleID) &&
+        Boolean(rolle.GruppeID) &&
+        erMedlemAvGruppe(db, personId, rolle.GruppeID)
+    )
     .sort((a, b) => a.Rollenavn.localeCompare(b.Rollenavn, "nb"));
+}
+
+function visningsnavn(person: { Fornavn?: string; Navn?: string } | undefined): string | null {
+  const navn = person?.Fornavn || person?.Navn || "";
+  return navn.trim() || null;
+}
+
+export type MinGruppeKort = {
+  gruppeId: string;
+  gruppenavn: string;
+  tilknytning: "Leder" | "Nestleder" | "Medlem";
+  mineOppgaver: string[];
+  lederNavn: string | null;
+  nestlederNavn: string | null;
+};
+
+/** Tjeneste- og husgrupper personen er med i, med leder og hukede oppgaver. */
+export function mineGrupperForPerson(db: DatabaseState, personId: string): MinGruppeKort[] {
+  const valgte = new Set(aktiveTjenesteRolleIds(db, personId));
+  return finnTjenestegrupperForPerson(db, personId)
+    .map(({ gruppe, tilknytning }) => {
+      const leder = gruppe.GruppelederID
+        ? db.personer.find((p) => p.PersonID === gruppe.GruppelederID)
+        : undefined;
+      const nestleder = gruppe.NestlederID
+        ? db.personer.find((p) => p.PersonID === gruppe.NestlederID)
+        : undefined;
+      const mineOppgaver = tjenesteRoller(db)
+        .filter((r) => r.GruppeID === gruppe.GruppeID && valgte.has(r.RolleID))
+        .map((r) => r.Rollenavn)
+        .sort((a, b) => a.localeCompare(b, "nb"));
+      return {
+        gruppeId: gruppe.GruppeID,
+        gruppenavn: gruppe.Gruppenavn,
+        tilknytning,
+        mineOppgaver,
+        lederNavn: visningsnavn(leder),
+        nestlederNavn: visningsnavn(nestleder),
+      };
+    })
+    .sort((a, b) => a.gruppenavn.localeCompare(b.gruppenavn, "nb"));
 }

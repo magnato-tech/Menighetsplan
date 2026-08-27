@@ -12,6 +12,7 @@ import {
   kanRedigereProgram,
   visProgramIkon,
   visKalenderForPerson,
+  mineGrupperForPerson,
 } from "../services/dataService";
 import { Rolle } from "../types/database";
 import { RoleDescriptionModal } from "./RoleDescriptionModal";
@@ -20,6 +21,7 @@ import { IkonHandling } from "./IkonHandling";
 import { GudstjenesteRolleOversikt } from "./GudstjenesteRolleOversikt";
 import { ProgramLeserModal } from "./ProgramLeserModal";
 import { InteresseSkjema } from "./InteresseSkjema";
+import { MineGrupperArk } from "./MineGrupperArk";
 import { KalenderView } from "./KalenderView";
 import {
   Clock3,
@@ -30,6 +32,7 @@ import {
   Pencil,
   ScrollText,
   ChevronDown,
+  Users,
 } from "lucide-react";
 
 interface PersonalViewProps {
@@ -133,6 +136,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
   const [visAlleSondager, setVisAlleSondager] = useState(false);
   const [holdLandingVelkomst, setHoldLandingVelkomst] = useState(false);
   const [minSideFane, setMinSideFane] = useState<"oppgaver" | "kalender">("oppgaver");
+  const [visMineGrupper, setVisMineGrupper] = useState(false);
 
   const openDatePicker = (rolle: Rolle) => {
     if (!hentPåmeldingsRoller(db, selectedPersonId).some((r) => r.RolleID === rolle.RolleID)) {
@@ -162,6 +166,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
 
   const visningsRoller = hentPåmeldingsRoller(db, person.PersonID);
   const personensRoller = visningsRoller;
+  const personensGrupper = mineGrupperForPerson(db, person.PersonID);
   const visKalenderFane =
     visKalenderForPerson(db, person.PersonID, "minSide") ||
     visKalenderForPerson(db, person.PersonID, "ical");
@@ -292,13 +297,23 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           >
             {personensRoller.length === 0 ? "Velg oppgaver" : "Mine oppgaver"}
           </button>
+          <button
+            type="button"
+            onClick={() => setVisMineGrupper(true)}
+            className="min-h-11 w-full sm:w-auto px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer inline-flex items-center justify-center gap-1.5"
+          >
+            <Users className="w-4 h-4 shrink-0" />
+            {personensGrupper.length === 1 ? "Min gruppe" : "Mine grupper"}
+          </button>
         </div>
 
         <div className="hidden sm:block bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
           <p>
             Du har sagt ja til å bidra med{" "}
             <strong className="text-[#1e3e2b] font-bold">{rolleNavnTekst}</strong> i menigheten.
-            Du kan sette deg opp der det passer.
+            Du kan sette deg opp der det passer. Oppgavene hører til tjenestegrupper — åpne{" "}
+            {personensGrupper.length === 1 ? "Min gruppe" : "Mine grupper"} for å se hvem som er
+            leder.
           </p>
         </div>
       </div>
@@ -792,6 +807,13 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           personId={person.PersonID}
           onUpdateDb={onUpdateDb}
           onFerdig={() => onOppgaverArkChange?.(false)}
+        />
+      )}
+      {visMineGrupper && (
+        <MineGrupperArk
+          db={db}
+          personId={person.PersonID}
+          onLukk={() => setVisMineGrupper(false)}
         />
       )}
     </div>

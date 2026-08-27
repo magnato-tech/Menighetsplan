@@ -132,8 +132,9 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
                 <span className="text-2xl">👋</span>
               </h2>
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Velkommen til Lillesand Misjonskirke. Huk av en oppgave du kan tenke deg. Da
-                hører du til den gruppen, og gruppeleder tar kontakt.
+                Velkommen til Lillesand Misjonskirke. Huk av oppgavene du kan tenke deg. Da
+                hører du til gruppen, men du vises bare på de oppgavene du har valgt.
+                Gruppeleder tar kontakt.
               </p>
             </div>
           )}
@@ -142,8 +143,8 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
           )}
           {!landing && (
           <p className="text-xs text-slate-500 mb-4">
-            Huk av minst én oppgave i tjenestegruppen du vil bidra i. Du kan siden velge alle
-            oppgavene som hører til den gruppen.
+            Huk av oppgavene du vil bidra med. Du blir med i gruppen, men vises bare på de
+            oppgavene du har valgt. Du kan legge til flere senere.
           </p>
           )}
           <div className="space-y-5">
@@ -255,7 +256,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
                   : "Gruppen har foreløpig ingen registrert gruppeleder."}{" "}
                 {landing
                   ? "Trykk Fortsett for å bli med i gruppen."
-                  : "Du kan nå velge oppgaver fra denne tjenestegruppen."}
+                  : "Du kan nå sette deg opp på oppgavene du har huket av."}
               </p>
             </div>
           ))}

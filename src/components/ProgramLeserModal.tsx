@@ -47,6 +47,7 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
   onUpdateDb,
 }) => {
   const [visPdf, setVisPdf] = useState(false);
+  const [kompakt, setKompakt] = useState(false);
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-center p-0 sm:p-4 animate-fadeIn">
@@ -73,6 +74,19 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
             >
               {visPdf ? "Vis kjøreplan" : "Forhåndsvis PDF"}
             </button>
+            <label className="min-h-11 px-2 inline-flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={kompakt}
+                onChange={(e) => {
+                  const neste = e.target.checked;
+                  setKompakt(neste);
+                  if (neste) setVisPdf(true);
+                }}
+                className="w-4 h-4 accent-[#2d5a3f] cursor-pointer"
+              />
+              Kompakt visning
+            </label>
             <button
               type="button"
               onClick={lastNedProgramPdf}
@@ -96,7 +110,7 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
             />
           </div>
           <div className={visPdf ? "p-4 sm:p-6" : "program-pdf-print-only"}>
-            <ProgramPdfArk db={db} gudstjeneste={gudstjeneste} />
+            <ProgramPdfArk db={db} gudstjeneste={gudstjeneste} kompakt={kompakt} />
           </div>
         </div>
       </div>

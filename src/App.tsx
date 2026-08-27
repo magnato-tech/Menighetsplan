@@ -18,7 +18,6 @@ import {
   getDevDataSource,
   setDevDataSource,
   erMedITjenestegruppe,
-  erGammelHashLenke,
   type DevDataSource,
 } from "./services/dataService";
 import {
@@ -89,27 +88,6 @@ export default function App() {
       .catch((e) => {
         if (!cancelled) {
           const melding = e instanceof Error ? e.message : String(e);
-          // #region agent log
-          fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-            body: JSON.stringify({
-              sessionId: "e5cdf3",
-              runId: "login",
-              hypothesisId: "L",
-              location: "App.tsx:fetchRemote.catch",
-              message: "remote load failed",
-              data: {
-                error: melding.slice(0, 180),
-                hasToken: Boolean(hentMagiskToken()),
-                tokenLen: String(hentMagiskToken() || "").length,
-                legacyToken: hentMagiskToken() ? erGammelHashLenke(hentMagiskToken()!) : false,
-                hasGoogle: Boolean(hentAdminGoogleCredential()),
-              },
-              timestamp: Date.now(),
-            }),
-          }).catch(() => {});
-          // #endregion
           setLoadError(melding);
           setStartFeil(melding);
           setViserStartside(true);
@@ -210,27 +188,6 @@ export default function App() {
         const found =
           finnPersonMedMagiskToken(db, tokenParam) ||
           db.personer.find((p) => p.PersonID === hentSisteLastetPersonId());
-        // #region agent log
-        fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-          body: JSON.stringify({
-            sessionId: "e5cdf3",
-            runId: "login",
-            hypothesisId: "M",
-            location: "App.tsx:startvisning-token",
-            message: "magic link bind",
-            data: {
-              tokenLen: tokenParam.length,
-              legacyToken: erGammelHashLenke(tokenParam),
-              foundByToken: Boolean(finnPersonMedMagiskToken(db, tokenParam)),
-              foundByLoadId: Boolean(found),
-              isAdmin: found ? hentTilgang(db, found.PersonID).isAdmin : false,
-            },
-            timestamp: Date.now(),
-          }),
-        }).catch(() => {});
-        // #endregion
         if (found) {
           setSelectedPersonId(found.PersonID);
           setIsMagicLinkUser(true);
@@ -370,25 +327,6 @@ export default function App() {
 
   const handleLimInnLenke = (raw: string) => {
     const neste = tolkInnlimtLenke(raw, window.location.pathname);
-    // #region agent log
-    fetch("http://127.0.0.1:7463/ingest/97c12e91-0a21-4bc4-8a12-6f55e4e11d89", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "e5cdf3" },
-      body: JSON.stringify({
-        sessionId: "e5cdf3",
-        runId: "login",
-        hypothesisId: "P",
-        location: "App.tsx:handleLimInnLenke",
-        message: "paste link",
-        data: {
-          parsed: Boolean(neste),
-          rawLen: raw.trim().length,
-          looksUrl: /https?:\/\//i.test(raw.trim()),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-    // #endregion
     if (!neste) {
       setStartFeil("Kunne ikke lese lenken. Lim inn hele adressen du har fått.");
       return;
