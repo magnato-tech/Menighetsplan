@@ -160,6 +160,25 @@ export function kanRedigereProgram(
   return hentSvarStatus(db, tildeling.TildelingID) !== "Avvist";
 }
 
+export function oppdaterGudstjenesteInnhold(
+  db: DatabaseState,
+  gudstjenesteId: string,
+  patch: { Kollekt?: string; Kunngjøringer?: string }
+): DatabaseState {
+  const idx = (db.gudstjenester || []).findIndex((g) => g.GudstjenesteID === gudstjenesteId);
+  if (idx < 0) return db;
+  const gammel = db.gudstjenester[idx];
+  const neste = {
+    ...gammel,
+    ...(patch.Kollekt !== undefined ? { Kollekt: patch.Kollekt } : {}),
+    ...(patch.Kunngjøringer !== undefined ? { Kunngjøringer: patch.Kunngjøringer } : {}),
+  };
+  if (neste.Kollekt === gammel.Kollekt && neste.Kunngjøringer === gammel.Kunngjøringer) return db;
+  const gudstjenester = [...db.gudstjenester];
+  gudstjenester[idx] = neste;
+  return { ...db, gudstjenester };
+}
+
 export function visProgramIkon(
   db: DatabaseState,
   personId: string,

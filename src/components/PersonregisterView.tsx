@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
   DatabaseState,
-  UkjentImportSlot,
   finnUkjenteImportnavn,
   finnTjenestegrupperForPerson,
   genererPersonligLenke,
@@ -28,7 +27,7 @@ interface PersonregisterViewProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   visTabell: boolean;
-  opprettSignal?: { fornavn?: string; slots?: UkjentImportSlot[] } | null;
+  opprettSignal?: { fornavn?: string } | null;
   onOpprettSignalHandled?: () => void;
 }
 
@@ -53,17 +52,11 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
     NonNullable<Person["Tilgangsnivå"]>
   >("bruker");
   const [newFornavn, setNewFornavn] = useState("");
-  const [newPersonSlots, setNewPersonSlots] = useState<UkjentImportSlot[]>([]);
-  const [newPersonGudstjenesteId, setNewPersonGudstjenesteId] = useState("");
-  const [newPersonRolleId, setNewPersonRolleId] = useState("");
 
   const ukjenteImportnavn = finnUkjenteImportnavn(db);
 
-  const openNewPersonModal = (prefill?: { fornavn?: string; slots?: UkjentImportSlot[] }) => {
+  const openNewPersonModal = (prefill?: { fornavn?: string }) => {
     setNewFornavn(prefill?.fornavn || "");
-    setNewPersonSlots(prefill?.slots || []);
-    setNewPersonGudstjenesteId(prefill?.slots?.[0]?.gudstjenesteId || "");
-    setNewPersonRolleId(prefill?.slots?.[0]?.rolleId || "");
     setNewPersonModal(true);
   };
 
@@ -85,28 +78,11 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
     const fornavn = newFornavn.trim();
     if (!fornavn) return;
 
-    let slots = newPersonSlots;
-    if (slots.length === 0 && newPersonGudstjenesteId && newPersonRolleId) {
-      const rolle = db.roller.find((r) => r.RolleID === newPersonRolleId);
-      const gud = db.gudstjenester.find((g) => g.GudstjenesteID === newPersonGudstjenesteId);
-      slots = [
-        {
-          gudstjenesteId: newPersonGudstjenesteId,
-          rolleId: newPersonRolleId,
-          rolleNavn: rolle?.Rollenavn || "",
-          dato: gud?.Dato || "",
-        },
-      ];
-    }
-
-    const updatedDb = opprettPersonIRegister(db, { Navn: fornavn }, slots);
+    const updatedDb = opprettPersonIRegister(db, { Navn: fornavn });
     saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
     setNewPersonModal(false);
     setNewFornavn("");
-    setNewPersonSlots([]);
-    setNewPersonGudstjenesteId("");
-    setNewPersonRolleId("");
   };
 
   const openEditPerson = (person: Person) => {
@@ -168,7 +144,8 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                 Ukjente navn i oppgavefordelingen
               </p>
               <p className="text-xs text-amber-800 mt-0.5">
-                Disse står i importen, men ikke i personregisteret. Etternavn tas med hvis det står i tabellen. Opprett og tildel herfra — uten å redigere arket.
+                Disse står i importen, men ikke i personregisteret. Opprett personen her, og tildel
+                rolle under Søndager etterpå.
               </p>
             </div>
           </div>
@@ -188,7 +165,7 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => openNewPersonModal({ fornavn: item.navn, slots: item.slots })}
+                  onClick={() => openNewPersonModal({ fornavn: item.navn })}
                   className="px-3 py-1.5 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-lg cursor-pointer self-start"
                 >
                   Opprett person
@@ -409,7 +386,8 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
             <h3 className="text-lg font-bold text-slate-900 mb-1">Legg til person</h3>
             <p className="text-xs text-slate-500 mb-4">
-              Fornavn er nok. Etternavn tas med hvis det står i tabellen eller skrives inn.
+              Fornavn er nok. Etternavn tas med hvis det skrives inn. Oppgaver og roller tildeles
+              etterpå under Søndager.
             </p>
 
             <div className="space-y-3 mb-6 text-xs">
@@ -423,57 +401,6 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                   className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
                 />
               </div>
-
-              {newPersonSlots.length > 0 ? (
-                <div className="bg-[#eef5f1] border border-[#d2e8d9] rounded-xl p-3 text-slate-800">
-                  <div className="font-semibold mb-1">Tjeneste som tildeles</div>
-                  {newPersonSlots.map((s) => (
-                    <div key={`${s.gudstjenesteId}-${s.rolleId}`}>
-                      {s.rolleNavn}
-                      {s.dato ? ` · ${s.dato}` : ""}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <label className="font-semibold text-slate-600 block mb-1">
-                      Gudstjeneste (valgfritt)
-                    </label>
-                    <select
-                      value={newPersonGudstjenesteId}
-                      onChange={(e) => setNewPersonGudstjenesteId(e.target.value)}
-                      className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
-                    >
-                      <option value="">Ingen tildeling nå</option>
-                      {db.gudstjenester.map((g) => (
-                        <option key={g.GudstjenesteID} value={g.GudstjenesteID}>
-                          {g.Dato} · {g.Tema}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="font-semibold text-slate-600 block mb-1">
-                      Tjeneste / rolle (valgfritt)
-                    </label>
-                    <select
-                      value={newPersonRolleId}
-                      onChange={(e) => setNewPersonRolleId(e.target.value)}
-                      className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
-                    >
-                      <option value="">Velg rolle</option>
-                      {db.roller
-                        .filter((r) => r.Aktiv)
-                        .map((r) => (
-                          <option key={r.RolleID} value={r.RolleID}>
-                            {r.Rollenavn}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </>
-              )}
             </div>
 
             <div className="flex justify-end gap-2">

@@ -742,6 +742,7 @@ export const initialGudstjenester: Gudstjeneste[] = [
     Tema: "Fellesskap og disippelskap",
     Bibeltekst: "Apostlenes gjerninger 2:42-47",
     Kollekt: "Menighetens barne- og ungdomsarbeid (Vipps #12345)",
+    Kunngjøringer: "Kirkekaffe etter gudstjenesten. Påmelding til tur i foajéen.",
     Merknad: "Oppstart etter sommeren. Familievennlig gudstjeneste med kirkekaffe.",
   },
   {

@@ -100,7 +100,10 @@ export interface Gudstjeneste {
   Sted: string;
   Tema: string;
   Bibeltekst?: string;
+  /** Hva kollekten går til denne søndagen. */
   Kollekt?: string;
+  /** Kunngjøringer møteleder leser. */
+  Kunngjøringer?: string;
   Merknad?: string;
   /** UID fra kirkekalenderen, kun treffnøkkel — appen eier innholdet. */
   EksternKalenderID?: string;

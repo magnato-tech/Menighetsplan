@@ -22,6 +22,7 @@ import {
 import { ProgramKjoreplan } from "./ProgramKjoreplan";
 import { ProgramBrikkeFelt } from "./ProgramBrikke";
 import { ProgramLeserModal } from "./ProgramLeserModal";
+import { GudstjenesteNotaterFelt } from "./GudstjenesteNotaterFelt";
 
 interface GudstjenesteProgramViewProps {
   db: DatabaseState;
@@ -87,6 +88,11 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
   if (linjer.length === 0 && !instans) {
     return (
       <div className="px-4 py-6 text-center space-y-3">
+        {redigerbar && !arrangementId && !iDialog && (
+          <div className="text-left">
+            <GudstjenesteNotaterFelt db={db} gudstjeneste={gudstjeneste} onUpdateDb={onUpdateDb} />
+          </div>
+        )}
         <p className="text-sm text-slate-600">
           Ingen kjøreplan for denne {hendelseEtikett} ennå.
         </p>
@@ -196,6 +202,10 @@ export const GudstjenesteProgramView: React.FC<GudstjenesteProgramViewProps> = (
           )}
         </div>
       </div>
+
+      {redigerbar && !arrangementId && !iDialog && (
+        <GudstjenesteNotaterFelt db={db} gudstjeneste={gudstjeneste} onUpdateDb={onUpdateDb} />
+      )}
 
       <ProgramKjoreplan
         linjer={medTid.map((p) => {

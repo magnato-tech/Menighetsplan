@@ -3,6 +3,7 @@ import { FileDown, X } from "lucide-react";
 import { Gudstjeneste } from "../types/database";
 import { DatabaseState } from "../services/dataService";
 import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
+import { GudstjenesteNotaterFelt } from "./GudstjenesteNotaterFelt";
 import { ProgramPdfArk } from "./ProgramPdfArk";
 
 interface ProgramLeserModalProps {
@@ -50,6 +51,8 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
   const [kompakt, setKompakt] = useState(false);
   const [visOvrigBemanning, setVisOvrigBemanning] = useState(false);
   const visKjoreplan = redigerbar;
+  const gud =
+    db.gudstjenester.find((g) => g.GudstjenesteID === gudstjeneste.GudstjenesteID) || gudstjeneste;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/50 flex justify-center p-0 sm:p-4 animate-fadeIn">
@@ -129,11 +132,16 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
           </div>
         </div>
         <div className="overflow-y-auto flex-1">
+          {redigerbar && (
+            <div className="px-4 sm:px-6 pt-4 no-print">
+              <GudstjenesteNotaterFelt db={db} gudstjeneste={gud} onUpdateDb={onUpdateDb} />
+            </div>
+          )}
           {visKjoreplan && (
             <div className={visPdf ? "hidden no-print" : "block no-print"}>
               <GudstjenesteProgramView
                 db={db}
-                gudstjeneste={gudstjeneste}
+                gudstjeneste={gud}
                 redigerbar={redigerbar}
                 iDialog
                 uthevPersonId={uthevPersonId}
@@ -145,7 +153,7 @@ export const ProgramLeserModal: React.FC<ProgramLeserModalProps> = ({
           <div className={visKjoreplan && !visPdf ? "program-pdf-print-only" : "p-4 sm:p-6"}>
             <ProgramPdfArk
               db={db}
-              gudstjeneste={gudstjeneste}
+              gudstjeneste={gud}
               kompakt={kompakt}
               visOvrigBemanning={visOvrigBemanning}
             />

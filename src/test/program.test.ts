@@ -18,6 +18,7 @@ import {
   avpubliserProgram,
   erProgramPublisert,
   hentPrograminstans,
+  oppdaterGudstjenesteInnhold,
 } from "../services/dataService";
 import { Gruppe, MalAktivitet, Person, Rolle } from "../types/database";
 import { initialMalaktiviteter } from "../data/initialData";
@@ -223,6 +224,24 @@ function tomDb(): DatabaseState {
     svar: db.svar.filter((s) => s.TildelingID !== "T002"),
   };
   assert.equal(kanRedigereProgram(venter, "P001", "GUD001"), true);
+}
+
+{
+  const db = tomDb();
+  const medKollekt = oppdaterGudstjenesteInnhold(db, "GUD001", {
+    Kollekt: "Kirkens Nødhjelp",
+    Kunngjøringer: "Kirkekaffe i foajéen.",
+  });
+  assert.equal(medKollekt.gudstjenester[0].Kollekt, "Kirkens Nødhjelp");
+  assert.equal(medKollekt.gudstjenester[0].Kunngjøringer, "Kirkekaffe i foajéen.");
+  assert.equal(medKollekt.gudstjenester[0].Tema, "Test");
+  assert.equal(
+    oppdaterGudstjenesteInnhold(medKollekt, "GUD001", {
+      Kollekt: "Kirkens Nødhjelp",
+      Kunngjøringer: "Kirkekaffe i foajéen.",
+    }),
+    medKollekt
+  );
 }
 
 {

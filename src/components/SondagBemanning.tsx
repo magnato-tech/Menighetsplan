@@ -844,7 +844,10 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             ) : (
               <>
                 {visBibeltekst &&
-                  (gudstjeneste.Bibeltekst || gudstjeneste.Kollekt || gudstjeneste.Merknad) && (
+                  (gudstjeneste.Bibeltekst ||
+                    gudstjeneste.Kollekt ||
+                    gudstjeneste.Kunngjøringer ||
+                    gudstjeneste.Merknad) && (
                     <div className="px-4 py-2 text-xs text-slate-600 flex flex-col gap-1 bg-slate-50/50">
                       <div className="flex flex-wrap gap-3">
                         {gudstjeneste.Bibeltekst && (
@@ -862,6 +865,14 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                           </span>
                         )}
                       </div>
+                      {gudstjeneste.Kunngjøringer && (
+                        <span>
+                          Kunngjøringer:{" "}
+                          <span className="font-medium text-slate-800 whitespace-pre-wrap">
+                            {gudstjeneste.Kunngjøringer}
+                          </span>
+                        </span>
+                      )}
                       {gudstjeneste.Merknad && (
                         <span>
                           Merknad:{" "}

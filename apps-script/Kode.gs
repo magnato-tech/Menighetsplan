@@ -68,7 +68,7 @@ var MASTER_SHEETS = {
   },
   gudstjenester: {
     name: "Gudstjenester",
-    columns: ["GudstjenesteID", "Dato", "Tid", "Sted", "Tema", "Bibeltekst", "Kollekt", "Merknad", "EksternKalenderID"],
+    columns: ["GudstjenesteID", "Dato", "Tid", "Sted", "Tema", "Bibeltekst", "Kollekt", "Kunngjøringer", "Merknad", "EksternKalenderID"],
   },
   arrangementer: {
     name: "Arrangementer",
@@ -636,6 +636,7 @@ function doPost(e) {
 var NON_ADMIN_WRITABLE_SHEETS = {
   grupper: true,
   gruppemedlemmer: true,
+  gudstjenester: true,
   tjenestebehov: true,
   tildelinger: true,
   svar: true,
@@ -832,6 +833,12 @@ function saveDatabase(state, isAdmin) {
     mergePersonKontaktFelt_(state.personer, existingPersoner);
     ensurePersonTokens_(state.personer);
   }
+  if (isAdmin === false && state.gudstjenester) {
+    state.gudstjenester = mergeGudstjenesteInnhold_(
+      state.gudstjenester,
+      readSheet_(ss, MASTER_SHEETS.gudstjenester)
+    );
+  }
   var key;
   for (key in MASTER_SHEETS) {
     if (!state[key]) continue;
@@ -878,6 +885,23 @@ function mergePersonKontaktFelt_(incoming, existing) {
       if (nyTom && gammelHarVerdi) incoming[i][key] = gammel;
     }
   }
+}
+
+/** Møteleder kan bare oppdatere kollekt og kunngjøringer — ikke dato, tema eller sted. */
+function mergeGudstjenesteInnhold_(incoming, existing) {
+  var byId = {};
+  var i;
+  for (i = 0; i < (existing || []).length; i++) {
+    byId[String(existing[i].GudstjenesteID || "").trim()] = existing[i];
+  }
+  for (i = 0; i < (incoming || []).length; i++) {
+    var ny = incoming[i];
+    var id = String(ny.GudstjenesteID || "").trim();
+    if (!id || !byId[id]) continue;
+    if (ny.Kollekt !== undefined) byId[id].Kollekt = ny.Kollekt;
+    if (ny["Kunngjøringer"] !== undefined) byId[id]["Kunngjøringer"] = ny["Kunngjøringer"];
+  }
+  return existing;
 }
 
 function getSpreadsheet_() {

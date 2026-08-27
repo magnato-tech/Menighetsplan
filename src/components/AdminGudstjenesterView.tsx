@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from "react";
 import {
   DatabaseState,
-  opprettPersonIRegister,
   rensSted,
   saveDatabase,
   settDeltakelseForPerson,
   personHarAktivTildeling,
-  finnPersonMedVisningsnavn,
   AppView,
 } from "../services/dataService";
 import { Gudstjeneste, Person } from "../types/database";
@@ -42,11 +40,10 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
     Tema: "",
     Bibeltekst: "",
     Kollekt: "",
+    Kunngjøringer: "",
     Merknad: "",
   });
-  const [assignNewFornavn, setAssignNewFornavn] = useState("");
   const [assignModal, setAssignModal] = useState<TildelForesporsel | null>(null);
-  const [personToAssign, setPersonToAssign] = useState("");
   const [oversiktFilter, setOversiktFilter] = useState<OversiktFilter>(null);
   const [filterGruppeId, setFilterGruppeId] = useState("");
   const [assignSok, setAssignSok] = useState("");
@@ -66,6 +63,7 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
       Tema: newServiceData.Tema,
       Bibeltekst: newServiceData.Bibeltekst || "",
       Kollekt: newServiceData.Kollekt || "",
+      Kunngjøringer: newServiceData.Kunngjøringer || "",
       Merknad: newServiceData.Merknad || "",
     };
     const updatedDb: DatabaseState = {
@@ -82,73 +80,9 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
       Tema: "",
       Bibeltekst: "",
       Kollekt: "",
+      Kunngjøringer: "",
       Merknad: "",
     });
-  };
-
-  const handleCreateAndAssign = () => {
-    if (!assignModal) return;
-    const fornavn = assignNewFornavn.trim();
-    if (!fornavn) return;
-    const eksisterende = finnPersonMedVisningsnavn(db, fornavn);
-    if (eksisterende) {
-      const updated = settDeltakelseForPerson(
-        db,
-        eksisterende.PersonID,
-        assignModal.gudstjenesteId,
-        assignModal.rolleId,
-        "Avventer",
-        "Forespurt av administrator"
-      );
-      saveDatabase(updated);
-      onUpdateDb(updated);
-      setAssignModal(null);
-      setPersonToAssign("");
-      setAssignNewFornavn("");
-      return;
-    }
-    const gud = db.gudstjenester.find((g) => g.GudstjenesteID === assignModal.gudstjenesteId);
-    const updatedDb = opprettPersonIRegister(db, { Navn: fornavn }, [
-      {
-        gudstjenesteId: assignModal.gudstjenesteId,
-        rolleId: assignModal.rolleId,
-        rolleNavn: assignModal.rolleNavn,
-        dato: gud?.Dato || "",
-      },
-    ]);
-    saveDatabase(updatedDb);
-    onUpdateDb(updatedDb);
-    setAssignModal(null);
-    setPersonToAssign("");
-    setAssignNewFornavn("");
-  };
-
-  const handleAssignPerson = () => {
-    if (!assignModal || !personToAssign) return;
-    if (
-      personHarAktivTildeling(
-        db,
-        personToAssign,
-        assignModal.gudstjenesteId,
-        assignModal.rolleId
-      )
-    ) {
-      setAssignModal(null);
-      setPersonToAssign("");
-      return;
-    }
-    const updated = settDeltakelseForPerson(
-      db,
-      personToAssign,
-      assignModal.gudstjenesteId,
-      assignModal.rolleId,
-      "Avventer",
-      "Forespurt av administrator"
-    );
-    saveDatabase(updated);
-    onUpdateDb(updated);
-    setAssignModal(null);
-    setPersonToAssign("");
   };
 
   useEffect(() => {
@@ -274,6 +208,30 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
                   className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
                 />
               </div>
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Kollekt:</label>
+                <input
+                  type="text"
+                  placeholder="Hva kollekten går til"
+                  value={newServiceData.Kollekt}
+                  onChange={(e) =>
+                    setNewServiceData((prev) => ({ ...prev, Kollekt: e.target.value }))
+                  }
+                  className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
+                />
+              </div>
+              <div>
+                <label className="font-semibold text-slate-600 block mb-1">Kunngjøringer:</label>
+                <textarea
+                  placeholder="Valgfritt — kan fylles inn senere av møteleder"
+                  value={newServiceData.Kunngjøringer}
+                  onChange={(e) =>
+                    setNewServiceData((prev) => ({ ...prev, Kunngjøringer: e.target.value }))
+                  }
+                  rows={3}
+                  className="w-full border border-slate-300 rounded-xl p-2 bg-slate-50"
+                />
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <button
@@ -304,7 +262,6 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
             aria-label="Lukk"
             onClick={() => {
               setAssignModal(null);
-              setAssignNewFornavn("");
               setAssignSok("");
             }}
           />
@@ -313,7 +270,8 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
               Tildel person til {assignModal.rolleNavn}
             </h3>
             <p className="text-xs text-slate-500 mb-4">
-              Gudstjeneste: {assignModal.gudstjenesteDato}
+              Gudstjeneste: {assignModal.gudstjenesteDato}. Velg en person som allerede ligger i
+              personregisteret.
             </p>
             {(() => {
               const q = assignSok.trim().toLowerCase();
@@ -336,7 +294,6 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
                   (p.Navn.toLowerCase().includes(q) || (p.Fornavn || "").toLowerCase().includes(q))
               ).slice(0, 12);
               const velg = (personId: string) => {
-                setPersonToAssign(personId);
                 const updated = settDeltakelseForPerson(
                   db,
                   personId,
@@ -348,7 +305,6 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
                 saveDatabase(updated);
                 onUpdateDb(updated);
                 setAssignModal(null);
-                setPersonToAssign("");
                 setAssignSok("");
               };
               return (
@@ -402,47 +358,20 @@ export const AdminGudstjenesterView: React.FC<AdminGudstjenesterViewProps> = ({
                 </div>
               );
             })()}
-            <div className="border-t border-slate-100 pt-3 space-y-2">
-              <label className="text-xs font-semibold text-slate-600 block">
-                Eller opprett ny person
-              </label>
-              <input
-                type="text"
-                placeholder="Fornavn, eller fornavn etternavn"
-                value={assignNewFornavn}
-                onChange={(e) => setAssignNewFornavn(e.target.value)}
-                className="w-full text-sm border border-slate-300 rounded-xl p-2.5 bg-slate-50"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
+            <p className="text-xs text-slate-500 border-t border-slate-100 pt-3">
+              Ny person opprettes under Personregister. Deretter kan du søke dem frem her.
+            </p>
+            <div className="flex justify-end mt-4">
               <button
                 type="button"
                 onClick={() => {
                   setAssignModal(null);
-                  setAssignNewFornavn("");
+                  setAssignSok("");
                 }}
                 className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
               >
                 Avbryt
               </button>
-              {assignNewFornavn.trim() ? (
-                <button
-                  type="button"
-                  onClick={handleCreateAndAssign}
-                  className="px-4 py-2 text-xs bg-[#2d5a3f] hover:bg-[#234731] text-white font-semibold rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  Opprett og tildel
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  disabled={!personToAssign}
-                  onClick={handleAssignPerson}
-                  className="px-4 py-2 text-xs bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition cursor-pointer"
-                >
-                  Lagre tildeling
-                </button>
-              )}
             </div>
           </div>
         </div>

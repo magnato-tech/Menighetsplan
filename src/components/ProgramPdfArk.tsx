@@ -140,6 +140,43 @@ export const ProgramPdfArk: React.FC<ProgramPdfArkProps> = ({
           </ul>
         </section>
       )}
+
+      {(gudstjeneste.Kollekt || gudstjeneste.Kunngjøringer) && (
+        <section
+          className={
+            ovrig.length > 0
+              ? kompakt
+                ? "mt-3 pt-2 border-t border-slate-200"
+                : "mt-4 pt-3 border-t border-slate-200"
+              : "mt-4 pt-3 border-t-2 border-[#2d5a3f]"
+          }
+        >
+          {gudstjeneste.Kollekt && (
+            <p className={kompakt ? "text-[11px] text-slate-800 leading-tight" : "text-sm text-slate-800 leading-snug"}>
+              <span className="font-semibold">Kollekt: </span>
+              {gudstjeneste.Kollekt}
+            </p>
+          )}
+          {gudstjeneste.Kunngjøringer && (
+            <div className={gudstjeneste.Kollekt ? (kompakt ? "mt-1.5" : "mt-2") : ""}>
+              <p
+                className={`font-bold uppercase tracking-[0.14em] text-[#2d5a3f] ${
+                  kompakt ? "text-[9px] mb-0.5" : "text-[11px] mb-1"
+                }`}
+              >
+                Kunngjøringer
+              </p>
+              <p
+                className={`whitespace-pre-wrap ${
+                  kompakt ? "text-[11px] text-slate-800 leading-tight" : "text-sm text-slate-800 leading-snug"
+                }`}
+              >
+                {gudstjeneste.Kunngjøringer}
+              </p>
+            </div>
+          )}
+        </section>
+      )}
     </article>
   );
 };
