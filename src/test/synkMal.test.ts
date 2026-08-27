@@ -309,6 +309,7 @@ function malaktiviteterUendret(db: DatabaseState) {
   const lastet = applyLoadedState(tomUtenMaler());
   assert.ok(lastet.maler.some((m) => m.MalID === MAL_GUDSTJENESTE_ID));
   assert.ok(lastet.maler.some((m) => m.MalID === MAL_GRUPPEMØTE_ID));
+  assert.ok(lastet.maler.some((m) => m.MalID === "MAL003"));
   assert.ok(lastet.malposter.length > 0);
 
   const { db: medKatalog, malFaste } = katalog();

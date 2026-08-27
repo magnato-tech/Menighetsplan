@@ -156,6 +156,7 @@ var MASTER_SHEETS = {
   innstillinger: {
     name: "Innstillinger",
     columns: ["Nøkkel", "Verdi"],
+    // Rader: visKalenderMinSide, visKalenderGruppeleder, visKalenderIcal, eksternIcalUrl
   },
 };
 
@@ -537,9 +538,9 @@ function doGet(e) {
 
     if (erEksternIcalAction_(action)) {
       if (erEksternIcalJsonAction_(action)) {
-        return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
+        return json_({ ok: true, ics: hentKorrigertEksternIcal_(params.icalUrl) });
       }
-      return ContentService.createTextOutput(hentKorrigertEksternIcal_())
+      return ContentService.createTextOutput(hentKorrigertEksternIcal_(params.icalUrl))
         .setMimeType(ContentService.MimeType.TEXT);
     }
 
@@ -572,7 +573,7 @@ function doPost(e) {
   // Samme kontrakt som load/save: prod (AI Studio) poster, den poster ikke GET.
   if (erEksternIcalAction_(action)) {
     try {
-      return json_({ ok: true, ics: hentKorrigertEksternIcal_() });
+      return json_({ ok: true, ics: hentKorrigertEksternIcal_(body.icalUrl) });
     } catch (icalErr) {
       return json_({ ok: false, error: String(icalErr) }, 500);
     }
@@ -623,6 +624,16 @@ function doPost(e) {
       var dryPost = parseDryRun_(body.dryRun != null ? body.dryRun : (e.parameter && e.parameter.dryRun), dryDefault);
       var report = migrerGudstjenesterImport(dryPost, overwrite);
       return json_({ ok: true, dryRun: dryPost, overwrite: overwrite, report: report });
+    }
+
+    if (action === "exportImportBackup") {
+      var expAuth = requireAuth_(body, true);
+      if (!expAuth.ok) return json_({ ok: false, error: expAuth.error });
+      if (!body.data) {
+        return json_({ ok: false, error: "Mangler data" }, 400);
+      }
+      var expReport = skrivImportBackup_(body.data);
+      return json_({ ok: true, report: expReport });
     }
 
     return json_({ ok: false, error: "Ukjent action: " + action }, 400);
@@ -822,11 +833,20 @@ function fyllSikkerhetsTokens() {
   return personer.length;
 }
 
-/** Tom klient-state skal ikke slette Arrangementer/Kalenderoppgaver som allerede ligger i arket. */
+/** Tom klient-state skal ikke slette rader som allerede ligger i arket. */
 function skalSkriveArk_(ss, key, spec, records) {
   if (!Array.isArray(records)) return false;
   if (records.length > 0) return true;
-  if (key !== "arrangementer" && key !== "kalenderoppgaver") return true;
+  if (
+    key !== "arrangementer" &&
+    key !== "kalenderoppgaver" &&
+    key !== "maler" &&
+    key !== "malposter" &&
+    key !== "malTilleggsvakter" &&
+    key !== "innstillinger"
+  ) {
+    return true;
+  }
   var eksisterende = readSheet_(ss, spec);
   return !eksisterende || eksisterende.length === 0;
 }
@@ -842,6 +862,46 @@ function saveDatabase(state, isAdmin) {
     mergePersonKontaktFelt_(state.personer, existingPersoner);
     ensurePersonTokens_(state.personer);
   }
+  if (isAdmin !== false) {
+    if (state.maler) {
+      state.maler = flettInnManglendeRader_(state.maler, readSheet_(ss, MASTER_SHEETS.maler), "MalID");
+    }
+    if (state.malposter) {
+      state.malposter = flettInnManglendeRader_(
+        state.malposter,
+        readSheet_(ss, MASTER_SHEETS.malposter),
+        "MalPostID"
+      );
+    }
+    if (state.malTilleggsvakter) {
+      state.malTilleggsvakter = flettInnManglendeRader_(
+        state.malTilleggsvakter,
+        readSheet_(ss, MASTER_SHEETS.malTilleggsvakter),
+        "MalTilleggsvaktID"
+      );
+    }
+    if (state.arrangementer) {
+      state.arrangementer = flettInnManglendeRader_(
+        state.arrangementer,
+        readSheet_(ss, MASTER_SHEETS.arrangementer),
+        "ArrangementID"
+      );
+    }
+    if (state.kalenderoppgaver) {
+      state.kalenderoppgaver = flettInnManglendeRader_(
+        state.kalenderoppgaver,
+        readSheet_(ss, MASTER_SHEETS.kalenderoppgaver),
+        "KalenderoppgaveID"
+      );
+    }
+    if (state.innstillinger) {
+      state.innstillinger = flettInnManglendeRader_(
+        state.innstillinger,
+        readSheet_(ss, MASTER_SHEETS.innstillinger),
+        "Nøkkel"
+      );
+    }
+  }
   if (isAdmin === false && state.gudstjenester) {
     state.gudstjenester = mergeGudstjenesteInnhold_(
       state.gudstjenester,
@@ -855,7 +915,44 @@ function saveDatabase(state, isAdmin) {
     if (!skalSkriveArk_(ss, key, MASTER_SHEETS[key], state[key])) continue;
     writeSheet_(ss, MASTER_SHEETS[key], state[key]);
   }
-  // Import-faner skrives aldri.
+  // Import-faner skrives aldri av vanlig save — bare via exportImportBackup.
+}
+
+function skrivImportBackup_(data) {
+  ensureSchema_();
+  var ss = getSpreadsheet_();
+  var personer = data.personerImport || [];
+  var guds = data.gudstjenesterImport || [];
+  var roller = data.rollebeskrivelseImport || [];
+  if (!personer.length && !guds.length && !roller.length) {
+    throw new Error("Ingenting å eksportere.");
+  }
+  writeSheet_(ss, IMPORT_SHEETS.personerImport, personer);
+  writeSheet_(ss, IMPORT_SHEETS.gudstjenesterImport, guds);
+  writeSheet_(ss, IMPORT_SHEETS.rollebeskrivelseImport, roller);
+  return {
+    personer: personer.length,
+    gudstjenester: guds.length,
+    roller: roller.length,
+  };
+}
+
+function flettInnManglendeRader_(incoming, existing, idFelt) {
+  var inn = incoming || [];
+  var finnes = existing || [];
+  if (!finnes.length) return inn;
+  if (!inn.length) return finnes;
+  var ids = {};
+  var i;
+  for (i = 0; i < inn.length; i++) {
+    ids[String(inn[i][idFelt] || "")] = true;
+  }
+  var ut = inn.slice();
+  for (i = 0; i < finnes.length; i++) {
+    var id = String(finnes[i][idFelt] || "");
+    if (id && !ids[id]) ut.push(finnes[i]);
+  }
+  return ut;
 }
 
 function mergePersonTokens_(incoming, existing) {
@@ -1692,16 +1789,36 @@ function testMigrateDryRun() {
 var EKSTERN_ICAL_URL =
   "https://lillesandmisjonskirke.no/er/functions/calendar/shareplanneritems.aspx?categoryid=81";
 
+function gyldigIcalHttpUrl_(url) {
+  var t = String(url || "").trim().replace(/^webcal:\/\//i, "https://");
+  if (!/^https?:\/\//i.test(t)) return "";
+  return t;
+}
+
+function icalCacheNokkel_(url) {
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.MD5, url);
+  var hex = "";
+  for (var i = 0; i < digest.length; i++) {
+    var b = digest[i];
+    if (b < 0) b += 256;
+    var h = b.toString(16);
+    hex += h.length === 1 ? "0" + h : h;
+  }
+  return "eIcal_" + hex;
+}
+
 function korrigerIcalHeldagsTilKlokkeslett_(ics) {
   var tekst = String(ics || "").replace(/\r\n[ \t]/g, "").replace(/\n[ \t]/g, "");
   return tekst.replace(/^(DT(?:START|END));VALUE=DATE:(\d{8}T\d{6}(?:Z)?)$/gm, "$1:$2");
 }
 
-function hentKorrigertEksternIcal_() {
+function hentKorrigertEksternIcal_(onsketUrl) {
+  var url = gyldigIcalHttpUrl_(onsketUrl) || EKSTERN_ICAL_URL;
   var cache = CacheService.getScriptCache();
-  var cached = cache.get("eksternIcal");
+  var nokkel = icalCacheNokkel_(url);
+  var cached = cache.get(nokkel);
   if (cached) return cached;
-  var res = UrlFetchApp.fetch(EKSTERN_ICAL_URL, {
+  var res = UrlFetchApp.fetch(url, {
     muteHttpExceptions: true,
     followRedirects: true,
   });
@@ -1709,7 +1826,7 @@ function hentKorrigertEksternIcal_() {
     throw new Error("Kunne ikke hente ekstern kalender (" + res.getResponseCode() + ")");
   }
   var ics = korrigerIcalHeldagsTilKlokkeslett_(res.getContentText());
-  cache.put("eksternIcal", ics, 600);
+  cache.put(nokkel, ics, 600);
   return ics;
 }
 

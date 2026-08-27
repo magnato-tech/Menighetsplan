@@ -10,6 +10,7 @@ import {
   minIcalHttpsUrl,
   oppdaterInnstillinger,
   parseInnstillinger,
+  flettManglendeInnstillinger,
   standardInnstillinger,
   visKalenderForPerson,
   googleKalenderAbonnerUrl,
@@ -129,8 +130,24 @@ function tomDb(): DatabaseState {
     visKalenderMinSide: true,
     visKalenderGruppeleder: false,
     visKalenderIcal: true,
+    eksternIcalUrl: "https://example.com/kalender.ics",
   };
   assert.deepEqual(parseInnstillinger(innstillingerTilRader(lagret)), lagret);
+  assert.equal(
+    parseInnstillinger([{ Nøkkel: "eksternIcalUrl", Verdi: "HTTPS://Example.COM/X.ics" }]).eksternIcalUrl,
+    "HTTPS://Example.COM/X.ics"
+  );
+
+  const flettet = flettManglendeInnstillinger(
+    { innstillinger: [] },
+    { innstillinger: lagret }
+  );
+  assert.deepEqual(parseInnstillinger(flettet.innstillinger), lagret);
+  const urortInnst = flettManglendeInnstillinger(
+    { innstillinger: innstillingerTilRader(standardInnstillinger()) },
+    { innstillinger: lagret }
+  );
+  assert.equal(parseInnstillinger(urortInnst.innstillinger).visKalenderMinSide, false);
 }
 
 {

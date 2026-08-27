@@ -1020,6 +1020,7 @@ export const initialMalaktiviteter: MalAktivitet[] = [
 
 export const MAL_GUDSTJENESTE_ID = "MAL001";
 export const MAL_GRUPPEMØTE_ID = "MAL002";
+export const MAL_ARRANGEMENT_ID = "MAL003";
 
 /** Nye arrangementmaler — rører ikke malaktiviteter. */
 export const initialMaler: Mal[] = [
@@ -1033,6 +1034,13 @@ export const initialMaler: Mal[] = [
   {
     MalID: MAL_GRUPPEMØTE_ID,
     Navn: "Gruppemøte",
+    Aktiv: true,
+    OpprettetDato: MAL_DATO,
+    SistEndret: MAL_DATO,
+  },
+  {
+    MalID: MAL_ARRANGEMENT_ID,
+    Navn: "Arrangement",
     Aktiv: true,
     OpprettetDato: MAL_DATO,
     SistEndret: MAL_DATO,

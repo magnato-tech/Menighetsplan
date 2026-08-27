@@ -177,7 +177,11 @@ export interface GudstjenesterImport {
   GudstjenesteID: string;
   Dato: string;
   Tid: string;
+  Sted?: string;
   Tema: string;
+  Bibeltekst?: string;
+  Kollekt?: string;
+  Merknad?: string;
   Leder?: string;
   Taler?: string;
   Forbønn?: string;
@@ -300,6 +304,8 @@ export interface AppInnstillinger {
   visKalenderMinSide: boolean;
   visKalenderGruppeleder: boolean;
   visKalenderIcal: boolean;
+  /** Offentlig ICS-adresse for synk. Tom = kirkens standardfeed. */
+  eksternIcalUrl?: string;
 }
 
 export type KalenderoppgaveStatus = "Åpen" | "Avvist" | "Opprettet";

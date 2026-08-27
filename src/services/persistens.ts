@@ -26,7 +26,8 @@ import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa
 import { synkGruppeledergruppe } from "./grupper";
 import { sikreSmagruppelederRolle } from "./roller";
 import { sikreStandardMaler } from "./mal";
-import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger } from "./kalender";
+import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger, flettManglendeInnstillinger } from "./kalender";
+import { byggImportBackup } from "./importBackup";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v3_mock";
 const ELDRE_MOCK_STORAGE_KEYS = ["gudstjenesteplanlegger_db_v2_mock"];
@@ -310,6 +311,43 @@ export function flettManglendeKalenderdata(
   };
 }
 
+/** Tomme Arrangementer/Kalenderoppgaver fra Sheets skal ikke slette det som ligger lokalt. */
+export function flettLastetMedLokalCache(
+  ny: Partial<DatabaseState>,
+  cache: Partial<DatabaseState> | null | undefined
+): Partial<DatabaseState> {
+  return flettManglendeInnstillinger(
+    flettManglendeKalenderdata(flettManglendeMaldata(ny, cache), cache),
+    cache
+  );
+}
+
+/** Ta med maler som ligger i eldre/cache men mangler i ny last. */
+export function flettManglendeMaldata(
+  ny: Partial<DatabaseState>,
+  gammel: Partial<DatabaseState> | null | undefined
+): Partial<DatabaseState> {
+  if (!gammel) return ny;
+  const nyMaler = Array.isArray(ny.maler) ? ny.maler : [];
+  const gammelMaler = Array.isArray(gammel.maler) ? gammel.maler : [];
+  const ids = new Set(nyMaler.map((m) => m.MalID));
+  const ekstra = gammelMaler.filter((m) => !ids.has(m.MalID));
+  if (ekstra.length === 0) return ny;
+  const ekstraIds = new Set(ekstra.map((m) => m.MalID));
+  return {
+    ...ny,
+    maler: [...nyMaler, ...ekstra],
+    malposter: [
+      ...(ny.malposter || []),
+      ...(gammel.malposter || []).filter((p) => ekstraIds.has(p.MalID)),
+    ],
+    malTilleggsvakter: [
+      ...(ny.malTilleggsvakter || []),
+      ...(gammel.malTilleggsvakter || []).filter((t) => ekstraIds.has(t.MalID)),
+    ],
+  };
+}
+
 function lesLocalJson(key: string): Partial<DatabaseState> | null {
   try {
     const raw = localStorage.getItem(key);
@@ -325,6 +363,7 @@ function flettKalenderFraEldreMock(parsed: Partial<DatabaseState>): Partial<Data
   let neste = parsed;
   for (const key of ELDRE_MOCK_STORAGE_KEYS) {
     neste = flettManglendeKalenderdata(neste, lesLocalJson(key));
+    neste = flettManglendeMaldata(neste, lesLocalJson(key));
   }
   return neste;
 }
@@ -636,7 +675,8 @@ export async function loadDatabase(): Promise<DatabaseState> {
       if (!Array.isArray(payload.data.kalenderoppgaver) && cache?.kalenderoppgaver) {
         data.kalenderoppgaver = cache.kalenderoppgaver;
       }
-      const state = rensLastetPersondata(applyLoadedState(normalizeState(data)));
+      const flettet = flettLastetMedLokalCache(data, cache);
+      const state = rensLastetPersondata(applyLoadedState(normalizeState(flettet)));
       if (payload.personId) {
         sisteLastetPersonId = String(payload.personId);
         lagreAdminSesjonPersonId(sisteLastetPersonId);
@@ -696,7 +736,10 @@ export async function forceSyncFromGoogleSheets(customUrl?: string): Promise<{ s
     const payload = JSON.parse(text);
     if (payload?.ok && payload.data) {
       noterPersondataFraServer(payload.isAdmin);
-      const normalized = rensLastetPersondata(applyLoadedState(normalizeState(payload.data)));
+      const cache = lesLocalJson(REMOTE_CACHE_KEY);
+      const normalized = rensLastetPersondata(
+        applyLoadedState(normalizeState(flettLastetMedLokalCache(payload.data, cache)))
+      );
       // Lagre til lokal database slik at dataene sitter fast
       saveCustomScriptUrl(targetUrl);
       persistLocalState(normalized);
@@ -745,6 +788,55 @@ export async function uploadToGoogleSheets(state: DatabaseState, customUrl?: str
     }
     } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Overskriv Personer_import, Gudstjenester_import og Rollebeskrivelse_import med master. Master røres ikke. */
+export async function eksporterTilImportfaner(state: DatabaseState): Promise<{
+  success: boolean;
+  report?: { personer: number; gudstjenester: number; roller: number };
+  error?: string;
+}> {
+  if (!shouldWriteToRemote()) {
+    return {
+      success: false,
+      error: "Mock-modus skriver ikke til arket. Velg «Ekte data» først.",
+    };
+  }
+  const base = getApiBase();
+  if (!base) {
+    return { success: false, error: "Mangler Apps Script-URL." };
+  }
+  const backup = byggImportBackup(state);
+  if (backup.personerImport.length === 0 && backup.gudstjenesterImport.length === 0) {
+    return { success: false, error: "Ingenting å eksportere." };
+  }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  try {
+    const response = await fetch(base, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({
+        action: "exportImportBackup",
+        data: backup,
+        ...requireRemoteAuth(),
+      }),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (payload?.ok) {
+      return { success: true, report: payload.report };
+    }
+    return { success: false, error: payload?.error || "Eksporten ble avvist." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { success: false, error: "Tidsavbrudd under eksport (90 s). Prøv igjen." };
+    }
+    return { success: false, error: msg };
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -864,6 +956,12 @@ async function pumpRemoteSave(): Promise<void> {
       const melding = payload?.error || response.statusText;
       console.error("Kunne ikke lagre til Google Sheets:", melding);
       varsleRemoteSaveFeil(String(melding || "Ukjent feil"));
+    } else if (payload.data) {
+      persistLocalState(
+        applyLoadedState(
+          normalizeState(flettLastetMedLokalCache(payload.data as Partial<DatabaseState>, state))
+        )
+      );
     }
   } catch (e) {
     console.error("Kunne ikke lagre til Google Sheets:", e);

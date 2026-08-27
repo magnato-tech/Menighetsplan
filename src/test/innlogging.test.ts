@@ -220,10 +220,12 @@ assert.ok(Array.isArray(lagretSomAdmin.innstillinger));
 const innstillingRader = lagretSomAdmin.innstillinger as unknown as { Nøkkel: string; Verdi: string }[];
 assert.deepEqual(
   innstillingRader.map((r) => r.Nøkkel).sort(),
-  ["visKalenderGruppeleder", "visKalenderIcal", "visKalenderMinSide"]
+  ["eksternIcalUrl", "visKalenderGruppeleder", "visKalenderIcal", "visKalenderMinSide"]
 );
 assert.equal(
-  innstillingRader.every((r) => r.Verdi === "true" || r.Verdi === "false"),
+  innstillingRader
+    .filter((r) => r.Nøkkel.startsWith("visKalender"))
+    .every((r) => r.Verdi === "true" || r.Verdi === "false"),
   true
 );
 

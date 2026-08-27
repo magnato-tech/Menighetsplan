@@ -40,8 +40,9 @@ export const MalerAdminView: React.FC<MalerAdminViewProps> = ({ db, onUpdateDb }
       <div>
         <h3 className="text-lg font-bold text-slate-900">Maler</h3>
         <p className="text-sm text-slate-600 mt-1">
-          Søndagens standard brukes av gudstjenestene. De andre malene brukes når du oppretter
-          arrangementer.
+          Søndagens standard brukes av gudstjenestene. Gudstjeneste, gruppemøte og arrangement
+          ligger inne som standard. Egne maler lager du med «Ny mal» — de lagres i arket sammen
+          med de tre.
         </p>
       </div>
 

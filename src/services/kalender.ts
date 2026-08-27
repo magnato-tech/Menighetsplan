@@ -21,6 +21,7 @@ export function standardInnstillinger(): AppInnstillinger {
     visKalenderMinSide: false,
     visKalenderGruppeleder: false,
     visKalenderIcal: false,
+    eksternIcalUrl: "",
   };
 }
 
@@ -30,6 +31,7 @@ export function hentInnstillinger(db: Pick<DatabaseState, "innstillinger"> | nul
     visKalenderMinSide: Boolean(i?.visKalenderMinSide),
     visKalenderGruppeleder: Boolean(i?.visKalenderGruppeleder),
     visKalenderIcal: Boolean(i?.visKalenderIcal),
+    eksternIcalUrl: String(i?.eksternIcalUrl || "").trim(),
   };
 }
 
@@ -51,13 +53,14 @@ export function parseInnstillinger(raa: unknown): AppInnstillinger {
     const kart = new Map<string, string>();
     for (const rad of raa) {
       const nøkkel = String((rad as { Nøkkel?: string })?.Nøkkel || "").trim();
-      const verdi = String((rad as { Verdi?: string })?.Verdi ?? "").trim().toLowerCase();
+      const verdi = String((rad as { Verdi?: string })?.Verdi ?? "").trim();
       if (nøkkel) kart.set(nøkkel, verdi);
     }
     return {
-      visKalenderMinSide: kart.get("visKalenderMinSide") === "true",
-      visKalenderGruppeleder: kart.get("visKalenderGruppeleder") === "true",
-      visKalenderIcal: kart.get("visKalenderIcal") === "true",
+      visKalenderMinSide: kart.get("visKalenderMinSide")?.toLowerCase() === "true",
+      visKalenderGruppeleder: kart.get("visKalenderGruppeleder")?.toLowerCase() === "true",
+      visKalenderIcal: kart.get("visKalenderIcal")?.toLowerCase() === "true",
+      eksternIcalUrl: String(kart.get("eksternIcalUrl") || "").trim(),
     };
   }
   if (typeof raa === "object") {
@@ -66,6 +69,7 @@ export function parseInnstillinger(raa: unknown): AppInnstillinger {
       visKalenderMinSide: Boolean(o.visKalenderMinSide),
       visKalenderGruppeleder: Boolean(o.visKalenderGruppeleder),
       visKalenderIcal: Boolean(o.visKalenderIcal),
+      eksternIcalUrl: String(o.eksternIcalUrl || "").trim(),
     };
   }
   return base;
@@ -76,7 +80,24 @@ export function innstillingerTilRader(i: AppInnstillinger): { Nøkkel: string; V
     { Nøkkel: "visKalenderMinSide", Verdi: i.visKalenderMinSide ? "true" : "false" },
     { Nøkkel: "visKalenderGruppeleder", Verdi: i.visKalenderGruppeleder ? "true" : "false" },
     { Nøkkel: "visKalenderIcal", Verdi: i.visKalenderIcal ? "true" : "false" },
+    { Nøkkel: "eksternIcalUrl", Verdi: String(i.eksternIcalUrl || "").trim() },
   ];
+}
+
+/** Tom Innstillinger-fane skal ikke slette huker og iCal-lenke som ligger lokalt. */
+export function innstillingerManglerILast(raa: unknown): boolean {
+  if (raa == null) return true;
+  if (Array.isArray(raa)) return raa.length === 0;
+  return false;
+}
+
+export function flettManglendeInnstillinger<T extends { innstillinger?: unknown }>(
+  ny: T,
+  gammel: { innstillinger?: unknown } | null | undefined
+): T {
+  if (!gammel || !innstillingerManglerILast(ny.innstillinger)) return ny;
+  if (innstillingerManglerILast(gammel.innstillinger)) return ny;
+  return { ...ny, innstillinger: gammel.innstillinger as T["innstillinger"] };
 }
 
 function personErIGruppe(db: DatabaseState, personId: string, gruppeId: string): boolean {

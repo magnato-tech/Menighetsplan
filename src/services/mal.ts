@@ -1,6 +1,7 @@
 import { Mal, MalPost, MalTilleggsvakt } from "../types/database";
 import type { DatabaseState } from "../types/database";
 import {
+  MAL_ARRANGEMENT_ID,
   MAL_GRUPPEMØTE_ID,
   MAL_GUDSTJENESTE_ID,
   initialMalTilleggsvakter,
@@ -10,7 +11,7 @@ import {
 import { nesteNummerertId } from "./ids";
 import { settTjenestebehov } from "./bemanning";
 
-export { MAL_GRUPPEMØTE_ID, MAL_GUDSTJENESTE_ID };
+export { MAL_ARRANGEMENT_ID, MAL_GRUPPEMØTE_ID, MAL_GUDSTJENESTE_ID };
 
 export type MalBemanningKilde = "kjoreplan" | "tillegg";
 
@@ -104,8 +105,19 @@ export function foreslaMalId(db: DatabaseState, tittel: string): string {
   const tittelOrd = nøkkelForMalMatch(tittel);
   const gud = aktive.find((m) => m.MalID === MAL_GUDSTJENESTE_ID);
   const gruppe = aktive.find((m) => m.MalID === MAL_GRUPPEMØTE_ID);
+  const arrangement = aktive.find((m) => m.MalID === MAL_ARRANGEMENT_ID);
   if (tittelOrd.includes("gudstjeneste") || tittelOrd.includes("gudsteneste")) {
     return gud?.MalID || aktive[0].MalID;
+  }
+  if (
+    tittelOrd.includes("gruppemote") ||
+    tittelOrd.includes("husgruppe") ||
+    tittelOrd.includes("smaagruppe")
+  ) {
+    return gruppe?.MalID || arrangement?.MalID || aktive[0].MalID;
+  }
+  if (tittelOrd.includes("arrangement")) {
+    return arrangement?.MalID || aktive[0].MalID;
   }
   let beste: { id: string; poeng: number } | undefined;
   for (const m of aktive) {
@@ -117,16 +129,34 @@ export function foreslaMalId(db: DatabaseState, tittel: string): string {
     }
   }
   if (beste) return beste.id;
-  return gruppe?.MalID || aktive[0].MalID;
+  return arrangement?.MalID || gruppe?.MalID || aktive[0].MalID;
 }
 
 export function sikreStandardMaler(db: DatabaseState): DatabaseState {
-  if ((db.maler || []).length > 0) return db;
+  const eksisterende = db.maler || [];
+  const ids = new Set(eksisterende.map((m) => m.MalID));
+  const mangler = initialMaler.filter((m) => !ids.has(m.MalID));
+  if (mangler.length === 0 && eksisterende.length > 0) return db;
+  if (eksisterende.length === 0) {
+    return {
+      ...db,
+      maler: initialMaler.map((m) => ({ ...m })),
+      malposter: initialMalposter.map((p) => ({ ...p })),
+      malTilleggsvakter: initialMalTilleggsvakter.map((t) => ({ ...t })),
+    };
+  }
+  const manglerIds = new Set(mangler.map((m) => m.MalID));
   return {
     ...db,
-    maler: initialMaler.map((m) => ({ ...m })),
-    malposter: initialMalposter.map((p) => ({ ...p })),
-    malTilleggsvakter: initialMalTilleggsvakter.map((t) => ({ ...t })),
+    maler: [...eksisterende, ...mangler.map((m) => ({ ...m }))],
+    malposter: [
+      ...(db.malposter || []),
+      ...initialMalposter.filter((p) => manglerIds.has(p.MalID)).map((p) => ({ ...p })),
+    ],
+    malTilleggsvakter: [
+      ...(db.malTilleggsvakter || []),
+      ...initialMalTilleggsvakter.filter((t) => manglerIds.has(t.MalID)).map((t) => ({ ...t })),
+    ],
   };
 }
 

@@ -2,8 +2,21 @@ import type { DatabaseState, Kalenderoppgave } from "../types/database";
 import { nesteNummerertId } from "./ids";
 import { opprettArrangement } from "./arrangementer";
 
+/** Standardfeed når innstillingen er tom (Lillesand misjonskirke). */
 export const KIRKE_ICAL_KATEGORI_URL =
   "https://lillesandmisjonskirke.no/er/functions/calendar/shareplanneritems.aspx?categoryid=81";
+
+export function gyldigIcalHttpUrl(url: string): string {
+  const t = String(url || "")
+    .trim()
+    .replace(/^webcal:\/\//i, "https://");
+  if (!/^https?:\/\//i.test(t)) return "";
+  return t;
+}
+
+export function icalFeedUrl(innstiltUrl = ""): string {
+  return gyldigIcalHttpUrl(innstiltUrl) || KIRKE_ICAL_KATEGORI_URL;
+}
 
 export const EKSTERN_ICAL_ACTIONS = ["eksternIcal", "eksternIcalJson"] as const;
 
@@ -314,24 +327,32 @@ export function icalHentUrlKandidaterForSynk(
   return [...new Set([...primaer, ...icalHentUrlKandidater(fb, modus)])];
 }
 
-export function icalGasPostInit(url: string, signal?: AbortSignal): { fetchUrl: string; init: RequestInit } {
+export function icalGasPostInit(
+  url: string,
+  signal?: AbortSignal,
+  icalUrl = ""
+): { fetchUrl: string; init: RequestInit } {
   const action = new URL(url, "http://localhost").searchParams.get("action") || "";
   if (!erKjentEksternIcalAction(action)) {
     return { fetchUrl: url, init: { signal } };
   }
+  const feed = gyldigIcalHttpUrl(icalUrl);
   return {
     fetchUrl: url.split("?")[0],
     init: {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "eksternIcalJson" }),
+      body: JSON.stringify({
+        action: "eksternIcalJson",
+        ...(feed ? { icalUrl: feed } : {}),
+      }),
       signal,
     },
   };
 }
 
-async function hentIcalFraUrl(url: string, signal?: AbortSignal): Promise<string> {
-  const { fetchUrl, init } = icalGasPostInit(url, signal);
+async function hentIcalFraUrl(url: string, signal?: AbortSignal, icalUrl = ""): Promise<string> {
+  const { fetchUrl, init } = icalGasPostInit(url, signal, icalUrl);
   const res = await fetch(fetchUrl, init);
   const text = await res.text();
   if (!res.ok) {
@@ -344,18 +365,23 @@ async function hentIcalFraUrl(url: string, signal?: AbortSignal): Promise<string
   return ics;
 }
 
-/** Dev: Vite-proxy, deretter GAS. Prod: GAS JSON. */
+/** Dev: Vite-proxy (kun standardfeed), deretter GAS. Prod: GAS JSON. */
 export async function hentEksternIcalTekst(
   execUrl = "",
   signal?: AbortSignal,
-  fallbackUrl = ""
+  fallbackUrl = "",
+  innstiltIcalUrl = ""
 ): Promise<string> {
-  const urls = icalHentUrlKandidaterForSynk(execUrl, fallbackUrl);
+  const feed = icalFeedUrl(innstiltIcalUrl);
+  let urls = icalHentUrlKandidaterForSynk(execUrl, fallbackUrl);
+  if (feed !== KIRKE_ICAL_KATEGORI_URL) {
+    urls = urls.filter((u) => u !== "/kirke-ical");
+  }
   let siste = "Kunne ikke hente kalenderen fra nettsiden.";
   for (const url of urls) {
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
     try {
-      return await hentIcalFraUrl(url, signal);
+      return await hentIcalFraUrl(url, signal, feed);
     } catch (err) {
       if (signal?.aborted || (err instanceof DOMException && err.name === "AbortError")) throw err;
       siste = err instanceof Error ? err.message : String(err);

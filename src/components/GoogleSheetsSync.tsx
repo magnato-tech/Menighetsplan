@@ -5,6 +5,7 @@ import {
   saveCustomScriptUrl,
   forceSyncFromGoogleSheets,
   uploadToGoogleSheets,
+  eksporterTilImportfaner,
   DEFAULT_REMOTE_SCRIPT_URL,
   shouldWriteToRemote,
   useRemoteData,
@@ -12,6 +13,8 @@ import {
   hentInnstillinger,
   oppdaterInnstillinger,
   saveDatabase,
+  gyldigIcalHttpUrl,
+  KIRKE_ICAL_KATEGORI_URL,
 } from "../services/dataService";
 import { PersonlenkeInnstillinger } from "./PersonlenkeInnstillinger";
 import {
@@ -47,14 +50,21 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   const [scriptUrl, setScriptUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
   } | null>(null);
+  const [icalUrlUtkast, setIcalUrlUtkast] = useState(() => hentInnstillinger(db).eksternIcalUrl || "");
 
   useEffect(() => {
     setScriptUrl(getCustomScriptUrl());
   }, []);
+
+  const lagretIcalUrl = hentInnstillinger(db).eksternIcalUrl || "";
+  useEffect(() => {
+    setIcalUrlUtkast(lagretIcalUrl);
+  }, [lagretIcalUrl]);
 
   const handleSaveUrl = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -62,6 +72,32 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
     setStatusMessage({
       type: "info",
       text: "Nettadressen til Google Apps Script er lagret.",
+    });
+    setTimeout(() => setStatusMessage(null), 4000);
+  };
+
+  const handleSaveIcalUrl = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmet = icalUrlUtkast.trim().replace(/^webcal:\/\//i, "https://");
+    if (trimmet && !gyldigIcalHttpUrl(trimmet)) {
+      setStatusMessage({
+        type: "error",
+        text: "Kalenderlenken må starte med http://, https:// eller webcal://.",
+      });
+      return;
+    }
+    const lagret = gyldigIcalHttpUrl(trimmet) || "";
+    if (lagret === (hentInnstillinger(db).eksternIcalUrl || "")) {
+      return;
+    }
+    const neste = oppdaterInnstillinger(db, { eksternIcalUrl: lagret });
+    saveDatabase(neste);
+    onUpdateDb(neste);
+    setStatusMessage({
+      type: "success",
+      text: lagret
+        ? "iCal-lenken er lagret. Synk i kalenderen bruker denne feeden."
+        : "iCal-lenken er tømt. Synk bruker standardfeeden.",
     });
     setTimeout(() => setStatusMessage(null), 4000);
   };
@@ -123,6 +159,34 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
     }
   };
 
+  const handleEksporterImportBackup = async () => {
+    if (
+      !window.confirm(
+        "Overskrive Personer_import, Gudstjenester_import og Rollebeskrivelse_import med det som ligger i appen nå?\n\nMasterfanene (Personer, Gudstjenester, Tildelinger …) røres ikke. Den gamle Excel-kopien i importfanene erstattes."
+      )
+    ) {
+      return;
+    }
+    setIsExporting(true);
+    setStatusMessage({
+      type: "info",
+      text: "Skriver backup til importfanene …",
+    });
+    const res = await eksporterTilImportfaner(db);
+    setIsExporting(false);
+    if (res.success && res.report) {
+      setStatusMessage({
+        type: "success",
+        text: `Backup skrevet: ${res.report.personer} personer, ${res.report.gudstjenester} gudstjenester og ${res.report.roller} roller i importfanene.`,
+      });
+    } else {
+      setStatusMessage({
+        type: "error",
+        text: res.error || "Kunne ikke eksportere til importfanene.",
+      });
+    }
+  };
+
   const isUsingDefault = scriptUrl === DEFAULT_REMOTE_SCRIPT_URL;
   const remoteEnabled = shouldWriteToRemote();
   const mockLocked = !useRemoteData() || isSessionMockOverride();
@@ -166,6 +230,31 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             </label>
           );
         })}
+        <form className="space-y-2 pt-2 border-t border-slate-100" onSubmit={handleSaveIcalUrl}>
+          <label htmlFor="ekstern-ical-url" className="block text-sm font-semibold text-slate-800">
+            iCal-lenke for synk
+          </label>
+          <p className="text-xs text-slate-600">
+            Offentlig ICS-adresse. Tomt felt bruker kirkens standardfeed. Lagres i fanen
+            Innstillinger.
+          </p>
+          <input
+            id="ekstern-ical-url"
+            type="text"
+            value={icalUrlUtkast}
+            onChange={(e) => setIcalUrlUtkast(e.target.value)}
+            onBlur={() => handleSaveIcalUrl()}
+            placeholder={KIRKE_ICAL_KATEGORI_URL}
+            className="w-full min-h-11 px-3 text-sm rounded-xl border border-slate-200"
+          />
+          <button
+            type="submit"
+            className="min-h-11 px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Save className="w-3.5 h-3.5" />
+            Lagre iCal-lenke
+          </button>
+        </form>
       </div>
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
       {import.meta.env.DEV && onSwitchDataSource && (
@@ -223,8 +312,10 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             <h2 className="text-lg font-bold text-slate-900">Google Sheets — masterdata</h2>
             <p className="text-xs text-slate-500">
               Appen leser og skriver masterfanene Personer, Gudstjenester, Tildelinger m.m.
-              «Last masterdata på nytt» er samme lesing som auto-synk — ikke import fra
-              Excel-fanene. Bruk «Import fra Excel-faner» når Gudstjenester_import skal skrive over planen.
+              «Eksporter backup til importfaner» kopierer personer, søndager med navn og
+              rollebeskrivelser til Personer_import, Gudstjenester_import og Rollebeskrivelse_import
+              — et punkt du kan rulle tilbake fra. Arrangementer, program og grupper ligger ikke i
+              de fanene. «Import fra Excel-faner» skriver den andre veien og overskriver master.
             </p>
           </div>
         </div>
@@ -240,10 +331,19 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
               <span>Import fra Excel-faner</span>
             </button>
           )}
-          <button
-            type="button"
-            disabled={isLoading || isUploading || !remoteEnabled}
-            onClick={handleSyncFromSheets}
+            <button
+              type="button"
+              disabled={isLoading || isUploading || isExporting || !remoteEnabled}
+              onClick={() => void handleEksporterImportBackup()}
+              className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              <UploadCloud className={`w-4 h-4 ${isExporting ? "opacity-50" : ""}`} />
+              <span>{isExporting ? "Eksporterer..." : "Eksporter backup til importfaner"}</span>
+            </button>
+            <button
+              type="button"
+              disabled={isLoading || isUploading || isExporting || !remoteEnabled}
+              onClick={handleSyncFromSheets}
             className="px-4 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />

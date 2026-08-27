@@ -14,9 +14,12 @@ import {
   erKjentEksternIcalAction,
   EKSTERN_ICAL_ACTIONS,
   synkFeilMedKilde,
+  gyldigIcalHttpUrl,
+  icalFeedUrl,
+  KIRKE_ICAL_KATEGORI_URL,
 } from "../services/eksternKalender";
 import { slettArrangement } from "../services/arrangementer";
-import { flettManglendeKalenderdata } from "../services/persistens";
+import { flettLastetMedLokalCache, flettManglendeKalenderdata } from "../services/persistens";
 import type { DatabaseState } from "../types/database";
 
 function tomDb(): DatabaseState {
@@ -205,6 +208,16 @@ END:VCALENDAR`;
   assert.equal(JSON.parse(String(gas.init.body)).action, "eksternIcalJson");
   const typo = icalGasPostInit("https://script.google.com/macros/s/x/exec?action=eksternlcal");
   assert.equal(typo.init.method, "POST", "G: I/l-variant skal også postes");
+  const medUrl = icalGasPostInit(
+    "https://script.google.com/macros/s/x/exec?action=eksternIcal",
+    undefined,
+    "https://example.com/kalender.ics"
+  );
+  assert.equal(JSON.parse(String(medUrl.init.body)).icalUrl, "https://example.com/kalender.ics");
+  assert.equal(gyldigIcalHttpUrl("ftp://x"), "");
+  assert.equal(gyldigIcalHttpUrl("webcal://example.com/x.ics"), "https://example.com/x.ics");
+  assert.equal(icalFeedUrl(""), KIRKE_ICAL_KATEGORI_URL);
+  assert.equal(icalFeedUrl("https://annen.kirke.no/cal.ics"), "https://annen.kirke.no/cal.ics");
 }
 
 {
@@ -288,6 +301,8 @@ END:VCALENDAR`;
   assert.equal(flettet.arrangementer?.length, 1);
   assert.equal(flettet.kalenderoppgaver?.[0].Status, "Opprettet");
   assert.equal(flettet.tjenestebehov?.length, 1);
+  const lastet = flettLastetMedLokalCache({ arrangementer: [], kalenderoppgaver: [] }, gammel);
+  assert.equal(lastet.arrangementer?.length, 1);
   const urort = flettManglendeKalenderdata(
     { arrangementer: [{ ...gammel.arrangementer[0], Tittel: "Ny" }], kalenderoppgaver: [] },
     gammel

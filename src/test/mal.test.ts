@@ -4,6 +4,7 @@ import {
   initialMaler,
   initialMalposter,
   initialRoller,
+  MAL_ARRANGEMENT_ID,
   MAL_GRUPPEMØTE_ID,
   MAL_GUDSTJENESTE_ID,
 } from "../data/initialData";
@@ -61,7 +62,13 @@ function tomUtenMaler(): DatabaseState {
   );
   assert.equal(db.malposter.filter((p) => p.MalID === MAL_GRUPPEMØTE_ID).length, 0);
   const igjen = sikreStandardMaler({ ...db, maler: [{ ...db.maler[0], Navn: "Egendefinert" }] });
-  assert.equal(igjen.maler[0].Navn, "Egendefinert", "ikke overskriv eksisterende maler");
+  assert.equal(
+    igjen.maler.find((m) => m.MalID === MAL_GUDSTJENESTE_ID)?.Navn,
+    "Egendefinert",
+    "ikke overskriv eksisterende maler"
+  );
+  assert.ok(igjen.maler.some((m) => m.MalID === MAL_ARRANGEMENT_ID));
+  assert.ok(igjen.maler.some((m) => m.MalID === MAL_GRUPPEMØTE_ID));
 }
 
 {
@@ -79,6 +86,7 @@ function tomUtenMaler(): DatabaseState {
   assert.ok(tillegg.includes("R009"));
   assert.ok(!tillegg.includes("R001"));
   assert.equal(bemanningFraMal(db, MAL_GRUPPEMØTE_ID).length, 0);
+  assert.equal(bemanningFraMal(db, MAL_ARRANGEMENT_ID).length, 0);
 }
 
 {
@@ -95,8 +103,10 @@ function tomUtenMaler(): DatabaseState {
 {
   const db = sikreStandardMaler(tomUtenMaler());
   assert.equal(foreslaMalId(db, "Gudstjeneste 11:00"), MAL_GUDSTJENESTE_ID);
-  assert.equal(foreslaMalId(db, "Bønn for Lillesand"), MAL_GRUPPEMØTE_ID);
+  assert.equal(foreslaMalId(db, "Bønn for Lillesand"), MAL_ARRANGEMENT_ID);
   assert.equal(foreslaMalId(db, "Gruppemøte onsdag"), MAL_GRUPPEMØTE_ID);
+  assert.equal(foreslaMalId(db, "Husgruppe onsdag"), MAL_GRUPPEMØTE_ID);
+  assert.equal(foreslaMalId(db, "Konsert i bedehuset"), MAL_ARRANGEMENT_ID);
   const medBonn = opprettMal(db, "Bønnemøte");
   assert.equal(foreslaMalId(medBonn.db, "Bønn og faste"), medBonn.malId);
 }
