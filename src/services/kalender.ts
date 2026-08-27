@@ -119,7 +119,7 @@ export function arrangementSynligForPerson(
   return personErIGruppe(db, personId, gruppeId);
 }
 
-/** Kirkekalender-Ja (EksternKalenderID) med i iCal og Min side uansett gruppe. */
+/** Kirkekalender-Ja og åpne arrangementer (uten gruppe) i iCal/Min side, som gudstjenester. */
 export function arrangementMedIIcal(
   db: DatabaseState,
   personId: string,

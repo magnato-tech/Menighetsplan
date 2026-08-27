@@ -690,7 +690,7 @@ function sanitizeStateForViewer_(state, personId, isAdmin) {
   var a;
   var nesteArr = [];
   for (a = 0; a < arr.length; a++) {
-    if (!arrangementSynligForPerson_(state, personId, arr[a])) continue;
+    if (!arrangementMedIIcal_(state, personId, arr[a])) continue;
     nesteArr.push(arr[a]);
     synlige[arr[a].ArrangementID] = true;
   }

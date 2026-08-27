@@ -253,10 +253,11 @@ export function leggInnKalenderoppgave(
     dato: oppgave.Dato,
     tid: oppgave.Tid,
     sted: oppgave.Sted,
-    beskrivelse: "",
+    beskrivelse: oppgave.Beskrivelse || "",
     opprettetAv,
     eksternKalenderID: oppgave.EksternUID,
     malId,
+    // Kirkekalender-Ja er menighetens hendelse, som gudstjeneste — ikke gruppemøte.
   });
   const ny = (medAr.arrangementer || []).find(
     (a) => !db.arrangementer?.some((gammel) => gammel.ArrangementID === a.ArrangementID)

@@ -147,6 +147,8 @@ END:VCALENDAR`;
   assert.equal(lagtInn.arrangementer.length, 1);
   assert.equal(lagtInn.arrangementer[0].Tittel, "Bønnemøte");
   assert.equal(lagtInn.arrangementer[0].Beskrivelse, "");
+  assert.equal(lagtInn.arrangementer[0].GruppeID, undefined);
+  assert.equal(lagtInn.arrangementer[0].Aktiv, true);
   assert.equal(lagtInn.arrangementer[0].EksternKalenderID, "uid-bønn@kirke");
   assert.equal(lagtInn.arrangementer[0].MalID, undefined);
   assert.equal(lagtInn.tjenestebehov.length, 0);

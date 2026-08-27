@@ -305,6 +305,8 @@ function tomDb(): DatabaseState {
     ],
   };
   db = leggInnKalenderoppgave(db, "KO001", "P001");
+  assert.equal(db.arrangementer[0].GruppeID, undefined);
+  assert.equal(db.arrangementer[0].Aktiv, true);
   const icsAda = byggPersonIcs(db, "P001");
   const icsBo = byggPersonIcs(db, "P002");
   assert.match(icsAda, /SUMMARY:Bønnemøte fra kirken/);
