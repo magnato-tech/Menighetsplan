@@ -86,7 +86,7 @@ function mountDbApi(
       } catch {
         parsed = {};
       }
-      const { handleDbAction } = await import("./api/dbCore");
+      const { handleDbAction } = await import("./server/dbCore");
       const result = await handleDbAction(
         {
           supabaseUrl: (env.SUPABASE_URL || "").trim(),
@@ -166,8 +166,13 @@ function gasApiPlugin(gasUrl: string): Plugin {
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '');
   const gasUrl = env.VITE_APPS_SCRIPT_URL || DEFAULT_GAS_URL;
+  // Vercel blokkerer VITE_* som Secret. GOOGLE_CLIENT_ID injiseres i klienten ved build.
+  const googleClientId = (env.GOOGLE_CLIENT_ID || env.VITE_GOOGLE_CLIENT_ID || '').trim();
 
   return {
+    define: {
+      'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(googleClientId),
+    },
     plugins: [kirkeIcalPlugin(), dbApiPlugin(env), gasApiPlugin(gasUrl), react(), tailwindcss()],
     resolve: {
       alias: {

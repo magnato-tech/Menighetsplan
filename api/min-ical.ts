@@ -11,7 +11,7 @@ function tokenFra(req: { query?: Record<string, string | string[] | undefined>; 
   else if (Array.isArray(q) && q[0]) raw = String(q[0]).trim();
   else {
     try {
-      const u = new URL(req.url || "", "https://gudstjenesteplanlegger2-0.vercel.app");
+      const u = new URL(req.url || "", "https://www.menighetsplan.no");
       raw = (u.searchParams.get("t") || "").trim();
       if (!raw) {
         const m = /\/kalender\/([^/?#]+)/i.exec(u.pathname);

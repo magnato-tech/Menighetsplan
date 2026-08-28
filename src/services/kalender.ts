@@ -259,7 +259,7 @@ export function minIcalHttpsUrl(execUrl: string, token: string): string {
 }
 
 /** Offentlig ICS uten Apps Script-omdirigering — samme type adresse som kirkens webcal. */
-export const OFFENTLIG_APP_URL = "https://gudstjenesteplanlegger2-0.vercel.app";
+export const OFFENTLIG_APP_URL = "https://www.menighetsplan.no";
 
 export function minIcalOffentligUrl(token: string, origin = OFFENTLIG_APP_URL): string {
   const t = String(token || "").trim();

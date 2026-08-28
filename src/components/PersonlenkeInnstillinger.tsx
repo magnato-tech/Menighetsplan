@@ -107,7 +107,7 @@ export const PersonlenkeInnstillinger: React.FC<PersonlenkeInnstillingerProps> =
               // ignore
             }
           }}
-          placeholder="https://din-app.ai.studio"
+          placeholder="https://www.menighetsplan.no"
           className="w-full px-3 py-2 rounded-xl border border-[#d2e8d9] bg-white text-xs text-slate-800"
         />
       </label>

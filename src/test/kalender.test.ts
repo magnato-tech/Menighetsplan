@@ -273,14 +273,14 @@ function tomDb(): DatabaseState {
 
   assert.equal(
     minIcalOffentligUrl("mk_abc"),
-    "https://gudstjenesteplanlegger2-0.vercel.app/kalender/mk_abc.ics"
+    "https://www.menighetsplan.no/kalender/mk_abc.ics"
   );
   assert.equal(minIcalOffentligUrl(""), "");
   const offentlig = minIcalOffentligUrl("mk_abc");
   const googleOffentlig = googleKalenderAbonnerUrl(offentlig);
   assert.ok(
     googleOffentlig.includes(
-      encodeURIComponent("webcal://gudstjenesteplanlegger2-0.vercel.app/kalender/mk_abc.ics")
+      encodeURIComponent("webcal://www.menighetsplan.no/kalender/mk_abc.ics")
     )
   );
   assert.ok(!offentlig.includes("?t="), "offentlig iCal-URL skal ikke bruke query");
