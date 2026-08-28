@@ -316,9 +316,11 @@ await testAsync("saveDatabase: localStorage med en gang, remote én in-flight og
     slippFørste = r;
   });
   const origFetch = globalThis.fetch;
-  globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+  globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
     inflight += 1;
     maxInflight = Math.max(maxInflight, inflight);
+    const dest = String(url);
+    assert.ok(dest.includes("/api/db"));
     const body = JSON.parse(String(init?.body || "{}")) as { data?: DatabaseState };
     const antall = body.data?.personer?.length ?? 0;
     if (mottatt.length === 0) await førsteLås;

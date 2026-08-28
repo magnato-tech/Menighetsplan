@@ -3,7 +3,8 @@ import {
   DatabaseState,
   getCustomScriptUrl,
   saveCustomScriptUrl,
-  forceSyncFromGoogleSheets,
+  forceReloadFromRemote,
+  migrerFraSheetsTilSupabase,
   uploadToGoogleSheets,
   eksporterTilImportfaner,
   DEFAULT_REMOTE_SCRIPT_URL,
@@ -15,6 +16,7 @@ import {
   saveDatabase,
   gyldigIcalHttpUrl,
   KIRKE_ICAL_KATEGORI_URL,
+  hentSisteRemoteOppdatert,
 } from "../services/dataService";
 import { PersonlenkeInnstillinger } from "./PersonlenkeInnstillinger";
 import {
@@ -22,10 +24,8 @@ import {
   UploadCloud,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   Save,
   Link,
-  Layers,
   Database,
   FileSpreadsheet,
 } from "lucide-react";
@@ -49,6 +49,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
 }) => {
   const [scriptUrl, setScriptUrl] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isMigrating, setIsMigrating] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{
@@ -102,39 +103,64 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
     setTimeout(() => setStatusMessage(null), 4000);
   };
 
-  const handleSyncFromSheets = async () => {
+  const handleReloadSupabase = async () => {
     if (!shouldWriteToRemote()) {
       setStatusMessage({
         type: "error",
-        text: "Mock-modus er aktiv. Synk mot Google Sheets er slått av.",
+        text: "Mock-modus er aktiv. Lasting fra Supabase er slått av.",
       });
       return;
     }
     setIsLoading(true);
-    setStatusMessage({
-      type: "info",
-      text: "Kontakter Google Sheets og henter nyeste data...",
-    });
-
-    const res = await forceSyncFromGoogleSheets(scriptUrl);
+    setStatusMessage({ type: "info", text: "Henter nyeste data fra Supabase …" });
+    const res = await forceReloadFromRemote();
     setIsLoading(false);
-
     if (res.success && res.data) {
       onUpdateDb(res.data);
       setStatusMessage({
         type: "success",
-        text: `Vellykket! Hentet ${res.data.personer.length} personer, ${res.data.gudstjenester.length} gudstjenester og ${res.data.grupper.length} grupper fra Google Sheets.`,
+        text: `Hentet ${res.data.personer.length} personer, ${res.data.gudstjenester.length} gudstjenester og ${res.data.grupper.length} grupper.`,
       });
     } else {
       setStatusMessage({
         type: "error",
-        text: res.error || "Kunne ikke hente data fra Google Sheets.",
+        text: res.error || "Kunne ikke hente data fra Supabase.",
+      });
+    }
+  };
+
+  const handleMigrerFraArk = async () => {
+    if (
+      !window.confirm(
+        "Overskrive dataene i Supabase med det som ligger i Google-arket nå? Endringer som bare finnes i appen går tapt."
+      )
+    ) {
+      return;
+    }
+    setIsMigrating(true);
+    setStatusMessage({ type: "info", text: "Henter Google-arket og skriver til Supabase …" });
+    const res = await migrerFraSheetsTilSupabase();
+    setIsMigrating(false);
+    if (res.success && res.data) {
+      onUpdateDb(res.data);
+      setStatusMessage({
+        type: "success",
+        text: `Supabase er oppdatert fra arket: ${res.data.personer.length} personer, ${res.data.gudstjenester.length} gudstjenester.`,
+      });
+    } else {
+      setStatusMessage({
+        type: "error",
+        text: res.error || "Kunne ikke hente fra Google-arket.",
       });
     }
   };
 
   const handleUploadToSheets = async () => {
-    if (!window.confirm("Er du sikker på at du vil overskrive dataene i Google Sheets med gjeldende data fra appen?")) {
+    if (
+      !window.confirm(
+        "Skrive en full backup av appen (Supabase-tilstanden) til Google Sheets? Dette overskriver masterfanene i arket."
+      )
+    ) {
       return;
     }
     setIsUploading(true);
@@ -197,7 +223,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
         <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 space-y-3">
           <h2 className="text-lg font-bold text-slate-900">Datakilde</h2>
           <p className="text-xs text-slate-700">
-            Mock-data lagres bare i denne nettleseren. Ekte data leser og skriver Google-arket —
+            Mock-data lagres bare i denne nettleseren. Ekte data leser og skriver Supabase —
             da må du være innlogget med personlig admin-lenke eller Google.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -226,7 +252,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             >
               <div className="text-sm font-bold text-slate-900">Ekte data</div>
               <div className="text-xs text-slate-600 mt-1">
-                Google Sheets. Krever personlig admin-lenke.
+                Leser Supabase. Krever personlig admin-lenke.
               </div>
             </button>
           </div>
@@ -234,7 +260,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
       )}
       {!import.meta.env.DEV && (
         <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-          Live-siden har ingen Datakilde-fane. Den bruker alltid Google-arket.
+          Live-siden har ingen Datakilde-fane. Den bruker alltid Supabase.
         </p>
       )}
       {selectedPersonId && (
@@ -303,8 +329,8 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-6">
       {mockLocked && (
         <div className="p-4 rounded-xl bg-amber-50 text-amber-950 border border-amber-200 text-xs">
-          Appen kjører i mock-modus. Synk og opplasting mot Google Sheets er slått av. Velg{" "}
-          <strong>Ekte data</strong> øverst på denne siden.
+          Appen kjører i mock-modus. Synk mot Supabase og Google Sheets er slått av.
+          Velg <strong>Ekte data</strong> over for å koble til.
         </div>
       )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
@@ -313,13 +339,12 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             <FileSpreadsheet className="w-6 h-6" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-slate-900">Google Sheets — masterdata</h2>
+            <h2 className="text-lg font-bold text-slate-900">Data og backup</h2>
             <p className="text-xs text-slate-500">
-              Appen leser og skriver masterfanene Personer, Gudstjenester, Tildelinger m.m.
-              «Eksporter backup til importfaner» kopierer personer, søndager med navn og
-              rollebeskrivelser til Personer_import, Gudstjenester_import og Rollebeskrivelse_import
-              — et punkt du kan rulle tilbake fra. Arrangementer, program og grupper ligger ikke i
-              de fanene. «Import fra Excel-faner» skriver den andre veien og overskriver master.
+              Appen lagrer til Supabase. Google Sheets er manuell backup og Excel-import.
+              {hentSisteRemoteOppdatert()
+                ? ` Sist lagret i Supabase: ${hentSisteRemoteOppdatert()}.`
+                : ""}
             </p>
           </div>
         </div>
@@ -335,23 +360,41 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
               <span>Import fra Excel-faner</span>
             </button>
           )}
-            <button
-              type="button"
-              disabled={isLoading || isUploading || isExporting || !remoteEnabled}
-              onClick={() => void handleEksporterImportBackup()}
-              className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
-            >
-              <UploadCloud className={`w-4 h-4 ${isExporting ? "opacity-50" : ""}`} />
-              <span>{isExporting ? "Eksporterer..." : "Eksporter backup til importfaner"}</span>
-            </button>
-            <button
-              type="button"
-              disabled={isLoading || isUploading || isExporting || !remoteEnabled}
-              onClick={handleSyncFromSheets}
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isExporting || isMigrating || !remoteEnabled}
+            onClick={() => void handleEksporterImportBackup()}
+            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <UploadCloud className={`w-4 h-4 ${isExporting ? "opacity-50" : ""}`} />
+            <span>{isExporting ? "Eksporterer..." : "Eksporter backup til importfaner"}</span>
+          </button>
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isMigrating || isExporting || !remoteEnabled}
+            onClick={() => void handleReloadSupabase()}
             className="px-4 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-            <span>{isLoading ? "Henter..." : "Last masterdata på nytt"}</span>
+            <span>{isLoading ? "Henter..." : "Last fra Supabase"}</span>
+          </button>
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isMigrating || !remoteEnabled}
+            onClick={() => void handleMigrerFraArk()}
+            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <Database className={`w-4 h-4 ${isMigrating ? "opacity-50" : ""}`} />
+            <span>{isMigrating ? "Henter arket..." : "Hent fra Google-arket til Supabase"}</span>
+          </button>
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isMigrating || !remoteEnabled}
+            onClick={() => void handleUploadToSheets()}
+            className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <UploadCloud className={`w-4 h-4 ${isUploading ? "opacity-50" : ""}`} />
+            <span>{isUploading ? "Skriver..." : "Eksporter backup til Google Sheets"}</span>
           </button>
         </div>
       </div>
@@ -421,9 +464,10 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
 
         <div className="text-[11px] text-slate-500 space-y-1">
           <p>
-            <strong>Tips:</strong> Denne lenken knytter appen til Google-arket. Trykk{" "}
-            <strong>«Last masterdata på nytt»</strong> for å hente det som allerede ligger i
-            masterfanene. Excel-importfanene leses bare via <strong>«Import fra Excel-faner»</strong>.
+            <strong>Tips:</strong> Daglig lagring går til Supabase. Trykk{" "}
+            <strong>«Hent fra Google-arket til Supabase»</strong> første gang, og{" "}
+            <strong>«Eksporter backup til Google Sheets»</strong> når du vil ha en kopi i arket.
+            Excel-importfanene leses via <strong>«Import fra Excel-faner»</strong>.
           </p>
         </div>
       </div>

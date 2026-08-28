@@ -10,9 +10,10 @@ import {
 import type { DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 import { saveDatabase } from "./persistens";
-import { finnTjenestegrupperForPerson } from "./grupper";
+import { finnTjenestegrupperForPerson, synkGruppeledergruppe } from "./grupper";
 import { erGudstjenesteBemanningRolle } from "./roller";
 import { hentPåmeldingsRoller } from "./interesse";
+import { hentTilgang } from "./tilgang";
 
 /** Arrangement-rader har ArrangementID og tom GudstjenesteID — aldri omvendt. */
 export function erHendelseRad(
@@ -1472,5 +1473,83 @@ export function oppdaterPersonIRegister(
           }
         : p
     ),
+  };
+}
+
+function normaliserSletteNavn(navn: string): string {
+  return String(navn || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("nb");
+}
+
+export function navnBekrefterSletting(skrevet: string, person: Person): boolean {
+  const a = normaliserSletteNavn(skrevet);
+  if (!a) return false;
+  if (a === normaliserSletteNavn(person.Navn)) return true;
+  const fullt = normaliserSletteNavn(`${person.Fornavn || ""} ${person.Etternavn || ""}`);
+  return Boolean(fullt) && a === fullt;
+}
+
+/** Hard slett person. Krever at bekreftetNavn matcher personens navn. */
+export function slettPersonIRegister(
+  db: DatabaseState,
+  personId: string,
+  bekreftetNavn: string
+): { success: boolean; message: string; updatedDb?: DatabaseState } {
+  const person = db.personer.find((p) => p.PersonID === personId);
+  if (!person) {
+    return { success: false, message: "Personen finnes ikke." };
+  }
+  if (!navnBekrefterSletting(bekreftetNavn, person)) {
+    return {
+      success: false,
+      message: "Navnet stemmer ikke. Skriv hele navnet slik det står i registeret.",
+    };
+  }
+  if (hentTilgang(db, personId).isAdmin) {
+    const adminAntall = db.personer.filter((p) => hentTilgang(db, p.PersonID).isAdmin).length;
+    if (adminAntall <= 1) {
+      return { success: false, message: "Du kan ikke slette den siste administratoren." };
+    }
+  }
+
+  const tildelingIds = new Set(
+    (db.tildelinger || [])
+      .filter((t) => t.PersonID === personId)
+      .map((t) => t.TildelingID)
+  );
+  const now = new Date().toISOString().split("T")[0];
+  const grupper = (db.grupper || []).map((g) => {
+    const leder = g.GruppelederID === personId;
+    const nest = g.NestlederID === personId;
+    if (!leder && !nest) return g;
+    return {
+      ...g,
+      GruppelederID: leder ? undefined : g.GruppelederID,
+      NestlederID: nest ? undefined : g.NestlederID,
+      SistEndret: now,
+    };
+  });
+
+  let neste: DatabaseState = {
+    ...db,
+    personer: db.personer.filter((p) => p.PersonID !== personId),
+    personroller: (db.personroller || []).filter((pr) => pr.PersonID !== personId),
+    gruppemedlemmer: (db.gruppemedlemmer || []).filter((gm) => gm.PersonID !== personId),
+    tildelinger: (db.tildelinger || []).filter((t) => t.PersonID !== personId),
+    svar: (db.svar || []).filter(
+      (s) => s.PersonID !== personId && !tildelingIds.has(s.TildelingID)
+    ),
+    grupper,
+    programinstanser: (db.programinstanser || []).map((pi) =>
+      pi.PublisertAv === personId ? { ...pi, PublisertAv: "" } : pi
+    ),
+  };
+  neste = synkGruppeledergruppe(neste);
+  return {
+    success: true,
+    message: `${person.Navn} er slettet, inkludert alle tildelte oppgaver.`,
+    updatedDb: neste,
   };
 }

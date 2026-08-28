@@ -303,7 +303,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             <span className="text-xl sm:text-3xl">👋</span>
           </h2>
           <p className="hidden sm:block text-sm text-slate-600 mt-1">
-            Takk for at du vil bidra i menigheten. Her ser du forslagene vi har laget for deg.
+            Takk for at du vil bidra i menigheten.
           </p>
           <p className="sm:hidden text-sm text-slate-600 mt-1">
             Du bidrar med {rolleNavnTekst}.
@@ -347,7 +347,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           </button>
         </div>
 
-        <div className="hidden sm:block bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
+        <div className="bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
           <p>
             Du har sagt ja til å bidra med{" "}
             <strong className="text-[#1e3e2b] font-bold">{rolleNavnTekst}</strong> i menigheten.

@@ -168,6 +168,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
         db={db}
         onUpdateDb={onUpdateDb}
         visTabell={activeTab === "people"}
+        innloggetPersonId={selectedPersonId}
       />
 
       <KalenderView

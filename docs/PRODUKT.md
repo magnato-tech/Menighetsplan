@@ -2,7 +2,7 @@
 
 Planlegger for gudstjenestebemanning i Lillesand Misjonskirke. Kjernen er **hvem som tjener hvilken søndag**, med grupper, personlenker og valgfri kjøreplan.
 
-Datakilde (mock vs Google Sheets): [DATAKILDE.md](DATAKILDE.md).
+Datakilde (mock vs Supabase, Sheets som backup): [DATAKILDE.md](DATAKILDE.md).
 
 ## Hva appen gjør
 

@@ -6,9 +6,12 @@ import {
   genererPersonligLenke,
   opprettPersonIRegister,
   oppdaterPersonIRegister,
+  slettPersonIRegister,
+  navnBekrefterSletting,
   saveDatabase,
   hentTilgang,
   tilgangsnivaaForPerson,
+  type UkjentImportSlot,
 } from "../services/dataService";
 import { Person } from "../types/database";
 import { IkonHandling } from "./IkonHandling";
@@ -21,13 +24,15 @@ import {
   Filter,
   Star,
   AlertTriangle,
+  Trash2,
 } from "lucide-react";
 
 interface PersonregisterViewProps {
   db: DatabaseState;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   visTabell: boolean;
-  opprettSignal?: { fornavn?: string } | null;
+  innloggetPersonId?: string;
+  opprettSignal?: { fornavn?: string; slots?: UkjentImportSlot[] } | null;
   onOpprettSignalHandled?: () => void;
 }
 
@@ -35,6 +40,7 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
   db,
   onUpdateDb,
   visTabell,
+  innloggetPersonId,
   opprettSignal = null,
   onOpprettSignalHandled,
 }) => {
@@ -52,6 +58,12 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
     NonNullable<Person["Tilgangsnivå"]>
   >("bruker");
   const [newFornavn, setNewFornavn] = useState("");
+  const [newPersonSlots, setNewPersonSlots] = useState<UkjentImportSlot[]>([]);
+  const [newPersonGudstjenesteId, setNewPersonGudstjenesteId] = useState("");
+  const [newPersonRolleId, setNewPersonRolleId] = useState("");
+  const [slettPerson, setSlettPerson] = useState<Person | null>(null);
+  const [slettNavn, setSlettNavn] = useState("");
+  const [slettFeil, setSlettFeil] = useState("");
 
   const ukjenteImportnavn = finnUkjenteImportnavn(db);
 
@@ -106,6 +118,30 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
     saveDatabase(updatedDb);
     onUpdateDb(updatedDb);
     setEditPerson(null);
+  };
+
+  const openSlettPerson = (person: Person) => {
+    setSlettPerson(person);
+    setSlettNavn("");
+    setSlettFeil("");
+  };
+
+  const handleSlettPerson = () => {
+    if (!slettPerson) return;
+    if (innloggetPersonId && slettPerson.PersonID === innloggetPersonId) {
+      setSlettFeil("Du kan ikke slette deg selv mens du er innlogget.");
+      return;
+    }
+    const result = slettPersonIRegister(db, slettPerson.PersonID, slettNavn);
+    if (!result.success || !result.updatedDb) {
+      setSlettFeil(result.message);
+      return;
+    }
+    saveDatabase(result.updatedDb);
+    onUpdateDb(result.updatedDb);
+    setSlettPerson(null);
+    setSlettNavn("");
+    setSlettFeil("");
   };
 
   const filteredPersoner = db.personer.filter((p) => {
@@ -260,6 +296,12 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                         copied={copiedPersonId === person.PersonID}
                         onClick={() => handleCopyLink(person.PersonID)}
                       />
+                      <IkonHandling
+                        label="Slett person"
+                        Icon={Trash2}
+                        variant="decline"
+                        onClick={() => openSlettPerson(person)}
+                      />
                     </div>
                   </div>
                 </div>
@@ -369,6 +411,12 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                             Icon={Share2}
                             copied={isCopied}
                             onClick={() => handleCopyLink(person.PersonID)}
+                          />
+                          <IkonHandling
+                            label="Slett person"
+                            Icon={Trash2}
+                            variant="decline"
+                            onClick={() => openSlettPerson(person)}
                           />
                         </div>
                       </td>
@@ -503,6 +551,65 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                 className="px-4 py-2 text-xs bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white font-semibold rounded-xl shadow-xs transition cursor-pointer"
               >
                 Lagre
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {slettPerson && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-rose-200">
+            <h3 className="text-lg font-bold text-slate-900 mb-1">Slett {slettPerson.Navn}?</h3>
+            {(() => {
+              const antallOppgaver = db.tildelinger.filter(
+                (t) => t.PersonID === slettPerson.PersonID
+              ).length;
+              return (
+                <p className="text-sm text-slate-600 mb-4">
+                  Dette kan ikke angres. Personen fjernes fra registeret
+                  {antallOppgaver > 0
+                    ? `, og ${antallOppgaver} ${antallOppgaver === 1 ? "oppgave" : "oppgaver"} vedkommende er satt opp på slettes.`
+                    : "."}{" "}
+                  For å bekrefte må du skrive navnet nøyaktig.
+                </p>
+              );
+            })()}
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              Skriv «{slettPerson.Navn}»
+            </label>
+            <input
+              type="text"
+              value={slettNavn}
+              onChange={(e) => {
+                setSlettNavn(e.target.value);
+                setSlettFeil("");
+              }}
+              autoComplete="off"
+              className="w-full border border-slate-300 rounded-xl p-2 text-sm bg-slate-50 mb-2"
+            />
+            {slettFeil && (
+              <p className="text-xs text-rose-700 mb-3">{slettFeil}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSlettPerson(null);
+                  setSlettNavn("");
+                  setSlettFeil("");
+                }}
+                className="px-4 py-2 text-xs text-slate-700 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+              >
+                Avbryt
+              </button>
+              <button
+                type="button"
+                disabled={!navnBekrefterSletting(slettNavn, slettPerson)}
+                onClick={handleSlettPerson}
+                className="px-4 py-2 text-xs bg-rose-600 hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold rounded-xl shadow-xs transition cursor-pointer"
+              >
+                Slett personen
               </button>
             </div>
           </div>

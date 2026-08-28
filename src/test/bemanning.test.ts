@@ -11,6 +11,8 @@ import {
   settDeltakelseForPerson,
   velgDatoForPerson,
   meldPaaFrivillig,
+  slettPersonIRegister,
+  navnBekrefterSletting,
   erEksternPersonId,
   tildelingVisningsnavn,
   plusBemanningstall,
@@ -524,6 +526,56 @@ test("plusBemanningstall summerer semester-KPI", "A", () => {
     forfall: 0,
     behov: 0,
   });
+});
+
+test("slettPersonIRegister krever navn og fjerner tildelinger", "F", () => {
+  let db = tomDb();
+  db = tildel(db, "T1", "P003", "Venter");
+  db = {
+    ...db,
+    personroller: [
+      ...db.personroller,
+      {
+        PersonRolleID: "PR003",
+        PersonID: "P003",
+        RolleID: "R009",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    grupper: db.grupper.map((g) =>
+      g.GruppeID === "G005" ? { ...g, GruppelederID: "P003" } : g
+    ),
+  };
+  const avvist = slettPersonIRegister(db, "P003", "ja");
+  assert.equal(avvist.success, false);
+  assert.equal(navnBekrefterSletting("Andreas Lund", db.personer[2]), true);
+
+  const ok = slettPersonIRegister(db, "P003", "Andreas Lund");
+  assert.equal(ok.success, true, ok.message);
+  const neste = ok.updatedDb!;
+  assert.equal(neste.personer.some((p) => p.PersonID === "P003"), false);
+  assert.equal(neste.tildelinger.some((t) => t.PersonID === "P003"), false);
+  assert.equal(neste.svar.some((s) => s.PersonID === "P003"), false);
+  assert.equal(neste.personroller.some((pr) => pr.PersonID === "P003"), false);
+  assert.equal(neste.gruppemedlemmer.some((gm) => gm.PersonID === "P003"), false);
+  assert.equal(
+    neste.grupper.find((g) => g.GruppeID === "G005")?.GruppelederID,
+    undefined
+  );
+  assert.equal(neste.personer.some((p) => p.PersonID === "P001"), true);
+  assert.equal(neste.tildelinger.length, 0);
+});
+
+test("slettPersonIRegister stopper siste admin", "F", () => {
+  const db = tomDb();
+  db.personer = db.personer.map((p) =>
+    p.PersonID === "P001" ? { ...p, Tilgangsnivå: "admin" as const } : p
+  );
+  const result = slettPersonIRegister(db, "P001", "Camilla Vik");
+  assert.equal(result.success, false);
+  assert.match(result.message, /siste administrator/);
 });
 
 console.log("");

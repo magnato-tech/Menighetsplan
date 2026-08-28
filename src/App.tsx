@@ -403,7 +403,7 @@ export default function App() {
         <div className="max-w-md w-full bg-white border border-slate-200 rounded-2xl p-6 shadow-xs text-center space-y-4">
           {loadError ? (
             <>
-              <h2 className="text-lg font-bold text-slate-900">Kunne ikke laste menighetsarket</h2>
+              <h2 className="text-lg font-bold text-slate-900">Kunne ikke laste data</h2>
               <p className="text-sm text-slate-600">{loadError}</p>
               <div className="flex flex-col sm:flex-row gap-2 justify-center">
                 <button
@@ -426,7 +426,7 @@ export default function App() {
             </>
           ) : (
             <p className="text-sm text-slate-600">
-              {isLoadingRemote ? "Laster data fra menighetsarket …" : "Laster …"}
+              {isLoadingRemote ? "Laster data …" : "Laster …"}
             </p>
           )}
         </div>
@@ -442,7 +442,7 @@ export default function App() {
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
       {dataSource === "mock" && import.meta.env.DEV && (
         <div className="bg-amber-100 text-amber-950 px-4 py-2 text-xs font-medium text-center border-b border-amber-200">
-          Utvikling: mock-data. Leser og skriver ikke til Google Sheets. Bytt under Administrator → Innstillinger.
+          Utvikling: mock-data. Leser og skriver ikke til Supabase. Bytt under Administrator → Innstillinger.
         </div>
       )}
       {remoteSaveFeil && (
