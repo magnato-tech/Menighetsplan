@@ -159,19 +159,23 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   };
 
   const handlePopulerMock = async () => {
-    const mal = remoteEnabled
-      ? "Overskrive dataene i Supabase med testdata? Google-arket endres ikke. Du kan hente arket etterpå for å få tilbake den gamle databasen."
-      : "Overskrive testdataene i denne nettleseren med standard mock? Supabase og Google-arket endres ikke.";
-    if (!window.confirm(mal)) return;
+    if (
+      !window.confirm(
+        "Laste testdata i denne nettleseren? Supabase og Google-arket endres ikke. Du går over til testdata-modus."
+      )
+    ) {
+      return;
+    }
     setIsSeeding(true);
-    setStatusMessage({ type: "info", text: "Fyller med testdata …" });
+    setStatusMessage({ type: "info", text: "Laster testdata i nettleseren …" });
     const res = await populerMedMockData();
     setIsSeeding(false);
     if (res.success && res.data) {
-      onUpdateDb(res.data);
+      if (onSwitchDataSource) onSwitchDataSource("mock");
+      else onUpdateDb(res.data);
       setStatusMessage({
         type: "success",
-        text: `Testdata er lastet inn: ${res.data.personer.length} personer, ${res.data.gudstjenester.length} gudstjenester og ${res.data.grupper.length} grupper.`,
+        text: `Testdata i nettleseren: ${res.data.personer.length} personer, ${res.data.gudstjenester.length} gudstjenester. Supabase er uendret.`,
       });
     } else {
       setStatusMessage({
@@ -289,7 +293,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <FlaskConical className={`w-4 h-4 ${isSeeding ? "opacity-50" : ""}`} />
-            <span>{isSeeding ? "Fyller testdata..." : "Populer med testdata"}</span>
+            <span>{isSeeding ? "Laster testdata..." : "Last inn testdata i nettleseren"}</span>
           </button>
         </div>
       )}
@@ -397,7 +401,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
             <FlaskConical className={`w-4 h-4 ${isSeeding ? "opacity-50" : ""}`} />
-            <span>{isSeeding ? "Fyller testdata..." : "Populer med testdata"}</span>
+            <span>{isSeeding ? "Laster testdata..." : "Last inn testdata i nettleseren"}</span>
           </button>
           <button
             type="button"

@@ -638,20 +638,16 @@ export function byggStandardMockState(): DatabaseState {
   });
 }
 
-/** Overskriver gjeldende app-data med testdata. På ekte data skrives det til Supabase, ikke til Google-arket. */
+/** Testdata kun i nettleseren. Skriver aldri til Supabase eller Google-arket. */
 export async function populerMedMockData(): Promise<{
   success: boolean;
   data?: DatabaseState;
   error?: string;
 }> {
   try {
-    const state = byggStandardMockState();
-    persistLocalState(state);
-    saveDatabase(state);
-    if (shouldWriteToRemote()) {
-      await whenRemoteSaveIdle();
-    }
-    return { success: true, data: state };
+    setDevDataSource("mock");
+    const data = populateMockDatabase();
+    return { success: true, data };
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : String(e) };
   }
@@ -1197,21 +1193,13 @@ export function populateMockDatabase(): DatabaseState {
   return state;
 }
 
-/** Bytt datakilde. Mock leser/skriver aldri remote. */
+/** Bytt datakilde. Mock leser/skriver aldri remote. Bytt til ekte data laster Supabase uten å skrive mock dit. */
 export async function switchDevDataSource(source: DevDataSource): Promise<DatabaseState> {
   setDevDataSource(source);
   if (source === "mock") {
     return loadLocalDatabase();
   }
-  const lastet = await loadDatabase();
-  if (import.meta.env.PROD) {
-    return lastet;
-  }
-  const fraMock = lesLocalJson(MOCK_STORAGE_KEY);
-  const flettet = applyLoadedState(normalizeState(flettLastetMedLokalCache(lastet, fraMock)));
-  saveDatabase(flettet);
-  await whenRemoteSaveIdle();
-  return flettet;
+  return loadDatabase();
 }
 
 export async function resetDatabase(): Promise<DatabaseState> {
