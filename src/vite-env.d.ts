@@ -4,4 +4,5 @@ interface ImportMetaEnv {
   readonly VITE_APPS_SCRIPT_URL?: string;
   readonly VITE_USE_REMOTE_DATA?: string;
   readonly VITE_GOOGLE_CLIENT_ID?: string;
+  readonly VITE_DEMO?: string;
 }

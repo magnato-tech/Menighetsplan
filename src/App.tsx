@@ -17,6 +17,8 @@ import {
   switchDevDataSource,
   getDevDataSource,
   setDevDataSource,
+  erDemoVersjon,
+  SKARP_APP_URL,
   erMedITjenestegruppe,
   REMOTE_SAVE_FEIL_EVENT,
   harPaagaaendeRemoteSave,
@@ -201,7 +203,7 @@ export default function App() {
 
       if (raattToken && !erMagiskLenkeToken(raattToken)) {
         slettMagiskToken();
-        if (import.meta.env.PROD || tvingStartside) {
+        if ((import.meta.env.PROD && !erDemoVersjon()) || tvingStartside) {
           setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
           setViserStartside(true);
           harValgtStartvisning.current = true;
@@ -221,7 +223,7 @@ export default function App() {
           return;
         }
         slettMagiskToken();
-        if (!hentAdminGoogleCredential() && (import.meta.env.PROD || tvingStartside)) {
+        if (!hentAdminGoogleCredential() && ((import.meta.env.PROD && !erDemoVersjon()) || tvingStartside)) {
           setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
           setViserStartside(true);
           harValgtStartvisning.current = true;
@@ -260,7 +262,7 @@ export default function App() {
         return;
       }
 
-      if (import.meta.env.DEV && !tvingStartside) {
+      if ((import.meta.env.DEV || erDemoVersjon()) && !tvingStartside) {
         const forsteAdmin = db.personer.find((p) => hentTilgang(db, p.PersonID).isAdmin);
         if (forsteAdmin) {
           setSelectedPersonId(forsteAdmin.PersonID);
@@ -333,6 +335,7 @@ export default function App() {
   };
 
   const handleFortsettLokalt = () => {
+    if (import.meta.env.PROD) return;
     slettMagiskToken();
     slettAdminSesjon();
     setStartFeil(null);
@@ -392,7 +395,7 @@ export default function App() {
         feilmelding={startFeil}
         onLimInnLenke={handleLimInnLenke}
         onGoogleCredential={handleGoogleCredential}
-        onFortsettLokalt={handleFortsettLokalt}
+        onFortsettLokalt={import.meta.env.DEV ? handleFortsettLokalt : undefined}
       />
     );
   }
@@ -413,13 +416,15 @@ export default function App() {
                 >
                   Prøv igjen
                 </button>
-                <button
-                  type="button"
-                  onClick={handleUseMockFallback}
-                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 cursor-pointer"
-                >
-                  Bruk testdata
-                </button>
+                {import.meta.env.DEV && (
+                  <button
+                    type="button"
+                    onClick={handleUseMockFallback}
+                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 cursor-pointer"
+                  >
+                    Bruk mock-data
+                  </button>
+                )}
               </div>
             </>
           ) : (
@@ -438,10 +443,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
-      {dataSource === "mock" && (
+      {erDemoVersjon() && (
         <div className="bg-amber-100 text-amber-950 px-4 py-2 text-xs font-medium text-center border-b border-amber-200">
-          Testdata i denne nettleseren — skrives ikke til Supabase eller Google-arket. Bytt til ekte
-          data under Administrator → Innstillinger.
+          Dette er demoversjonen med fiktive data — ingenting lagres i menighetens database. Ekte
+          app:{" "}
+          <a className="underline font-semibold" href={SKARP_APP_URL}>
+            www.menighetsplan.no
+          </a>
+        </div>
+      )}
+      {dataSource === "mock" && import.meta.env.DEV && !erDemoVersjon() && (
+        <div className="bg-amber-100 text-amber-950 px-4 py-2 text-xs font-medium text-center border-b border-amber-200">
+          Utvikling: mock-data. Leser og skriver ikke til Supabase. Bytt under Administrator →
+          Innstillinger.
         </div>
       )}
       {remoteSaveFeil && (
@@ -527,7 +541,7 @@ export default function App() {
             onUpdateDb={handleUpdateDb}
             onSelectPerson={handleAdminSimulatePerson}
             selectedPersonId={selectedPersonId}
-            onSwitchDataSource={handleSwitchDataSource}
+            onSwitchDataSource={import.meta.env.DEV ? handleSwitchDataSource : undefined}
             dataSource={dataSource}
           />
         )}

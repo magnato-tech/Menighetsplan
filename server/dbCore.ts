@@ -14,6 +14,7 @@ export type DbEnv = {
   googleClientId: string;
   appsScriptUrl: string;
   migrateFromSheets: boolean;
+  demoMode: boolean;
 };
 
 type AuthBody = {
@@ -205,6 +206,12 @@ function svarOk(state: DatabaseState, auth: AuthOk, updated_at?: string): DbActi
 }
 
 export async function handleDbAction(env: DbEnv, raw: unknown): Promise<DbActionResult> {
+  if (env.demoMode) {
+    return {
+      status: 403,
+      body: { ok: false, error: "Demoversjonen skriver ikke til menighetens database." },
+    };
+  }
   const conf = manglerSupabase(env);
   if (conf) return { status: 500, body: { ok: false, error: conf } };
 

@@ -409,6 +409,12 @@ function svarOk(state, auth, updated_at) {
   };
 }
 async function handleDbAction(env, raw) {
+  if (env.demoMode) {
+    return {
+      status: 403,
+      body: { ok: false, error: "Demoversjonen skriver ikke til menighetens database." }
+    };
+  }
   const conf = manglerSupabase(env);
   if (conf) return { status: 500, body: { ok: false, error: conf } };
   const body = raw && typeof raw === "object" ? raw : {};
@@ -490,6 +496,14 @@ async function handleDbAction(env, raw) {
 
 // server/db.ts
 var config = { maxDuration: 60 };
+function erDemoForesporsel(req) {
+  if (String(process.env.VITE_DEMO || process.env.DEMO_MODE || "").toLowerCase() === "true") {
+    return true;
+  }
+  const raw = req.headers?.host;
+  const host = String(Array.isArray(raw) ? raw[0] : raw || "").split(":")[0].toLowerCase();
+  return host === "demo.menighetsplan.no" || host.endsWith(".demo.menighetsplan.no");
+}
 function lesEnv() {
   return {
     supabaseUrl: String(process.env.SUPABASE_URL || "").trim(),
@@ -500,7 +514,8 @@ function lesEnv() {
     appsScriptUrl: String(
       process.env.APPS_SCRIPT_URL || process.env.VITE_APPS_SCRIPT_URL || "https://script.google.com/macros/s/AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw/exec"
     ).trim(),
-    migrateFromSheets: String(process.env.MIGRATE_FROM_SHEETS || "").toLowerCase() === "true"
+    migrateFromSheets: String(process.env.MIGRATE_FROM_SHEETS || "").toLowerCase() === "true",
+    demoMode: false
   };
 }
 async function lesBody(req) {
@@ -521,7 +536,7 @@ async function handler(req, res) {
     return;
   }
   const body = await lesBody(req);
-  const result = await handleDbAction(lesEnv(), body);
+  const result = await handleDbAction({ ...lesEnv(), demoMode: erDemoForesporsel(req) }, body);
   res.status(result.status).json(result.body);
 }
 // Annotate the CommonJS export names for ESM import in node:

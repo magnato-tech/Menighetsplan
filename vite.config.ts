@@ -99,6 +99,7 @@ function mountDbApi(
           ).trim(),
           appsScriptUrl: (env.APPS_SCRIPT_URL || env.VITE_APPS_SCRIPT_URL || DEFAULT_GAS_URL).trim(),
           migrateFromSheets: lesEnvFlag(env.MIGRATE_FROM_SHEETS),
+          demoMode: false,
         },
         parsed
       );
@@ -178,10 +179,13 @@ export default defineConfig(({mode}) => {
     env.VITE_GOOGLE_CLIENT_ID ||
     ''
   ).trim();
+  const viteDemo =
+    String(process.env.VITE_DEMO || env.VITE_DEMO || '').toLowerCase() === 'true' ? 'true' : '';
 
   return {
     define: {
       'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(googleClientId),
+      'import.meta.env.VITE_DEMO': JSON.stringify(viteDemo),
     },
     plugins: [kirkeIcalPlugin(), dbApiPlugin(env), gasApiPlugin(gasUrl), react(), tailwindcss()],
     resolve: {

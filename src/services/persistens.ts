@@ -29,6 +29,7 @@ import { sikreStandardMaler } from "./mal";
 import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger, flettManglendeInnstillinger } from "./kalender";
 import { tilIsoDato, tilIsoTid } from "./dato";
 import { byggImportBackup } from "./importBackup";
+import { erDemoVersjon } from "./demo";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v3_mock";
 const ELDRE_MOCK_STORAGE_KEYS = ["gudstjenesteplanlegger_db_v2_mock"];
@@ -113,6 +114,7 @@ let sessionMockOverride = false;
 let devDataSource: DevDataSource | null = null;
 
 export function getDevDataSource(): DevDataSource {
+  if (erDemoVersjon()) return "mock";
   if (devDataSource) return devDataSource;
   try {
     const saved = localStorage.getItem(DEV_SOURCE_KEY);
@@ -132,6 +134,10 @@ export function getDevDataSource(): DevDataSource {
 }
 
 export function setDevDataSource(source: DevDataSource): void {
+  if (erDemoVersjon()) {
+    devDataSource = "mock";
+    return;
+  }
   devDataSource = source;
   sessionMockOverride = false;
   try {
@@ -156,9 +162,10 @@ function persistLocalState(state: DatabaseState): void {
 
 /**
  * Ekte data: Supabase via /api/db.
- * Mock: testdata i nettleseren (valg på startsiden eller Admin → Innstillinger).
+ * Demo-URL og lokal mock skriver aldri remote.
  */
 export function useRemoteData(): boolean {
+  if (erDemoVersjon()) return false;
   return getDevDataSource() === "remote";
 }
 
@@ -177,6 +184,7 @@ export function isSessionMockOverride(): boolean {
 
 /** True når lagring mot Supabase er tillatt. Mock og session-override skriver aldri remote. */
 export function shouldWriteToRemote(): boolean {
+  if (erDemoVersjon()) return false;
   return useRemoteData() && !sessionMockOverride;
 }
 
@@ -636,21 +644,6 @@ export function byggStandardMockState(): DatabaseState {
     gudstjenesterImport: initialGudstjenesterImport,
     rollebeskrivelseImport: initialRollebeskrivelseImport,
   });
-}
-
-/** Testdata kun i nettleseren. Skriver aldri til Supabase eller Google-arket. */
-export async function populerMedMockData(): Promise<{
-  success: boolean;
-  data?: DatabaseState;
-  error?: string;
-}> {
-  try {
-    setDevDataSource("mock");
-    const data = populateMockDatabase();
-    return { success: true, data };
-  } catch (e) {
-    return { success: false, error: e instanceof Error ? e.message : String(e) };
-  }
 }
 
 function requireRemoteAuth(): { token?: string; googleCredential?: string } {
@@ -1195,6 +1188,10 @@ export function populateMockDatabase(): DatabaseState {
 
 /** Bytt datakilde. Mock leser/skriver aldri remote. Bytt til ekte data laster Supabase uten å skrive mock dit. */
 export async function switchDevDataSource(source: DevDataSource): Promise<DatabaseState> {
+  if (erDemoVersjon()) {
+    setDevDataSource("mock");
+    return loadLocalDatabase();
+  }
   setDevDataSource(source);
   if (source === "mock") {
     return loadLocalDatabase();

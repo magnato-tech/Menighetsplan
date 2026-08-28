@@ -2,6 +2,17 @@ import { handleDbAction, type DbEnv } from "./dbCore";
 
 export const config = { maxDuration: 60 };
 
+function erDemoForesporsel(req: { headers?: { host?: string | string[] } }): boolean {
+  if (String(process.env.VITE_DEMO || process.env.DEMO_MODE || "").toLowerCase() === "true") {
+    return true;
+  }
+  const raw = req.headers?.host;
+  const host = String(Array.isArray(raw) ? raw[0] : raw || "")
+    .split(":")[0]
+    .toLowerCase();
+  return host === "demo.menighetsplan.no" || host.endsWith(".demo.menighetsplan.no");
+}
+
 function lesEnv(): DbEnv {
   return {
     supabaseUrl: String(process.env.SUPABASE_URL || "").trim(),
@@ -15,6 +26,7 @@ function lesEnv(): DbEnv {
         "https://script.google.com/macros/s/AKfycbznLoq62orP53izSEA0wnA7VdQHiNWpP3upTo2nd1owcL3LDZp13gK8LxrAdsjxWwt7vw/exec"
     ).trim(),
     migrateFromSheets: String(process.env.MIGRATE_FROM_SHEETS || "").toLowerCase() === "true",
+    demoMode: false,
   };
 }
 
@@ -31,7 +43,7 @@ async function lesBody(req: { body?: unknown }): Promise<unknown> {
 }
 
 export default async function handler(
-  req: { method?: string; body?: unknown },
+  req: { method?: string; body?: unknown; headers?: { host?: string | string[] } },
   res: {
     setHeader: (name: string, value: string) => void;
     status: (code: number) => { json: (body: unknown) => void };
@@ -43,6 +55,6 @@ export default async function handler(
     return;
   }
   const body = await lesBody(req);
-  const result = await handleDbAction(lesEnv(), body);
+  const result = await handleDbAction({ ...lesEnv(), demoMode: erDemoForesporsel(req) }, body);
   res.status(result.status).json(result.body);
 }
