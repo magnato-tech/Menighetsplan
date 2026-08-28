@@ -19,7 +19,7 @@ import {
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { ProgramLeserModal } from "./ProgramLeserModal";
-import { RoleDescriptionModal, oppsummerInstruks } from "./RoleDescriptionModal";
+import { RoleDescriptionModal, forsteInstruksSetning } from "./RoleDescriptionModal";
 import {
   Check,
   ChevronLeft,
@@ -124,7 +124,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
   const kanEndre = kanPaameldingEndres(rad.status);
   const visInstruksOppsummering =
     Boolean(instruksTekst) && (valgt || rad.status === "venter" || rad.status === "stengt");
-  const instruksKort = visInstruksOppsummering ? oppsummerInstruks(instruksTekst!) : "";
+  const instruksKort = visInstruksOppsummering ? forsteInstruksSetning(instruksTekst!) : "";
   const visKnapp = visInstruksKnapp && Boolean(instruksKort);
   const andre = rad.personerPå.filter((p) => p.personId !== personId);
   const telling =
@@ -226,7 +226,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
             onClick={() => onVisInstruks(rad.rolle)}
             className="w-full min-h-11 px-3.5 py-2.5 flex items-center gap-2 text-left text-sm text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#dceee3] border border-[#d2e8d9] rounded-xl cursor-pointer"
           >
-            <span className="flex-1 min-w-0 line-clamp-2 leading-snug">{instruksKort}</span>
+            <span className="flex-1 min-w-0 truncate leading-snug">{instruksKort}</span>
             <ChevronRight className="w-5 h-5 shrink-0" aria-hidden />
           </button>
         </div>

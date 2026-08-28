@@ -84,6 +84,15 @@ export function oppsummerInstruks(tekst: string, maks = 140): string {
   return `${første.slice(0, maks).replace(/\s+\S*$/, "")}…`;
 }
 
+/** Én setning til instruks-knapp på Min side — resten i modal. */
+export function forsteInstruksSetning(tekst: string): string {
+  const førsteBlokk = (splittInstruks(tekst)[0] || String(tekst || "")).trim();
+  if (!førsteBlokk) return "";
+  const førstePunkt = førsteBlokk.split(/\s*•\s*/)[0]?.trim() || førsteBlokk;
+  const setning = førstePunkt.match(/^[^.!?]+[.!?]/)?.[0]?.trim();
+  return setning || førstePunkt;
+}
+
 export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
   rolle,
   rollebeskrivelse,
