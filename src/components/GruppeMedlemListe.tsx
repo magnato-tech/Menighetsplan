@@ -21,6 +21,7 @@ interface GruppeMedlemListeProps {
   onSelectPerson: (personId: string, view?: AppView) => void;
   onViewAsMember?: (personId: string, view?: AppView) => void;
   onLeggTilMedlem: (personId: string) => void;
+  onOpprettNyPerson?: (navn: string) => void;
 }
 
 export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
@@ -33,6 +34,7 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
   onSelectPerson,
   onViewAsMember,
   onLeggTilMedlem,
+  onOpprettNyPerson,
 }) => {
   const [medlemSok, setMedlemSok] = useState("");
   const [valgtMenighetsmedlem, setValgtMenighetsmedlem] = useState<Person | null>(null);
@@ -74,7 +76,22 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
           {medlemSok.trim() && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
               {medlemKandidater.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-slate-500">Ingen treff i registeret.</div>
+                <div className="px-3 py-2 text-xs text-slate-500">
+                  {onOpprettNyPerson && medlemSok.trim().length >= 2 ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpprettNyPerson(medlemSok.trim());
+                        setMedlemSok("");
+                      }}
+                      className="text-[#2d5a3f] font-semibold hover:underline cursor-pointer"
+                    >
+                      Opprett «{medlemSok.trim()}» som ny person
+                    </button>
+                  ) : (
+                    "Ingen treff i registeret."
+                  )}
+                </div>
               ) : (
                 medlemKandidater.map((p) => (
                   <button
@@ -139,6 +156,11 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
                         {venterPersonIds.has(m.PersonID) && (
                           <span className="text-[10px] font-semibold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full shrink-0">
                             Venter
+                          </span>
+                        )}
+                        {m.PersonStatus === "ny" && (
+                          <span className="text-[10px] font-semibold text-sky-800 bg-sky-50 border border-sky-200 px-1.5 py-0.5 rounded-full shrink-0">
+                            Ny
                           </span>
                         )}
                       </span>

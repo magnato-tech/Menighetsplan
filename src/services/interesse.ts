@@ -415,6 +415,14 @@ function visningsnavn(person: { Fornavn?: string; Navn?: string } | undefined): 
   return navn.trim() || null;
 }
 
+export type MinGruppeKontakt = {
+  etikett: string;
+  navn: string | null;
+  epost: string | null;
+  telefon: string | null;
+  erDeg: boolean;
+};
+
 export type MinGruppeKort = {
   gruppeId: string;
   gruppenavn: string;
@@ -422,7 +430,92 @@ export type MinGruppeKort = {
   mineOppgaver: string[];
   lederNavn: string | null;
   nestlederNavn: string | null;
+  kontakter: MinGruppeKontakt[];
 };
+
+function kontaktFraPerson(person?: {
+  Epost?: string;
+  Telefon?: string;
+}): { epost: string | null; telefon: string | null } {
+  if (!person) return { epost: null, telefon: null };
+  const epost = String(person.Epost || "").trim() || null;
+  const telefon = String(person.Telefon || "").trim() || null;
+  return { epost, telefon };
+}
+
+function byggGruppeKontakter(
+  personId: string,
+  tilknytning: "Leder" | "Nestleder" | "Medlem",
+  leder?: { PersonID: string; Epost?: string; Telefon?: string; Fornavn?: string; Navn?: string },
+  nestleder?: { PersonID: string; Epost?: string; Telefon?: string; Fornavn?: string; Navn?: string }
+): MinGruppeKontakt[] {
+  const kontakter: MinGruppeKontakt[] = [];
+
+  if (tilknytning === "Leder") {
+    kontakter.push({
+      etikett: "Du leder gruppen",
+      navn: null,
+      epost: null,
+      telefon: null,
+      erDeg: true,
+    });
+    if (nestleder) {
+      kontakter.push({
+        etikett: "Nestleder",
+        navn: visningsnavn(nestleder),
+        ...kontaktFraPerson(nestleder),
+        erDeg: nestleder.PersonID === personId,
+      });
+    }
+    return kontakter;
+  }
+
+  if (tilknytning === "Nestleder") {
+    kontakter.push({
+      etikett: "Du er nestleder",
+      navn: null,
+      epost: null,
+      telefon: null,
+      erDeg: true,
+    });
+    if (leder) {
+      kontakter.push({
+        etikett: "Gruppeleder",
+        navn: visningsnavn(leder),
+        ...kontaktFraPerson(leder),
+        erDeg: leder.PersonID === personId,
+      });
+    }
+    return kontakter;
+  }
+
+  if (leder) {
+    kontakter.push({
+      etikett: "Gruppeleder",
+      navn: visningsnavn(leder),
+      ...kontaktFraPerson(leder),
+      erDeg: leder.PersonID === personId,
+    });
+  }
+  if (nestleder) {
+    kontakter.push({
+      etikett: "Nestleder",
+      navn: visningsnavn(nestleder),
+      ...kontaktFraPerson(nestleder),
+      erDeg: nestleder.PersonID === personId,
+    });
+  }
+  if (kontakter.length === 0) {
+    kontakter.push({
+      etikett: "Kontakt",
+      navn: null,
+      epost: null,
+      telefon: null,
+      erDeg: false,
+    });
+  }
+  return kontakter;
+}
 
 /** Tjeneste- og husgrupper personen er med i, med leder og hukede oppgaver. */
 export function mineGrupperForPerson(db: DatabaseState, personId: string): MinGruppeKort[] {
@@ -446,6 +539,7 @@ export function mineGrupperForPerson(db: DatabaseState, personId: string): MinGr
         mineOppgaver,
         lederNavn: visningsnavn(leder),
         nestlederNavn: visningsnavn(nestleder),
+        kontakter: byggGruppeKontakter(personId, tilknytning, leder, nestleder),
       };
     })
     .sort((a, b) => a.gruppenavn.localeCompare(b.gruppenavn, "nb"));

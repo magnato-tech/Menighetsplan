@@ -18,6 +18,11 @@ interface SamlingsplanleggingProps {
   gruppeId: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   opprettetAv?: string;
+  /** Vis skjemaet åpent uten accordion-header. */
+  inline?: boolean;
+  /** Styr accordion fra parent. */
+  apen?: boolean;
+  onApenChange?: (apen: boolean) => void;
 }
 
 function feltLabel(id: string, tekst: string) {
@@ -36,8 +41,17 @@ export const Samlingsplanlegging: React.FC<SamlingsplanleggingProps> = ({
   gruppeId,
   onUpdateDb,
   opprettetAv,
+  inline = false,
+  apen: apenProp,
+  onApenChange,
 }) => {
-  const [apen, setApen] = useState(false);
+  const [apenIntern, setApenIntern] = useState(false);
+  const apen = inline ? true : (apenProp ?? apenIntern);
+  const setApen = (v: boolean | ((prev: boolean) => boolean)) => {
+    const neste = typeof v === "function" ? v(apen) : v;
+    if (onApenChange) onApenChange(neste);
+    else setApenIntern(neste);
+  };
   const [plan, setPlan] = useState<Samlingsplan>(() => hentSamlingsplan(db, gruppeId));
   const [status, setStatus] = useState("");
   const gjentas = planGjentas(plan);
@@ -61,7 +75,7 @@ export const Samlingsplanlegging: React.FC<SamlingsplanleggingProps> = ({
   const opprettHendelser = () => {
     const lagret = lagreSamlingsplan(db, gruppeId, plan);
     const resultat = genererSamlingshendelser(lagret, gruppeId, plan, opprettetAv);
-    if (!resultat.ok) {
+    if (resultat.ok === false) {
       setStatus(resultat.feil);
       return;
     }
@@ -74,6 +88,135 @@ export const Samlingsplanlegging: React.FC<SamlingsplanleggingProps> = ({
         : `${resultat.antall} samlinger opprettet i kalenderen.`
     );
   };
+
+  const skjema = (
+    <div className={`${inline ? "" : "px-4 py-4 border-t border-slate-200"} space-y-4`}>
+      <p className="text-xs text-slate-500">
+        Planlegg en samling for gruppen. Den kan være enkeltstående eller gjentas i en periode.
+      </p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          {feltLabel(`samlingsplan-frekvens-${gruppeId}`, "Gjentakelse")}
+          <select
+            id={`samlingsplan-frekvens-${gruppeId}`}
+            value={plan.Frekvens || SAMLINGSPLAN_INGEN_GJENTAKELSE}
+            onChange={(e) => oppdater("Frekvens", e.target.value)}
+            className={feltKlasse}
+          >
+            {SAMLINGSPLAN_FREKVENS.map((valg) => (
+              <option key={valg} value={valg}>
+                {valg}
+              </option>
+            ))}
+          </select>
+        </div>
+        {gjentas ? (
+          <div>
+            {feltLabel(`samlingsplan-ukedag-${gruppeId}`, "Ukedag")}
+            <select
+              id={`samlingsplan-ukedag-${gruppeId}`}
+              value={plan.Ukedag || ""}
+              onChange={(e) => oppdater("Ukedag", e.target.value)}
+              className={feltKlasse}
+            >
+              {SAMLINGSPLAN_UKEDAGER.map((dag) => (
+                <option key={dag} value={dag}>
+                  {dag}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+        <div>
+          {feltLabel(`samlingsplan-startdato-${gruppeId}`, "Dato")}
+          <input
+            id={`samlingsplan-startdato-${gruppeId}`}
+            type="date"
+            value={plan.Startdato || ""}
+            onChange={(e) => oppdater("Startdato", e.target.value)}
+            className={feltKlasse}
+          />
+        </div>
+        {gjentas ? (
+          <div>
+            {feltLabel(`samlingsplan-sluttdato-${gruppeId}`, "Sluttdato")}
+            <input
+              id={`samlingsplan-sluttdato-${gruppeId}`}
+              type="date"
+              value={plan.Sluttdato || ""}
+              onChange={(e) => oppdater("Sluttdato", e.target.value)}
+              className={feltKlasse}
+            />
+          </div>
+        ) : null}
+        <div>
+          {feltLabel(`samlingsplan-klokkeslett-${gruppeId}`, "Klokkeslett")}
+          <input
+            id={`samlingsplan-klokkeslett-${gruppeId}`}
+            type="time"
+            value={plan.Klokkeslett || ""}
+            onChange={(e) => oppdater("Klokkeslett", e.target.value)}
+            className={feltKlasse}
+          />
+        </div>
+        <div>
+          {feltLabel(`samlingsplan-sluttid-${gruppeId}`, "Sluttid")}
+          <input
+            id={`samlingsplan-sluttid-${gruppeId}`}
+            type="time"
+            value={plan.Sluttid || ""}
+            onChange={(e) => oppdater("Sluttid", e.target.value)}
+            className={feltKlasse}
+          />
+        </div>
+      </div>
+      {plan.SistGenerert ? (
+        <p className="text-[11px] text-slate-500">
+          Sist opprettet i kalenderen:{" "}
+          {new Date(`${plan.SistGenerert}T12:00:00`).toLocaleDateString("nb-NO")}
+        </p>
+      ) : null}
+      {status ? (
+        <p
+          className={`text-xs ${
+            status.includes("opprettet") || status.includes("lagret")
+              ? "text-[#2d5a3f]"
+              : "text-rose-700"
+          }`}
+        >
+          {status}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          onClick={lagre}
+          className="px-4 py-2 text-xs font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#dceee3] border border-[#d2e8d9] rounded-xl cursor-pointer"
+        >
+          Lagre plan
+        </button>
+        <button
+          type="button"
+          onClick={opprettHendelser}
+          className="px-4 py-2 text-xs font-semibold bg-[#2d5a3f] hover:bg-[#234731] text-white rounded-xl cursor-pointer"
+        >
+          Opprett i kalenderen
+        </button>
+      </div>
+    </div>
+  );
+
+  if (inline) {
+    return (
+      <div
+        className="space-y-4"
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+      >
+        {skjema}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -90,7 +233,7 @@ export const Samlingsplanlegging: React.FC<SamlingsplanleggingProps> = ({
         <span className="flex items-center gap-2 min-w-0">
           <CalendarDays className="w-4 h-4 shrink-0 text-slate-500" />
           <span className="text-xs font-bold uppercase tracking-wider text-slate-700">
-            Samlingsplanlegging
+            Ny samling
           </span>
         </span>
         <ChevronDown
@@ -98,122 +241,7 @@ export const Samlingsplanlegging: React.FC<SamlingsplanleggingProps> = ({
         />
       </button>
 
-      {apen && (
-        <div className="px-4 py-4 border-t border-slate-200 space-y-4">
-          <p className="text-xs text-slate-500">
-            Planlegg en samling for gruppen. Den kan være enkeltstående eller gjentas i en periode.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              {feltLabel(`samlingsplan-frekvens-${gruppeId}`, "Gjentakelse")}
-              <select
-                id={`samlingsplan-frekvens-${gruppeId}`}
-                value={plan.Frekvens || SAMLINGSPLAN_INGEN_GJENTAKELSE}
-                onChange={(e) => oppdater("Frekvens", e.target.value)}
-                className={feltKlasse}
-              >
-                {SAMLINGSPLAN_FREKVENS.map((valg) => (
-                  <option key={valg} value={valg}>
-                    {valg}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {gjentas ? (
-              <div>
-                {feltLabel(`samlingsplan-ukedag-${gruppeId}`, "Ukedag")}
-                <select
-                  id={`samlingsplan-ukedag-${gruppeId}`}
-                  value={plan.Ukedag || ""}
-                  onChange={(e) => oppdater("Ukedag", e.target.value)}
-                  className={feltKlasse}
-                >
-                  {SAMLINGSPLAN_UKEDAGER.map((dag) => (
-                    <option key={dag} value={dag}>
-                      {dag}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            <div>
-              {feltLabel(`samlingsplan-startdato-${gruppeId}`, "Dato")}
-              <input
-                id={`samlingsplan-startdato-${gruppeId}`}
-                type="date"
-                value={plan.Startdato || ""}
-                onChange={(e) => oppdater("Startdato", e.target.value)}
-                className={feltKlasse}
-              />
-            </div>
-            {gjentas ? (
-              <div>
-                {feltLabel(`samlingsplan-sluttdato-${gruppeId}`, "Sluttdato")}
-                <input
-                  id={`samlingsplan-sluttdato-${gruppeId}`}
-                  type="date"
-                  value={plan.Sluttdato || ""}
-                  onChange={(e) => oppdater("Sluttdato", e.target.value)}
-                  className={feltKlasse}
-                />
-              </div>
-            ) : null}
-            <div>
-              {feltLabel(`samlingsplan-klokkeslett-${gruppeId}`, "Klokkeslett")}
-              <input
-                id={`samlingsplan-klokkeslett-${gruppeId}`}
-                type="time"
-                value={plan.Klokkeslett || ""}
-                onChange={(e) => oppdater("Klokkeslett", e.target.value)}
-                className={feltKlasse}
-              />
-            </div>
-            <div>
-              {feltLabel(`samlingsplan-sluttid-${gruppeId}`, "Sluttid")}
-              <input
-                id={`samlingsplan-sluttid-${gruppeId}`}
-                type="time"
-                value={plan.Sluttid || ""}
-                onChange={(e) => oppdater("Sluttid", e.target.value)}
-                className={feltKlasse}
-              />
-            </div>
-          </div>
-          {plan.SistGenerert ? (
-            <p className="text-[11px] text-slate-500">
-              Sist opprettet i kalenderen:{" "}
-              {new Date(`${plan.SistGenerert}T12:00:00`).toLocaleDateString("nb-NO")}
-            </p>
-          ) : null}
-          {status ? (
-            <p
-              className={`text-xs ${
-                status.includes("opprettet") || status.includes("lagret")
-                  ? "text-[#2d5a3f]"
-                  : "text-rose-700"
-              }`}
-            >
-              {status}
-            </p>
-          ) : null}
-          <div className="flex flex-wrap justify-end gap-2">
-            <button
-              type="button"
-              onClick={lagre}
-              className="px-4 py-2 text-xs font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#dceee3] border border-[#d2e8d9] rounded-xl cursor-pointer"
-            >
-              Lagre plan
-            </button>
-            <button
-              type="button"
-              onClick={opprettHendelser}
-              className="px-4 py-2 text-xs font-semibold bg-[#2d5a3f] hover:bg-[#234731] text-white rounded-xl cursor-pointer"
-            >
-              Opprett i kalenderen
-            </button>
-          </div>
-        </div>
-      )}
+      {apen ? skjema : null}
     </div>
   );
 };

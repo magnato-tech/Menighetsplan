@@ -6,6 +6,7 @@ import {
   genererPersonligLenke,
   gruppetypeForGruppe,
   erTjenestegruppe,
+  erGruppeledergruppe,
   hentSvarStatus,
   saveDatabase,
   settDeltakelseForPerson,
@@ -16,10 +17,17 @@ import {
   visKalenderForPerson,
   visProgramIkon,
   kanRedigereProgram,
+  nesteSamlingInfo,
+  nesteGruppeledersamling,
+  kommendeArrangementerForGruppe,
+  forrigeArrangementForGruppe,
+  formatertArrangementDato,
+  oppfølgingsSignaler,
+  opprettNyPersonFraGruppeleder,
 } from "../services/dataService";
 import { Person } from "../types/database";
 import { GruppeMedlemListe } from "./GruppeMedlemListe";
-import { GroupLeaderGuide, type GuideStegSignal } from "./GroupLeaderGuide";
+import { GroupLeaderGuide, type GuideStegSignal, type GruppeGuideType } from "./GroupLeaderGuide";
 import { Samlingsplanlegging } from "./Samlingsplanlegging";
 import {
   SondagBemanning,
@@ -29,7 +37,11 @@ import {
 import type { ArkVisning } from "./Planleggingsark";
 import { KalenderView } from "./KalenderView";
 import { ProgramLeserModal } from "./ProgramLeserModal";
-import { Users, Shield, Search, HelpCircle } from "lucide-react";
+import { NesteSamlingKort } from "./NesteSamlingKort";
+import { GruppeKommunikasjon } from "./GruppeKommunikasjon";
+import { GruppeRessurser } from "./GruppeRessurser";
+import { SamlingOppmotePanel } from "./SamlingOppmotePanel";
+import { Users, Shield, Search, HelpCircle, AlertCircle } from "lucide-react";
 import type { LederSeksjon } from "./MobilBunnmeny";
 
 const ALLE_GRUPPER = "";
@@ -75,13 +87,24 @@ function personerIGrupper(db: DatabaseState, gruppeIds: string[]): Person[] {
   return Array.from(byId.values());
 }
 
+function guideTypeForGruppe(db: DatabaseState, gruppe?: { GruppetypeID: string; GruppeID: string }): GruppeGuideType {
+  if (!gruppe) return "annet";
+  const full = db.grupper.find((g) => g.GruppeID === gruppe.GruppeID);
+  if (!full) return "annet";
+  if (erGruppeledergruppe(db, full)) return "gruppeledergruppe";
+  if (erTjenestegruppe(db, full)) return "tjenestegruppe";
+  const nøkkel = gruppetypeForGruppe(db, full)?.Navn?.toLowerCase() || "";
+  if (nøkkel.includes("hus") || nøkkel.includes("interesse")) return "husgruppe";
+  return "annet";
+}
+
 export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   db,
   selectedPersonId,
   onUpdateDb,
   onSelectPerson,
   onViewAsMember,
-  lederSeksjon = "gruppe",
+  lederSeksjon = "hjem",
   onLederSeksjon,
   fokusMedlemmerNokkel = 0,
 }) => {
@@ -95,6 +118,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [guideVisning, setGuideVisning] = useState<ArkVisning | undefined>(undefined);
   const [guideApneForsteKort, setGuideApneForsteKort] = useState(false);
   const [activeGruppeId, setActiveGruppeId] = useState(ALLE_GRUPPER);
+  const [nySamlingApen, setNySamlingApen] = useState(false);
 
   const person = db.personer.find((p) => p.PersonID === selectedPersonId);
   const lededeGrupper = person
@@ -105,8 +129,12 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   );
 
   useEffect(() => {
-    setActiveGruppeId(ALLE_GRUPPER);
-  }, [selectedPersonId]);
+    if (lededeGrupper.length === 1) {
+      setActiveGruppeId(lededeGrupper[0].GruppeID);
+    } else {
+      setActiveGruppeId(ALLE_GRUPPER);
+    }
+  }, [selectedPersonId, lededeGrupper.length]);
 
   const visOversiktFilter: OversiktFilter =
     lederSeksjon === "medlemmer"
@@ -117,20 +145,21 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
 
   useEffect(() => {
     if (!fokusMedlemmerNokkel) return;
-    setOversiktFilter("medlemmer");
+    onLederSeksjon?.("medlemmer");
     window.requestAnimationFrame(() => {
       document
         .querySelector<HTMLElement>("[data-guide='medlemmer']")
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [fokusMedlemmerNokkel]);
+  }, [fokusMedlemmerNokkel, onLederSeksjon]);
 
   useEffect(() => {
     if (
       activeGruppeId &&
+      activeGruppeId !== ALLE_GRUPPER &&
       !lededeGrupper.some((g) => g.GruppeID === activeGruppeId)
     ) {
-      setActiveGruppeId(ALLE_GRUPPER);
+      setActiveGruppeId(lededeGrupper.length === 1 ? lededeGrupper[0].GruppeID : ALLE_GRUPPER);
     }
   }, [lededeGrupper, activeGruppeId]);
 
@@ -241,11 +270,12 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
     (r) => r.Aktiv && visGruppeIds.includes(r.GruppeID)
   );
   const visGudstjenesteBemanning = visGrupper.some((g) => erTjenestegruppe(db, g));
+  const erLederforum = currentGruppe ? erGruppeledergruppe(db, currentGruppe) : false;
 
   const tittel =
     currentGruppe?.Gruppenavn ||
     (visGrupper.length > 1
-      ? `Alle grupper (${visGrupper.length})`
+      ? `Velg gruppe (${visGrupper.length})`
       : "Gruppe");
   const typeNavn = currentGruppe
     ? gruppetypeForGruppe(db, currentGruppe)?.Navn
@@ -288,16 +318,58 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
     onUpdateDb(updatedDb);
   };
 
+  const handleOpprettNyPerson = (navn: string) => {
+    if (!currentGruppe) return;
+    const updated = opprettNyPersonFraGruppeleder(db, navn, currentGruppe.GruppeID);
+    saveDatabase(updated);
+    onUpdateDb(updated);
+  };
+
+  const nesteSamling = currentGruppe
+    ? nesteSamlingInfo(db, currentGruppe.GruppeID)
+    : undefined;
+  const nesteLederforum = !erLederforum ? nesteGruppeledersamling(db) : undefined;
+  const kommendeSamlinger = currentGruppe
+    ? kommendeArrangementerForGruppe(db, currentGruppe.GruppeID, 8)
+    : [];
+  const forrigeSamling = currentGruppe
+    ? forrigeArrangementForGruppe(db, currentGruppe.GruppeID)
+    : undefined;
+  const signaler = currentGruppe
+    ? oppfølgingsSignaler(
+        db,
+        currentGruppe.GruppeID,
+        oversiktPersoner,
+        visGudstjenesteBemanning ? gruppensRoller.map((r) => r.RolleID) : []
+      )
+    : [];
+  const guideType = guideTypeForGruppe(db, currentGruppe);
+
+  const seksjonsFaner: { id: LederSeksjon; merke: string; skjul?: boolean }[] = [
+    { id: "hjem", merke: "Hjem" },
+    { id: "medlemmer", merke: "Medlemmer" },
+    { id: "samlinger", merke: "Samlinger" },
+    { id: "bemanning", merke: "Bemanning", skjul: !visGudstjenesteBemanning },
+    {
+      id: "kalender",
+      merke: "Kalender",
+      skjul: !visKalenderForPerson(db, selectedPersonId, "gruppeleder"),
+    },
+  ];
+
+  const visSeksjon = lederSeksjon;
+
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {/* Topp */}
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs font-semibold text-[#2d5a3f] uppercase tracking-wider">
               <Users className="w-4 h-4" />
               <span>
-                Gruppeleder-visning
-                {person?.Fornavn ? ` for ${person.Fornavn}` : ""}
+                Gruppeleder
+                {person?.Fornavn ? ` · ${person.Fornavn}` : ""}
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">{tittel}</h2>
@@ -328,7 +400,6 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                   onChange={(e) => setActiveGruppeId(e.target.value)}
                   className="text-sm font-medium border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:ring-2 focus:ring-[#2d5a3f] focus:outline-hidden"
                 >
-                  <option value={ALLE_GRUPPER}>Alle</option>
                   {lededeGrupper.map((g) => (
                     <option key={g.GruppeID} value={g.GruppeID}>
                       {g.Gruppenavn}
@@ -339,117 +410,253 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             )}
           </div>
         </div>
-        {currentGruppe && (
-          <Samlingsplanlegging
-            db={db}
-            gruppeId={currentGruppe.GruppeID}
-            onUpdateDb={onUpdateDb}
-            opprettetAv={selectedPersonId}
-          />
+
+        {lededeGrupper.length > 1 && !currentGruppe && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {lededeGrupper.map((g) => (
+              <button
+                key={g.GruppeID}
+                type="button"
+                onClick={() => setActiveGruppeId(g.GruppeID)}
+                className="text-left p-4 rounded-xl border border-slate-200 hover:border-[#d2e8d9] hover:bg-[#eef5f1]/50 cursor-pointer"
+              >
+                <p className="font-bold text-slate-900">{g.Gruppenavn}</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {gruppetypeForGruppe(db, g)?.Navn || "Gruppe"}
+                </p>
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
-      {visKalenderForPerson(db, selectedPersonId, "gruppeleder") && (
-        <div className="flex gap-2">
-          {(
-            [
-              ["gruppe", "Gruppe"],
-              ["kalender", "Kalender"],
-            ] as const
-          ).map(([id, merke]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onLederSeksjon?.(id)}
-              className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
-                (id === "kalender" ? lederSeksjon === "kalender" : lederSeksjon !== "kalender")
-                  ? "bg-[#2d5a3f] text-white"
-                  : "bg-slate-100 text-slate-700"
-              }`}
-            >
-              {merke}
-            </button>
-          ))}
-        </div>
-      )}
+      {currentGruppe && (
+        <>
+          {/* Neste gruppeledersamling (global stripe) */}
+          {nesteLederforum && (
+            <div data-guide="gruppeledersamling">
+              <NesteSamlingKort
+                tittel="Neste gruppeledersamling"
+                info={{ kilde: "arrangement", arrangement: nesteLederforum }}
+                undertittel="Gruppelederteam"
+                variant="sekundær"
+              />
+            </div>
+          )}
 
-      {lederSeksjon === "kalender" && visKalenderForPerson(db, selectedPersonId, "gruppeleder") ? (
-        <KalenderView
-          db={db}
-          onUpdateDb={onUpdateDb}
-          vis
-          modus="les"
-          selectedPersonId={selectedPersonId}
-          visAbonner={visKalenderForPerson(db, selectedPersonId, "ical")}
-          onApneGudstjeneste={(id) => {
-            if (visProgramIkon(db, selectedPersonId, id)) setLeserGudstjenesteId(id);
-          }}
-        />
-      ) : (
-      <>
-      {visGudstjenesteBemanning && gruppensRoller.length > 0 ? (
-      <SondagBemanning
-        db={db}
-        onUpdateDb={onUpdateDb}
-        rolleIds={gruppensRoller.map((r) => r.RolleID)}
-        gruppeId={currentGruppe?.GruppeID}
-        medlemstall={oversiktPersoner.length}
-        kpiTittel="Semesteret totalt"
-        kpiBeskrivelse={
-          visGrupper.length === 1
-            ? `Tallene gjelder ${currentGruppe?.Gruppenavn || "denne gruppen"}, ikke oppgaver personen har i andre grupper.`
-            : `Tallene gjelder ${visGrupper.map((g) => g.Gruppenavn).join(", ")}.`
-        }
-        visKpiAlltid
-        visKjoreplan="programrett"
-        skjulGruppehode
-        skjulListeVedMedlemmer
-        listeTittel="Kommende gudstjenester"
-        oversiktFilter={visOversiktFilter}
-        onOversiktFilter={(filter) => {
-          setOversiktFilter(filter);
-          if (filter === "medlemmer") onLederSeksjon?.("medlemmer");
-          else onLederSeksjon?.("gruppe");
-        }}
-        onMedlemmer={() => {
-          onLederSeksjon?.("medlemmer");
-          window.requestAnimationFrame(() => {
-            document
-              .querySelector<HTMLElement>("[data-guide='medlemmer']")
-              ?.scrollIntoView({ behavior: "smooth", block: "start" });
-          });
-        }}
-        onSelectPerson={onSelectPerson}
-        selectedPersonId={selectedPersonId}
-        onTildel={(foresporsel) => {
-          setAssignSok("");
-          setEksternForesporsel(null);
-          setAssignModal(foresporsel);
-        }}
-        statusAktor="gruppeleder"
-        guideVisning={guideOpen ? guideVisning : undefined}
-        guideApneForsteKort={guideOpen && guideApneForsteKort}
-      />
-      ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 text-sm text-slate-600">
-          Denne gruppen har ingen gudstjenesteoppgaver. Medlemslisten er oversikten over gruppen.
-        </div>
-      )}
+          {/* Desktop seksjonsfaner */}
+          <div className="hidden md:flex gap-2 flex-wrap">
+            {seksjonsFaner
+              .filter((f) => !f.skjul)
+              .map(({ id, merke }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onLederSeksjon?.(id)}
+                  className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
+                    visSeksjon === id
+                      ? "bg-[#2d5a3f] text-white"
+                      : "bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  {merke}
+                </button>
+              ))}
+          </div>
 
-      <div className={visOversiktFilter === "medlemmer" || !visGudstjenesteBemanning ? undefined : "hidden md:block"}>
-        <GruppeMedlemListe
-          db={db}
-          medlemmer={oversiktPersoner}
-          venterPersonIds={venterPersonIds}
-          uthevMedlemmer={visOversiktFilter === "medlemmer"}
-          copiedPersonId={copiedPersonId}
-          onCopyLink={handleCopyLink}
-          onSelectPerson={onSelectPerson}
-          onViewAsMember={onViewAsMember}
-          onLeggTilMedlem={handleLeggTilMedlem}
-        />
-      </div>
-      </>
+          {/* HJEM */}
+          {visSeksjon === "hjem" && (
+            <div className="space-y-6">
+              <div
+                className="grid grid-cols-1 lg:grid-cols-2 gap-4"
+                data-guide="neste-samling"
+              >
+                <NesteSamlingKort
+                  tittel={`Neste samling i ${currentGruppe.Gruppenavn}`}
+                  info={nesteSamling}
+                  onNySamling={() => {
+                    onLederSeksjon?.("samlinger");
+                    setNySamlingApen(true);
+                  }}
+                />
+                {signaler.length > 0 && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-800 flex items-center gap-1.5 mb-2">
+                      <AlertCircle className="w-4 h-4" />
+                      Trenger oppfølging ({signaler.length})
+                    </h3>
+                    <ul className="space-y-1.5">
+                      {signaler.slice(0, 5).map((s) => (
+                        <li key={`${s.personId}-${s.type}`} className="text-sm text-amber-900">
+                          <span className="font-semibold">{s.navn}</span>
+                          <span className="text-amber-800"> — {s.beskrivelse}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {signaler.length > 5 && (
+                      <button
+                        type="button"
+                        onClick={() => onLederSeksjon?.("medlemmer")}
+                        className="text-xs font-semibold text-amber-800 mt-2 hover:underline cursor-pointer"
+                      >
+                        Se alle i Medlemmer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {kommendeSamlinger.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                    Kommende samlinger
+                  </h3>
+                  <ul className="space-y-2">
+                    {kommendeSamlinger.slice(0, 4).map((a) => (
+                      <li key={a.ArrangementID} className="text-sm text-slate-800">
+                        {formatertArrangementDato(a.Dato, a.Tid)}
+                        {a.Sted ? (
+                          <span className="text-slate-500"> · {a.Sted}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                  {kommendeSamlinger.length > 4 && (
+                    <button
+                      type="button"
+                      onClick={() => onLederSeksjon?.("samlinger")}
+                      className="text-xs font-semibold text-[#2d5a3f] mt-2 hover:underline cursor-pointer"
+                    >
+                      Se alle samlinger
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <GruppeRessurser ressurser={currentGruppe.Ressurser} />
+
+              {visGudstjenesteBemanning && gruppensRoller.length > 0 && (
+                <div className="text-sm">
+                  <button
+                    type="button"
+                    onClick={() => onLederSeksjon?.("bemanning")}
+                    className="text-[#2d5a3f] font-semibold hover:underline cursor-pointer"
+                  >
+                    Gå til bemanning →
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* MEDLEMMER */}
+          {visSeksjon === "medlemmer" && (
+            <div className="space-y-4">
+              <GruppeKommunikasjon
+                medlemmer={oversiktPersoner}
+                gruppenavn={currentGruppe.Gruppenavn}
+              />
+              <GruppeMedlemListe
+                db={db}
+                medlemmer={oversiktPersoner}
+                venterPersonIds={venterPersonIds}
+                uthevMedlemmer={visOversiktFilter === "medlemmer"}
+                copiedPersonId={copiedPersonId}
+                onCopyLink={handleCopyLink}
+                onSelectPerson={onSelectPerson}
+                onViewAsMember={onViewAsMember}
+                onLeggTilMedlem={handleLeggTilMedlem}
+                onOpprettNyPerson={handleOpprettNyPerson}
+              />
+            </div>
+          )}
+
+          {/* SAMLINGER */}
+          {visSeksjon === "samlinger" && (
+            <div className="space-y-6" data-guide="samlinger">
+              <Samlingsplanlegging
+                db={db}
+                gruppeId={currentGruppe.GruppeID}
+                onUpdateDb={onUpdateDb}
+                opprettetAv={selectedPersonId}
+                apen={nySamlingApen}
+                onApenChange={setNySamlingApen}
+              />
+              {kommendeSamlinger.length > 0 && (
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
+                    Kommende
+                  </h3>
+                  <ul className="space-y-2">
+                    {kommendeSamlinger.map((a) => (
+                      <li key={a.ArrangementID} className="text-sm text-slate-800">
+                        {formatertArrangementDato(a.Dato, a.Tid)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {forrigeSamling && (
+                <SamlingOppmotePanel
+                  db={db}
+                  arrangement={forrigeSamling}
+                  gruppeId={currentGruppe.GruppeID}
+                  medlemmer={oversiktPersoner}
+                  onUpdateDb={onUpdateDb}
+                />
+              )}
+            </div>
+          )}
+
+          {/* BEMANNING */}
+          {visSeksjon === "bemanning" && visGudstjenesteBemanning && gruppensRoller.length > 0 && (
+            <SondagBemanning
+              db={db}
+              onUpdateDb={onUpdateDb}
+              rolleIds={gruppensRoller.map((r) => r.RolleID)}
+              gruppeId={currentGruppe.GruppeID}
+              medlemstall={oversiktPersoner.length}
+              kpiTittel="Semesteret totalt"
+              kpiBeskrivelse={`Tallene gjelder ${currentGruppe.Gruppenavn}.`}
+              visKpiAlltid
+              visKjoreplan="programrett"
+              skjulGruppehode
+              listeTittel="Kommende gudstjenester"
+              oversiktFilter={visOversiktFilter}
+              onOversiktFilter={(filter) => {
+                setOversiktFilter(filter);
+                if (filter === "medlemmer") onLederSeksjon?.("medlemmer");
+              }}
+              onMedlemmer={() => onLederSeksjon?.("medlemmer")}
+              onSelectPerson={onSelectPerson}
+              selectedPersonId={selectedPersonId}
+              onTildel={(foresporsel) => {
+                setAssignSok("");
+                setEksternForesporsel(null);
+                setAssignModal(foresporsel);
+              }}
+              statusAktor="gruppeleder"
+              guideVisning={guideOpen ? guideVisning : undefined}
+              guideApneForsteKort={guideOpen && guideApneForsteKort}
+            />
+          )}
+
+          {/* KALENDER */}
+          {visSeksjon === "kalender" &&
+            visKalenderForPerson(db, selectedPersonId, "gruppeleder") && (
+              <KalenderView
+                db={db}
+                onUpdateDb={onUpdateDb}
+                vis
+                modus="les"
+                selectedPersonId={selectedPersonId}
+                visAbonner={visKalenderForPerson(db, selectedPersonId, "ical")}
+                onApneGudstjeneste={(id) => {
+                  if (visProgramIkon(db, selectedPersonId, id)) setLeserGudstjenesteId(id);
+                }}
+              />
+            )}
+        </>
       )}
 
       {assignModal && (
@@ -639,6 +846,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           setGuideApneForsteKort(false);
         }}
         onSteg={handleGuideSteg}
+        gruppeType={guideType}
       />
     </div>
   );

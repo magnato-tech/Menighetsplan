@@ -222,7 +222,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
             onUpdateDb(neste);
             if (gruppetypeId) setGroupTypeFilter([gruppetypeId]);
           }}
-          onUpdateDb={onUpdateDb}
         />
       )}
 

@@ -262,6 +262,7 @@ function emptyState(): DatabaseState {
     programinstanser: [],
     arrangementer: [],
     kalenderoppgaver: [],
+    samlingoppmote: [],
     innstillinger: standardInnstillinger(),
     personerImport: [],
     gudstjenesterImport: [],
@@ -301,6 +302,9 @@ function normalizeState(parsed: Partial<DatabaseState> | null | undefined): Data
     kalenderoppgaver: Array.isArray(parsed.kalenderoppgaver)
       ? parsed.kalenderoppgaver
       : base.kalenderoppgaver,
+    samlingoppmote: Array.isArray(parsed.samlingoppmote)
+      ? parsed.samlingoppmote
+      : base.samlingoppmote,
     innstillinger: parseInnstillinger(parsed.innstillinger),
     personerImport: Array.isArray(parsed.personerImport) ? parsed.personerImport : base.personerImport,
     gudstjenesterImport: Array.isArray(parsed.gudstjenesterImport) ? parsed.gudstjenesterImport : base.gudstjenesterImport,
@@ -640,6 +644,7 @@ export function byggStandardMockState(): DatabaseState {
     programinstanser: [],
     arrangementer: [],
     kalenderoppgaver: [],
+    samlingoppmote: [],
     innstillinger: standardInnstillinger(),
     personerImport: initialPersonerImport,
     gudstjenesterImport: initialGudstjenesterImport,

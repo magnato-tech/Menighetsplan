@@ -172,6 +172,23 @@ test("mineGrupperForPerson viser gruppe og leder, ikke søskenoppgaver", () => {
   assert.equal(kort[0].tilknytning, "Medlem");
   assert.deepEqual(kort[0].mineOppgaver, ["Lyd"]);
   assert.equal(kort[0].lederNavn, "Leder");
+  const leder = kort[0].kontakter.find((k) => k.etikett === "Gruppeleder");
+  assert.ok(leder);
+  assert.equal(leder?.navn, "Leder");
+});
+
+test("mineGrupperForPerson inkluderer lederkontakt for medlemmer", () => {
+  const db = tomDb();
+  db.personer = db.personer.map((p) =>
+    p.PersonID === "P010"
+      ? { ...p, Epost: "leder@menighet.no", Telefon: "900 11 222" }
+      : p
+  );
+  const etter = settPersonroller(db, "P001", ["R006"]);
+  const kort = mineGrupperForPerson(etter, "P001")[0];
+  const leder = kort.kontakter.find((k) => k.etikett === "Gruppeleder");
+  assert.equal(leder?.epost, "leder@menighet.no");
+  assert.equal(leder?.telefon, "900 11 222");
 });
 
 test("påmelding viser bare hukede oppgaver, ikke resten av gruppen", () => {

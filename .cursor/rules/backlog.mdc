@@ -9,7 +9,9 @@ alwaysApply: true
 
 Første versjon er inne: admin-fanen **Programmal**, per-gudstjeneste **Programaktiviteter**, **Programinstanser** (utkast/publisert), ikon for deltakere og A4-PDF via utskrift. Tildelt møteleder (ikke avvist) kan opprette fra mal, redigere og publisere **sin** søndag; standardmalen er fortsatt kun admin.
 
-**Samlingsplanlegging (v1 grunnversjon):** Accordion på gruppekort (admin + gruppeleder). Én samling eller gjentakelse (uke / annenhver uke / måned). Oppretter arrangementer i app-kalenderen med tagger for **Gruppe** og **Type gruppe**. Tjenestevalg på gruppekort er fjernet — source of truth er **Velg tjeneste** på Min side.
+**Samlingsplanlegging (v1 grunnversjon):** Accordion på gruppekort (admin + gruppeleder). Én samling eller gjentakelse (uke / annenhver uke / måned). Oppretter arrangementer i app-kalenderen med tagger for **Gruppe** og **Type gruppe**. Tjenestevalg på gruppekort er fjernet — source of truth er **Velg tjeneste** på Min side. UI heter **Ny samling** hos gruppeleder.
+
+**Gruppeleder-arbeidsflate (v1):** Egen IA (ikke admin-filter): Hjem med neste samling + neste gruppeledersamling, Medlemmer med kontakt og ny person (`PersonStatus: ny`), Samlinger med Ny samling og oppmøte, Bemanning for tjenestegrupper. Mobil-nav for alle gruppeledere. Type-tilpasset guide. Enkel gruppekommunikasjon (mailto / kopier navneliste). Admin eier fortsatt gruppenavn, kategori og beskrivelse.
 
 Ikke i v1:
 
@@ -30,7 +32,7 @@ Appen eier kalenderen (søndager og arrangementer). Kirkens iCal er en sjekklist
 Ikke i denne runden:
 
 - Filter for å skjule arrangementer hos admin
-- Arrangementer synlige for gruppeleder eller Min side
+- Arrangementer synlige for gruppeleder eller Min side (gruppeleder ser neste N via arbeidsflaten; full kalender er valgfritt via innstillinger)
 - App-eide iCal-abonnement (offentlig feed og `mk_…` + gruppemøter)
 - Gruppeaktiviteter som egen fane
 - At kalenderklikket åpner `ProgramLeserModal` for gudstjeneste (går til Søndager)

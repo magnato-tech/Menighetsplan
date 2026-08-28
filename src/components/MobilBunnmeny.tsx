@@ -3,51 +3,42 @@ import {
   AppView,
   DatabaseState,
   hentTilgang,
-  hentPåmeldingsRoller,
-  erMedITjenestegruppe,
   visKalenderForPerson,
+  finnGrupperSomLederEllerNestleder,
+  erTjenestegruppe,
 } from "../services/dataService";
-import { Rolle } from "../types/database";
-import { RolleIkon } from "./RolleIkon";
-import { Ellipsis, ShieldCheck, UserCheck, Users, CalendarDays } from "lucide-react";
+import { Ellipsis, ShieldCheck, UserCheck, Users, CalendarDays, Home, ClipboardList } from "lucide-react";
 
-export type LederSeksjon = "gruppe" | "medlemmer" | "kalender";
+export type LederSeksjon = "hjem" | "medlemmer" | "samlinger" | "bemanning" | "kalender";
 
 interface MobilBunnmenyProps {
   db: DatabaseState;
   personId: string;
   activeView: AppView;
-  datePickerRolle: Rolle | null;
   lederSeksjon: LederSeksjon;
   onNavigate: (view: AppView) => void;
-  onVelgDato: (rolle: Rolle) => void;
+  onFokusHjem: () => void;
   onFokusMedlemmer: () => void;
+  onFokusSamlinger?: () => void;
+  onFokusBemanning?: () => void;
   onFokusKalender?: () => void;
 }
 
 type BunnPost =
-  | { id: string; kind: "rolle"; rolle: Rolle; etikett: string }
   | { id: string; kind: "nav"; view: AppView; etikett: string }
+  | { id: string; kind: "hjem"; etikett: string }
   | { id: string; kind: "medlemmer"; etikett: string }
+  | { id: string; kind: "samlinger"; etikett: string }
+  | { id: string; kind: "bemanning"; etikett: string }
   | { id: string; kind: "kalender"; etikett: string };
-
-function kortEtikett(navn: string): string {
-  const trimmet = navn.trim();
-  if (trimmet.length <= 12) return trimmet;
-  return `${trimmet.slice(0, 11)}…`;
-}
 
 function PostIkon({ post, aktiv }: { post: BunnPost; aktiv: boolean }) {
   const farge = aktiv ? "text-[#2d5a3f]" : "text-slate-500";
-  if (post.kind === "rolle") {
-    return <RolleIkon rollenavn={post.rolle.Rollenavn} className="w-7 h-7" />;
-  }
-  if (post.kind === "medlemmer") {
-    return <Users className={`w-5 h-5 ${farge}`} />;
-  }
-  if (post.kind === "kalender") {
-    return <CalendarDays className={`w-5 h-5 ${farge}`} />;
-  }
+  if (post.kind === "hjem") return <Home className={`w-5 h-5 ${farge}`} />;
+  if (post.kind === "medlemmer") return <Users className={`w-5 h-5 ${farge}`} />;
+  if (post.kind === "samlinger") return <ClipboardList className={`w-5 h-5 ${farge}`} />;
+  if (post.kind === "bemanning") return <Users className={`w-5 h-5 ${farge}`} />;
+  if (post.kind === "kalender") return <CalendarDays className={`w-5 h-5 ${farge}`} />;
   if (post.view === "admin") return <ShieldCheck className={`w-5 h-5 ${farge}`} />;
   if (post.view === "leader") return <Users className={`w-5 h-5 ${farge}`} />;
   return <UserCheck className={`w-5 h-5 ${farge}`} />;
@@ -57,28 +48,22 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
   db,
   personId,
   activeView,
-  datePickerRolle,
   lederSeksjon,
   onNavigate,
-  onVelgDato,
+  onFokusHjem,
   onFokusMedlemmer,
+  onFokusSamlinger,
+  onFokusBemanning,
   onFokusKalender,
 }) => {
   const [flereApen, setFlereApen] = useState(false);
   const tilgang = hentTilgang(db, personId);
-  const medITjenestegruppe = erMedITjenestegruppe(db, personId);
-  const roller = medITjenestegruppe ? hentPåmeldingsRoller(db, personId) : [];
+  const lederTjenestegruppe = finnGrupperSomLederEllerNestleder(db, personId).some((g) =>
+    erTjenestegruppe(db, g)
+  );
 
   const poster: BunnPost[] = [];
   if (activeView === "personal") {
-    for (const rolle of roller) {
-      poster.push({
-        id: `rolle-${rolle.RolleID}`,
-        kind: "rolle",
-        rolle,
-        etikett: roller.length === 1 ? "Velg dato" : kortEtikett(rolle.Rollenavn),
-      });
-    }
     if (tilgang.views.includes("leader")) {
       poster.push({ id: "nav-leader", kind: "nav", view: "leader", etikett: "Ledere" });
     }
@@ -87,8 +72,12 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
     }
   } else if (activeView === "leader") {
     poster.push({ id: "nav-personal", kind: "nav", view: "personal", etikett: "Min side" });
-    poster.push({ id: "nav-leader", kind: "nav", view: "leader", etikett: "Gruppe" });
+    poster.push({ id: "hjem", kind: "hjem", etikett: "Hjem" });
     poster.push({ id: "medlemmer", kind: "medlemmer", etikett: "Medlemmer" });
+    poster.push({ id: "samlinger", kind: "samlinger", etikett: "Samlinger" });
+    if (lederTjenestegruppe) {
+      poster.push({ id: "bemanning", kind: "bemanning", etikett: "Bemanning" });
+    }
     if (visKalenderForPerson(db, personId, "gruppeleder")) {
       poster.push({ id: "kalender", kind: "kalender", etikett: "Kalender" });
     }
@@ -109,21 +98,34 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
   const skjulte = harFlere ? poster.slice(maksSynlige - 1) : [];
 
   const erAktiv = (post: BunnPost) => {
-    if (post.kind === "rolle") return datePickerRolle?.RolleID === post.rolle.RolleID;
-    if (post.kind === "medlemmer") return activeView === "leader" && lederSeksjon === "medlemmer";
-    if (post.kind === "kalender") return activeView === "leader" && lederSeksjon === "kalender";
-    if (post.view === "leader") return activeView === "leader" && lederSeksjon === "gruppe";
-    return activeView === post.view;
+    if (activeView !== "leader") {
+      return post.kind === "nav" && activeView === post.view;
+    }
+    if (post.kind === "hjem") return lederSeksjon === "hjem";
+    if (post.kind === "medlemmer") return lederSeksjon === "medlemmer";
+    if (post.kind === "samlinger") return lederSeksjon === "samlinger";
+    if (post.kind === "bemanning") return lederSeksjon === "bemanning";
+    if (post.kind === "kalender") return lederSeksjon === "kalender";
+    if (post.kind === "nav" && post.view === "leader") return lederSeksjon === "hjem";
+    return post.kind === "nav" && activeView === post.view;
   };
 
   const aktiver = (post: BunnPost) => {
     setFlereApen(false);
-    if (post.kind === "rolle") {
-      onVelgDato(post.rolle);
+    if (post.kind === "hjem") {
+      onFokusHjem();
       return;
     }
     if (post.kind === "medlemmer") {
       onFokusMedlemmer();
+      return;
+    }
+    if (post.kind === "samlinger") {
+      onFokusSamlinger?.();
+      return;
+    }
+    if (post.kind === "bemanning") {
+      onFokusBemanning?.();
       return;
     }
     if (post.kind === "kalender") {
@@ -146,7 +148,7 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
           className={`flex flex-col items-center justify-center gap-0.5 min-h-11 min-w-0 flex-1 px-1 py-1 rounded-xl cursor-pointer ${
             aktiv ? "text-[#1e3e2b]" : "text-slate-600"
           }`}
-          aria-label={post.kind === "rolle" ? `Velg dato for ${post.rolle.Rollenavn}` : post.etikett}
+          aria-label={post.etikett}
         >
           <PostIkon post={post} aktiv={aktiv} />
           <span className={`text-[10px] font-semibold leading-tight text-center truncate max-w-full ${
@@ -183,7 +185,7 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
               className="w-full flex items-center gap-3 px-3 py-3 min-h-11 rounded-xl text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
             >
               <PostIkon post={post} aktiv={erAktiv(post)} />
-              {post.kind === "rolle" ? `Velg dato · ${post.rolle.Rollenavn}` : post.etikett}
+              {post.etikett}
             </button>
           ))}
         </div>

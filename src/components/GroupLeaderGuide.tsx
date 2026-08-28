@@ -7,6 +7,8 @@ import {
   SquareStack,
   Share2,
   UserPlus,
+  Users,
+  CalendarDays,
   X,
 } from "lucide-react";
 import type { ArkVisning } from "./Planleggingsark";
@@ -18,6 +20,8 @@ export type GuideStegSignal = {
   apneKort?: boolean;
 };
 
+export type GruppeGuideType = "tjenestegruppe" | "husgruppe" | "gruppeledergruppe" | "annet";
+
 type Steg = {
   target: string | null;
   tittel: string;
@@ -27,7 +31,7 @@ type Steg = {
   apneKort?: boolean;
 };
 
-const STEG: Steg[] = [
+const BEMANNING_STEG: Steg[] = [
   {
     target: "liste-ark",
     visning: "liste",
@@ -67,16 +71,74 @@ const STEG: Steg[] = [
   },
 ];
 
+const HUSGRUPPE_STEG: Steg[] = [
+  {
+    target: "neste-samling",
+    visning: "liste",
+    tittel: "Se neste samling først",
+    tekst: "På forsiden ser du når gruppen møtes neste gang. Ingen samling planlagt? Trykk «Ny samling» og opprett i kalenderen.",
+    Icon: CalendarDays,
+  },
+  {
+    target: "medlemmer",
+    visning: "liste",
+    tittel: "Hold oversikt over menneskene",
+    tekst: "Medlemslisten er hjertet i gruppen. Legg til fra menighetsregisteret, eller opprett en ny person som admin bekrefter senere.",
+    Icon: Users,
+  },
+  {
+    target: "del-lenke",
+    visning: "liste",
+    tittel: "Send Min side-lenken",
+    tekst: "Kopier personlenken og send den til medlemmer som ikke har fått den ennå. De kan da se egne oppgaver og kalender.",
+    Icon: Share2,
+  },
+  {
+    target: "samlinger",
+    visning: "liste",
+    tittel: "Registrer oppmøte",
+    tekst: "Etter en samling kan du krysse av hvem som var der. Da ser du lettere hvem som trenger oppfølging.",
+    Icon: UserPlus,
+  },
+];
+
+const LEDERFORUM_STEG: Steg[] = [
+  {
+    target: "neste-samling",
+    visning: "liste",
+    tittel: "Neste gruppeledersamling",
+    tekst: "Her ser du når Gruppelederteamet møtes neste gang. Planlegg samlingen som for andre grupper.",
+    Icon: CalendarDays,
+  },
+  {
+    target: "medlemmer",
+    visning: "liste",
+    tittel: "Hvem er med i forumet",
+    tekst: "Gruppelederteamet fylles automatisk med ledere og nestledere fra andre grupper. Du kan se hvem som er med.",
+    Icon: Users,
+  },
+];
+
+function stegForType(type: GruppeGuideType): Steg[] {
+  if (type === "tjenestegruppe") return BEMANNING_STEG;
+  if (type === "gruppeledergruppe") return LEDERFORUM_STEG;
+  if (type === "husgruppe") return HUSGRUPPE_STEG;
+  return HUSGRUPPE_STEG;
+}
+
 const FALLBACK_TARGET: Record<string, string> = {
   "sett-opp": "gudstjenester",
   status: "gudstjenester",
   "del-lenke": "medlemmer",
+  "neste-samling": "neste-samling",
+  samlinger: "samlinger",
 };
 
 interface GroupLeaderGuideProps {
   open: boolean;
   onClose: () => void;
   onSteg?: (signal: GuideStegSignal) => void;
+  gruppeType?: GruppeGuideType;
 }
 
 function finnMal(target: string | null): HTMLElement | null {
@@ -92,6 +154,7 @@ export const GroupLeaderGuide: React.FC<GroupLeaderGuideProps> = ({
   open,
   onClose,
   onSteg,
+  gruppeType = "tjenestegruppe" as GruppeGuideType,
 }) => {
   const [stegIndex, setStegIndex] = useState(0);
   const [malRect, setMalRect] = useState<DOMRect | null>(null);
@@ -102,17 +165,18 @@ export const GroupLeaderGuide: React.FC<GroupLeaderGuideProps> = ({
   }>({ top: 80, left: 16, plassering: "center" });
   const kortRef = useRef<HTMLDivElement>(null);
 
-  const steg = STEG[stegIndex];
-  const totalt = STEG.length;
+  const stegListe = stegForType(gruppeType);
+  const steg = stegListe[stegIndex];
+  const totalt = stegListe.length;
 
   useEffect(() => {
     if (!open) {
       setStegIndex(0);
       return;
     }
-    const gjeldende = STEG[stegIndex];
+    const gjeldende = stegListe[stegIndex];
     onSteg?.({ visning: gjeldende.visning, apneKort: gjeldende.apneKort });
-  }, [open, stegIndex, onSteg]);
+  }, [open, stegIndex, onSteg, stegListe]);
 
   useEffect(() => {
     if (!open) return;

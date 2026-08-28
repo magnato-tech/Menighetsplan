@@ -3,6 +3,9 @@
  * Fasit i henhold til Prosjektdokument og Datamodell-spesifikasjon.
  */
 
+/** Person opprettet av gruppeleder venter på admin-gjennomgang. */
+export type PersonStatus = "ny" | "registrert";
+
 export interface Person {
   PersonID: string; // e.g. "P001"
   Navn: string;
@@ -11,6 +14,8 @@ export interface Person {
   Epost: string;
   Telefon: string;
   SikkerhetsToken?: string; // Tilfeldig magisk-lenke-token, lagres i arket
+  /** Satt til «ny» når gruppeleder oppretter personen. Admin bekrefter i registeret. */
+  PersonStatus?: PersonStatus;
   /** App-tilgang. Ikke det samme som tjenesterolle i fanen Roller. */
   Tilgangsnivå?: "bruker" | "gruppeleder" | "admin";
   BildeURL?: string;
@@ -50,6 +55,12 @@ export interface ArrangementTag {
   Verdi: string;
 }
 
+export interface GruppeRessurs {
+  Tittel: string;
+  Url?: string;
+  Tekst?: string;
+}
+
 export interface Gruppe {
   GruppeID: string; // e.g. "G001"
   Gruppenavn: string; // e.g. "Lovsangsgruppe", "Kjøkkentjeneste"
@@ -58,7 +69,20 @@ export interface Gruppe {
   NestlederID?: string; // Ref: Personer.PersonID
   Beskrivelse: string;
   Samlingsplan?: Samlingsplan;
+  /** Lenker og notater gruppeleder kan lese (admin setter). */
+  Ressurser?: GruppeRessurs[];
   Aktiv: boolean;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+/** Oppmøte per person på en gruppesamling (arrangement). */
+export interface SamlingOppmote {
+  SamlingOppmoteID: string;
+  ArrangementID: string;
+  GruppeID: string;
+  PersonID: string;
+  Tilstede: boolean;
   OpprettetDato: string;
   SistEndret: string;
 }
@@ -361,6 +385,7 @@ export interface DatabaseState {
   programinstanser: Programinstans[];
   arrangementer: Arrangement[];
   kalenderoppgaver: Kalenderoppgave[];
+  samlingoppmote?: SamlingOppmote[];
   innstillinger?: AppInnstillinger;
   personerImport: PersonerImport[];
   gudstjenesterImport: GudstjenesterImport[];

@@ -10,7 +10,6 @@ import {
 } from "../services/dataService";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
-import { Samlingsplanlegging } from "./Samlingsplanlegging";
 
 const GRUPPETYPE_PILLE_REKKEFOLGE = [
   "tjenestegruppe",
@@ -95,7 +94,6 @@ interface GroupOverviewProps {
   onSelectPerson: (personId: string, view?: AppView) => void;
   onSlettGruppe: (gruppeId: string) => void;
   onNyKategori: (navn: string) => void;
-  onUpdateDb: (updatedDb: DatabaseState) => void;
 }
 
 export const GroupOverview: React.FC<GroupOverviewProps> = ({
@@ -109,7 +107,6 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
   onSelectPerson,
   onSlettGruppe,
   onNyKategori,
-  onUpdateDb,
 }) => {
   const [sok, setSok] = useState("");
   const [visning, setVisning] = useState<"grid" | "list">("grid");
@@ -376,13 +373,6 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
                 </p>
                 <div className="mt-2.5 flex-1">
                   <RolleChips navn={rolleNavn} visTomHint={visTomRoller} />
-                </div>
-                <div className="mt-3">
-                  <Samlingsplanlegging
-                    db={db}
-                    gruppeId={gruppe.GruppeID}
-                    onUpdateDb={onUpdateDb}
-                  />
                 </div>
                 <div className="flex items-end justify-between gap-2 mt-3 pt-3 border-t border-slate-100">
                   <div className="min-w-0 space-y-0.5">

@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Search, Star, Trash2, X } from "lucide-react";
 import { IkonHandling } from "./IkonHandling";
 import { Gruppemedlem, Person } from "../types/database";
+import { Samlingsplanlegging } from "./Samlingsplanlegging";
 import {
   DatabaseState,
   erGruppeledergruppe,
@@ -503,6 +504,8 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
             </div>
           </section>
         </div>
+
+        <Samlingsplanlegging db={db} gruppeId={gruppeId} onUpdateDb={onUpdateDb} />
 
         <div className="flex justify-between gap-2 mt-6 pt-4 border-t border-slate-100">
           <button

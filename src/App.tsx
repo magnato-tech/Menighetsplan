@@ -46,7 +46,6 @@ import { GroupLeaderView } from "./components/GroupLeaderView";
 import { AdminView } from "./components/AdminView";
 import { MobilBunnmeny, type LederSeksjon } from "./components/MobilBunnmeny";
 import { Shield, ArrowLeft, Users } from "lucide-react";
-import { Rolle } from "./types/database";
 
 export default function App() {
   const [dataSource, setDataSource] = useState<DevDataSource>(() => getDevDataSource());
@@ -61,8 +60,7 @@ export default function App() {
   });
   const [activeView, setActiveView] = useState<AppView>("personal");
   const [selectedPersonId, setSelectedPersonId] = useState<string>("P001");
-  const [datePickerRolle, setDatePickerRolle] = useState<Rolle | null>(null);
-  const [lederSeksjon, setLederSeksjon] = useState<LederSeksjon>("gruppe");
+  const [lederSeksjon, setLederSeksjon] = useState<LederSeksjon>("hjem");
   const [fokusMedlemmerNokkel, setFokusMedlemmerNokkel] = useState(0);
   const [visOppgaverArk, setVisOppgaverArk] = useState(false);
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
@@ -285,8 +283,7 @@ export default function App() {
   const handleSelectPerson = (personId: string, view?: AppView) => {
     setLeaderViewAsObserverId(null);
     setSelectedPersonId(personId);
-    setDatePickerRolle(null);
-    setLederSeksjon("gruppe");
+    setLederSeksjon("hjem");
     setVisOppgaverArk(false);
     if (view) {
       setActiveView(view);
@@ -302,8 +299,7 @@ export default function App() {
   const handleLeaderViewAs = (memberId: string, view: AppView = "personal") => {
     setLeaderViewAsObserverId((prev) => prev ?? selectedPersonId);
     setSelectedPersonId(memberId);
-    setDatePickerRolle(null);
-    setLederSeksjon("gruppe");
+    setLederSeksjon("hjem");
     setVisOppgaverArk(false);
     setActiveView(view);
   };
@@ -313,7 +309,6 @@ export default function App() {
     setSelectedPersonId(leaderViewAsObserverId);
     setLeaderViewAsObserverId(null);
     setActiveView("leader");
-    setDatePickerRolle(null);
     setVisOppgaverArk(false);
   };
 
@@ -339,10 +334,9 @@ export default function App() {
     if (!db) return;
     if (!visningErTillatt(hentTilgang(db, selectedPersonId), view)) return;
     if (view !== "personal") {
-      setDatePickerRolle(null);
       setVisOppgaverArk(false);
     }
-    if (view === "leader") setLederSeksjon("gruppe");
+    if (view === "leader") setLederSeksjon("hjem");
     setActiveView(view);
   };
 
@@ -548,7 +542,6 @@ export default function App() {
         onLoggUt={innloggetViaGoogle ? handleLoggUt : undefined}
         onMineOppgaver={() => {
           setActiveView("personal");
-          setDatePickerRolle(null);
           setVisOppgaverArk(true);
         }}
       />
@@ -560,8 +553,6 @@ export default function App() {
             db={db}
             selectedPersonId={selectedPersonId}
             onUpdateDb={handleUpdateDb}
-            datePickerRolle={datePickerRolle}
-            onDatePickerRolleChange={setDatePickerRolle}
             visOppgaverArk={visOppgaverArk}
             onOppgaverArkChange={setVisOppgaverArk}
           />
@@ -603,29 +594,37 @@ export default function App() {
           </div>
         </div>
       </footer>
-      {!datePickerRolle && erMedITjenestegruppe(db, selectedPersonId) && (
+      {(erMedITjenestegruppe(db, selectedPersonId) ||
+        hentTilgang(db, selectedPersonId).views.includes("leader")) && (
         <MobilBunnmeny
           db={db}
           personId={selectedPersonId}
           activeView={activeView}
-          datePickerRolle={datePickerRolle}
           lederSeksjon={lederSeksjon}
           onNavigate={handleNavigateView}
-          onVelgDato={(rolle) => {
-            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "personal")) return;
-            setActiveView("personal");
-            setDatePickerRolle(rolle);
+          onFokusHjem={() => {
+            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
+            setActiveView("leader");
+            setLederSeksjon("hjem");
           }}
           onFokusMedlemmer={() => {
             if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
-            setDatePickerRolle(null);
             setActiveView("leader");
             setLederSeksjon("medlemmer");
             setFokusMedlemmerNokkel((n) => n + 1);
           }}
+          onFokusSamlinger={() => {
+            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
+            setActiveView("leader");
+            setLederSeksjon("samlinger");
+          }}
+          onFokusBemanning={() => {
+            if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
+            setActiveView("leader");
+            setLederSeksjon("bemanning");
+          }}
           onFokusKalender={() => {
             if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
-            setDatePickerRolle(null);
             setActiveView("leader");
             setLederSeksjon("kalender");
           }}
