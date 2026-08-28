@@ -465,8 +465,9 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
         <div className="text-[11px] text-slate-500 space-y-1">
           <p>
             <strong>Tips:</strong> Daglig lagring går til Supabase. Trykk{" "}
-            <strong>«Hent fra Google-arket til Supabase»</strong> første gang, og{" "}
-            <strong>«Eksporter backup til Google Sheets»</strong> når du vil ha en kopi i arket.
+            <strong>«Hent fra Google-arket til Supabase»</strong> for å erstatte testdata med
+            den gamle databasen i arket. Bruk <strong>«Eksporter backup til Google Sheets»</strong> når
+            du vil ha en kopi tilbake i arket.
             Excel-importfanene leses via <strong>«Import fra Excel-faner»</strong>.
           </p>
         </div>

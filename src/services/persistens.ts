@@ -604,6 +604,11 @@ export function loadLocalDatabase(): DatabaseState {
     console.warn("Kunne ikke laste lagret database, bruker initielle data:", e);
   }
 
+  return byggStandardMockState();
+}
+
+/** Testdata fra initialData — kan overskrives i Supabase med «Hent fra Google-arket». */
+export function byggStandardMockState(): DatabaseState {
   return applyLoadedState({
     gruppetyper: initialGruppetyper,
     personer: initialPersoner,
@@ -1162,31 +1167,7 @@ export function whenRemoteSaveIdle(): Promise<void> {
 }
 
 export function populateMockDatabase(): DatabaseState {
-  const state = applyLoadedState({
-    gruppetyper: initialGruppetyper,
-    personer: initialPersoner,
-    grupper: initialGrupper,
-    gruppemedlemmer: initialGruppemedlemmer,
-    roller: initialRoller,
-    personroller: initialPersonroller,
-    rollebeskrivelser: initialRollebeskrivelser,
-    gudstjenester: initialGudstjenester,
-    tjenestebehov: initialTjenestebehov,
-    tildelinger: initialTildelinger,
-    svar: initialSvar,
-    malaktiviteter: initialMalaktiviteter,
-    maler: initialMaler,
-    malposter: initialMalposter,
-    malTilleggsvakter: initialMalTilleggsvakter,
-    programaktiviteter: [],
-    programinstanser: [],
-    arrangementer: [],
-    kalenderoppgaver: [],
-    innstillinger: standardInnstillinger(),
-    personerImport: initialPersonerImport,
-    gudstjenesterImport: initialGudstjenesterImport,
-    rollebeskrivelseImport: initialRollebeskrivelseImport,
-  });
+  const state = byggStandardMockState();
   try {
     localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(state));
   } catch {
