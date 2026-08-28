@@ -86,7 +86,7 @@ function mountDbApi(
       } catch {
         parsed = {};
       }
-      const { handleDbAction } = await import("./api/dbCore");
+      const { handleDbAction } = await import("./server/dbCore");
       const result = await handleDbAction(
         {
           supabaseUrl: (env.SUPABASE_URL || "").trim(),
