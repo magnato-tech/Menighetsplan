@@ -174,7 +174,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={onMineOppgaver}
                 className="px-3 py-1.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 cursor-pointer"
               >
-                Mine oppgaver
+                Velg tjeneste
               </button>
             )}
             <TemaBryter kompakt />
@@ -219,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
                       }}
                       className="w-full text-left px-3 py-3 min-h-11 text-sm font-semibold text-slate-800 hover:bg-slate-50 cursor-pointer"
                     >
-                      Mine oppgaver
+                      Velg tjeneste
                     </button>
                   )}
                   <div className="px-3 py-2">

@@ -128,12 +128,12 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
             </div>
           )}
           {!landing && (
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Mine oppgaver</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Velg tjeneste</h2>
           )}
           {!landing && (
           <p className="text-xs text-slate-500 mb-4">
-            Huk av oppgavene du vil bidra med. Du blir med i gruppen, men vises bare på de
-            oppgavene du har valgt. Du kan legge til flere senere.
+            Huk av tjenestene du vil bidra med. Du blir med i gruppen, men vises bare på de
+            tjenestene du har valgt. Du kan legge til flere senere.
           </p>
           )}
           <div className="space-y-5">
