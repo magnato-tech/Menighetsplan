@@ -6,6 +6,7 @@ import {
   forceReloadFromRemote,
   migrerFraSheetsTilSupabase,
   lastOppExcelTilSupabase,
+  overskrivSupabaseMedGjeldende,
   excelImportSammendrag,
   uploadToGoogleSheets,
   eksporterTilImportfaner,
@@ -57,6 +58,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
   const [isExcelImport, setIsExcelImport] = useState<boolean>(false);
+  const [isReplacing, setIsReplacing] = useState<boolean>(false);
   const excelFilRef = useRef<HTMLInputElement>(null);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
@@ -184,6 +186,32 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
       setStatusMessage({
         type: "error",
         text: res.error || "Kunne ikke laste Excel-filen inn i appen.",
+      });
+    }
+  };
+
+  const handleOverskrivSupabase = async () => {
+    if (
+      !window.confirm(
+        "Erstatte ALT som ligger i Supabase med det du ser i appen nå?\n\nGoogle Sheets røres ikke."
+      )
+    ) {
+      return;
+    }
+    setIsReplacing(true);
+    setStatusMessage({ type: "info", text: "Overskriver Supabase …" });
+    const res = await overskrivSupabaseMedGjeldende(db);
+    setIsReplacing(false);
+    if (res.success && res.data) {
+      onUpdateDb(res.data);
+      setStatusMessage({
+        type: "success",
+        text: `Supabase er erstattet: ${excelImportSammendrag(res.data)}. Google-arket er uendret.`,
+      });
+    } else {
+      setStatusMessage({
+        type: "error",
+        text: res.error || "Kunne ikke overskrive Supabase.",
       });
     }
   };
@@ -373,7 +401,8 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           <div>
             <h2 className="text-lg font-bold text-slate-900">Data og backup</h2>
             <p className="text-xs text-slate-500">
-              Appen lagrer til Supabase. Google Sheets er manuell backup og Excel-import.
+              Appen lagrer til Supabase. Google Sheets er manuell backup.
+              Bruk «Overskriv Supabase» for å erstatte databasen med det du ser nå.
               {hentSisteRemoteOppdatert()
                 ? ` Sist lagret i Supabase: ${hentSisteRemoteOppdatert()}.`
                 : ""}
@@ -395,7 +424,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           />
           <button
             type="button"
-            disabled={isLoading || isUploading || isExporting || isMigrating || isExcelImport || !remoteEnabled}
+            disabled={isLoading || isUploading || isExporting || isMigrating || isExcelImport || isReplacing || !remoteEnabled}
             onClick={() => excelFilRef.current?.click()}
             className="px-3.5 py-2.5 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -414,7 +443,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           )}
           <button
             type="button"
-            disabled={isLoading || isUploading || isExporting || isMigrating || isExcelImport || !remoteEnabled}
+            disabled={isLoading || isUploading || isExporting || isMigrating || isExcelImport || isReplacing || !remoteEnabled}
             onClick={() => void handleEksporterImportBackup()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -423,7 +452,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || isExporting || isExcelImport || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExporting || isExcelImport || isReplacing || !remoteEnabled}
             onClick={() => void handleReloadSupabase()}
             className="px-4 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
           >
@@ -432,7 +461,16 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || isExcelImport || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExcelImport || isReplacing || !remoteEnabled}
+            onClick={() => void handleOverskrivSupabase()}
+            className="px-3.5 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
+          >
+            <Save className={`w-4 h-4 ${isReplacing ? "opacity-50" : ""}`} />
+            <span>{isReplacing ? "Skriver..." : "Overskriv Supabase"}</span>
+          </button>
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isMigrating || isExcelImport || isReplacing || !remoteEnabled}
             onClick={() => void handleMigrerFraArk()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -441,7 +479,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || isExcelImport || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExcelImport || isReplacing || !remoteEnabled}
             onClick={() => void handleUploadToSheets()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >

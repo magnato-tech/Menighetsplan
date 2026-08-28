@@ -913,7 +913,7 @@ export async function lastOppExcelTilSupabase(file: File): Promise<{
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        action: "save",
+        action: "replace",
         data: stateForRemoteSave(state, true),
         ...requireRemoteAuth(),
       }),
@@ -938,6 +938,50 @@ export async function lastOppExcelTilSupabase(file: File): Promise<{
 }
 
 export { excelImportSammendrag };
+
+/** Administrator: erstatt hele Supabase med det som vises i appen. Skriver ikke til Google Sheets. */
+export async function overskrivSupabaseMedGjeldende(state: DatabaseState): Promise<{
+  success: boolean;
+  data?: DatabaseState;
+  error?: string;
+}> {
+  if (!shouldWriteToRemote()) {
+    return { success: false, error: "Demo og mock skriver ikke til Supabase." };
+  }
+  if (!state.personer?.length) {
+    return { success: false, error: "Ingenting å lagre: personregisteret er tomt." };
+  }
+  const klart = rensLastetPersondata(applyLoadedState(normalizeState(state)));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  try {
+    const text = await fetchJson(getApiBase(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "replace",
+        data: stateForRemoteSave(klart, true),
+        ...requireRemoteAuth(),
+      }),
+      signal: controller.signal,
+    });
+    const payload = JSON.parse(text);
+    if (payload?.ok) {
+      if (payload.updated_at) sisteRemoteUpdatedAt = String(payload.updated_at);
+      persistLocalState(klart);
+      return { success: true, data: klart };
+    }
+    return { success: false, error: payload?.error || "Supabase avviste overskrivingen." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { success: false, error: "Tidsavbrudd under lagring til Supabase (90 s)." };
+    }
+    return { success: false, error: msg };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
 
 /**
  * Tvinger en full oppdatering/henting fra Google Sheets (Apps Script Web App URL)

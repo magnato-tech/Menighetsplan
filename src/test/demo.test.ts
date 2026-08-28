@@ -8,6 +8,20 @@ assert.equal(erDemoVersjon(), false);
 assert.equal(getDevDataSource(), "mock");
 assert.equal(shouldWriteToRemote(), false);
 
+const sperretReplace = await handleDbAction(
+  {
+    supabaseUrl: "https://example.supabase.co",
+    supabaseKey: "hemmelig",
+    googleClientId: "x",
+    appsScriptUrl: "",
+    migrateFromSheets: false,
+    demoMode: true,
+  },
+  { action: "replace", data: { personer: [{ PersonID: "P1" }] } }
+);
+assert.equal(sperretReplace.status, 403);
+assert.match(String(sperretReplace.body.error), /Demoversjonen/);
+
 const sperret = await handleDbAction(
   {
     supabaseUrl: "https://example.supabase.co",

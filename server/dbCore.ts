@@ -258,6 +258,22 @@ export async function handleDbAction(env: DbEnv, raw: unknown): Promise<DbAction
       return svarOk(state, { ...auth, state, isAdmin: true }, updated_at);
     }
 
+    if (action === "replace") {
+      if (!body.data) return { status: 400, body: { ok: false, error: "Mangler data" } };
+      const authBase = tomPayload(state) ? somState(body.data) : state;
+      const auth = await requireAuth(env, body, authBase);
+      if (auth.ok === false) return { status: 401, body: { ok: false, error: auth.error } };
+      if (!auth.isAdmin) {
+        return { status: 403, body: { ok: false, error: "Denne handlingen krever administrator." } };
+      }
+      const neste = somState(body.data);
+      if (tomPayload(neste)) {
+        return { status: 400, body: { ok: false, error: "Kan ikke overskrive Supabase med tomt personregister." } };
+      }
+      updated_at = await supabaseLagre(env, neste);
+      return svarOk(neste, { ...auth, state: neste, isAdmin: true }, updated_at);
+    }
+
     if (tomPayload(state) && action !== "save") {
       return {
         status: 409,
