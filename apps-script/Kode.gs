@@ -466,16 +466,34 @@ function setPersonEmailCell_(personId, email) {
 
 function verifyGoogleIdToken_(idToken) {
   var clientId = PropertiesService.getScriptProperties().getProperty("GOOGLE_CLIENT_ID");
-  if (!clientId) return null;
-  var resp = UrlFetchApp.fetch(
-    "https://oauth2.googleapis.com/tokeninfo?id_token=" + encodeURIComponent(idToken),
-    { muteHttpExceptions: true }
-  );
-  if (resp.getResponseCode() >= 400) return null;
+  if (!clientId) {
+    return { error: "Mangler GOOGLE_CLIENT_ID i Apps Script (Project Settings → Script properties)." };
+  }
+  var resp = UrlFetchApp.fetch("https://oauth2.googleapis.com/tokeninfo", {
+    method: "post",
+    contentType: "application/x-www-form-urlencoded",
+    payload: "id_token=" + encodeURIComponent(idToken),
+    muteHttpExceptions: true,
+  });
+  if (resp.getResponseCode() >= 400) {
+    return { error: "Google-økten er utløpt. Logg ut og logg inn med Google på nytt, deretter hent arket." };
+  }
   var info = JSON.parse(resp.getContentText() || "{}");
-  if (info.error || info.aud !== clientId) return null;
-  if (info.email_verified === "false" || info.email_verified === false) return null;
-  return normalizeEmail_(info.email);
+  if (info.error) {
+    return { error: "Google-økten er utløpt. Logg ut og logg inn med Google på nytt." };
+  }
+  if (info.aud !== clientId && info.azp !== clientId) {
+    return {
+      error:
+        "GOOGLE_CLIENT_ID i Apps Script matcher ikke innloggingen. Sett den til samme verdi som i Vercel.",
+    };
+  }
+  if (info.email_verified === "false" || info.email_verified === false) {
+    return { error: "Google-kontoen har ikke bekreftet e-postadresse." };
+  }
+  var email = normalizeEmail_(info.email);
+  if (!email) return { error: "Google-innlogging ga ingen e-postadresse." };
+  return { email: email };
 }
 
 function requireAuth_(body, needAdmin) {
@@ -483,10 +501,11 @@ function requireAuth_(body, needAdmin) {
   var googleCred = body && body.googleCredential;
   var token = body && body.token;
   if (googleCred) {
-    var email = verifyGoogleIdToken_(String(googleCred));
-    if (!email) {
-      return { ok: false, error: "Ugyldig Google-innlogging." };
+    var google = verifyGoogleIdToken_(String(googleCred));
+    if (google.error) {
+      return { ok: false, error: google.error };
     }
+    var email = google.email;
     var admin = findAdminByEmail_(state, email);
     if (!admin) {
       return { ok: false, error: "Google-kontoen er ikke registrert som administrator." };

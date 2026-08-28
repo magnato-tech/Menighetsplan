@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   DatabaseState,
   getCustomScriptUrl,
   saveCustomScriptUrl,
   forceReloadFromRemote,
   migrerFraSheetsTilSupabase,
+  lastOppExcelTilSupabase,
+  excelImportSammendrag,
   uploadToGoogleSheets,
   eksporterTilImportfaner,
   DEFAULT_REMOTE_SCRIPT_URL,
@@ -54,6 +56,8 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isExcelImport, setIsExcelImport] = useState<boolean>(false);
+  const excelFilRef = useRef<HTMLInputElement>(null);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
@@ -153,6 +157,33 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
       setStatusMessage({
         type: "error",
         text: res.error || "Kunne ikke hente fra Google-arket.",
+      });
+    }
+  };
+
+  const handleExcelFil = async (file: File | undefined) => {
+    if (!file) return;
+    if (
+      !window.confirm(
+        "Overskrive dataene i appen (Supabase) med denne Excel-filen?\n\nGoogle Sheets røres ikke. Ikke klikk «Eksporter backup til Google Sheets» etterpå før du har kontrollert at dataene stemmer."
+      )
+    ) {
+      return;
+    }
+    setIsExcelImport(true);
+    setStatusMessage({ type: "info", text: "Leser Excel og lagrer til appen …" });
+    const res = await lastOppExcelTilSupabase(file);
+    setIsExcelImport(false);
+    if (res.success && res.data) {
+      onUpdateDb(res.data);
+      setStatusMessage({
+        type: "success",
+        text: `Ekte data er tilbake i appen: ${excelImportSammendrag(res.data)}. Google-arket er uendret.`,
+      });
+    } else {
+      setStatusMessage({
+        type: "error",
+        text: res.error || "Kunne ikke laste Excel-filen inn i appen.",
       });
     }
   };
@@ -351,19 +382,39 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <input
+            ref={excelFilRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={(e) => {
+              const fil = e.target.files?.[0];
+              e.target.value = "";
+              void handleExcelFil(fil);
+            }}
+          />
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isExporting || isMigrating || isExcelImport || !remoteEnabled}
+            onClick={() => excelFilRef.current?.click()}
+            className="px-3.5 py-2.5 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <FileSpreadsheet className={`w-4 h-4 ${isExcelImport ? "opacity-50" : ""}`} />
+            <span>{isExcelImport ? "Importerer Excel..." : "Last opp Excel-database"}</span>
+          </button>
           {onOpenImport && (
             <button
               type="button"
               onClick={onOpenImport}
-              className="px-3.5 py-2.5 bg-[#eef5f1] hover:bg-[#dff0e6] text-[#2d5a3f] border border-[#d2e8d9] text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer"
+              className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer"
             >
               <Database className="w-4 h-4" />
-              <span>Import fra Excel-faner</span>
+              <span>Import fra Excel-faner i arket</span>
             </button>
           )}
           <button
             type="button"
-            disabled={isLoading || isUploading || isExporting || isMigrating || !remoteEnabled}
+            disabled={isLoading || isUploading || isExporting || isMigrating || isExcelImport || !remoteEnabled}
             onClick={() => void handleEksporterImportBackup()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -372,7 +423,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || isExporting || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExporting || isExcelImport || !remoteEnabled}
             onClick={() => void handleReloadSupabase()}
             className="px-4 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
           >
@@ -381,7 +432,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExcelImport || !remoteEnabled}
             onClick={() => void handleMigrerFraArk()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -390,7 +441,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExcelImport || !remoteEnabled}
             onClick={() => void handleUploadToSheets()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >

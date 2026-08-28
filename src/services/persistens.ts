@@ -30,6 +30,7 @@ import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentI
 import { tilIsoDato, tilIsoTid } from "./dato";
 import { byggImportBackup } from "./importBackup";
 import { erDemoVersjon } from "./demo";
+import { excelImportSammendrag, parseMenighetsplanExcelFil } from "./excelImport";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v3_mock";
 const ELDRE_MOCK_STORAGE_KEYS = ["gudstjenesteplanlegger_db_v2_mock"];
@@ -885,6 +886,58 @@ export async function migrerFraSheetsTilSupabase(): Promise<{
     clearTimeout(timeoutId);
   }
 }
+
+/** Administrator: overskriv Supabase fra Excel. Skriver ikke til Google Sheets. */
+export async function lastOppExcelTilSupabase(file: File): Promise<{
+  success: boolean;
+  data?: DatabaseState;
+  error?: string;
+}> {
+  if (!shouldWriteToRemote()) {
+    return { success: false, error: "Demo og mock skriver ikke til Supabase." };
+  }
+  let parsed: Partial<DatabaseState>;
+  try {
+    parsed = await parseMenighetsplanExcelFil(file);
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : "Kunne ikke lese Excel-filen." };
+  }
+  if (!Array.isArray(parsed.personer) || parsed.personer.length === 0) {
+    return { success: false, error: "Fant ingen personer i filen. Sjekk at fanen heter Personer." };
+  }
+  const state = rensLastetPersondata(applyLoadedState(normalizeState(parsed)));
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 90_000);
+  try {
+    const text = await fetchJson(getApiBase(), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "save",
+        data: stateForRemoteSave(state, true),
+        ...requireRemoteAuth(),
+      }),
+      signal: controller.signal,
+    });
+    const payload = JSON.parse(text);
+    if (payload?.ok) {
+      if (payload.updated_at) sisteRemoteUpdatedAt = String(payload.updated_at);
+      persistLocalState(state);
+      return { success: true, data: state };
+    }
+    return { success: false, error: payload?.error || "Supabase avviste Excel-importen." };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { success: false, error: "Tidsavbrudd under lagring til Supabase (90 s)." };
+    }
+    return { success: false, error: msg };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+export { excelImportSammendrag };
 
 /**
  * Tvinger en full oppdatering/henting fra Google Sheets (Apps Script Web App URL)
