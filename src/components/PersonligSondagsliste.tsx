@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   DatabaseState,
+  byggPersonligMaanedsliste,
   byggPersonligSondagsliste,
   erPaameldingValgt,
-  grupperSondagerPerMaaned,
+  forrigeMaanedNokkel,
   kanPaameldingEndres,
+  maanedErGjennomgaatt,
+  nesteMaanedNokkel,
+  semesterFremdrift,
   togglePaamelding,
   velgMaanedNokkel,
   kanRedigereProgram,
@@ -14,9 +18,21 @@ import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { ProgramLeserModal } from "./ProgramLeserModal";
 import { RoleDescriptionModal } from "./RoleDescriptionModal";
-import { ChevronUp, Info, Pencil, ScrollText } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Info,
+  Pencil,
+  ScrollText,
+  X,
+} from "lucide-react";
 import type { Rolle } from "../types/database";
 import type { PåmeldingsRad } from "../services/dataService";
+
+const INTRO_STORAGE_KEY = "min-side-semester-intro";
+const FERDIG_STORAGE_PREFIX = "min-side-maaned-ferdig:";
 
 interface PersonligSondagslisteProps {
   db: DatabaseState;
@@ -33,6 +49,23 @@ function formatDatoKort(dato: string): string {
     day: "numeric",
     month: "short",
   });
+}
+
+function lesFerdigeMaaneder(personId: string): Set<string> {
+  try {
+    const raw = localStorage.getItem(`${FERDIG_STORAGE_PREFIX}${personId}`);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function lagreFerdigMaaned(personId: string, nokkel: string) {
+  const neste = lesFerdigeMaaneder(personId);
+  neste.add(nokkel);
+  localStorage.setItem(`${FERDIG_STORAGE_PREFIX}${personId}`, JSON.stringify(Array.from(neste)));
 }
 
 type RolleRadProps = {
@@ -64,9 +97,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
       : `${rad.bekreftetAntall}/${rad.behov}`;
 
   return (
-    <li
-      className={`flex items-center gap-2 min-w-0 ${kompakt ? "py-1.5" : "py-2"}`}
-    >
+    <li className={`flex items-center gap-2 min-w-0 ${kompakt ? "py-1.5" : "py-2"}`}>
       <button
         type="button"
         onClick={() => onVisInstruks(rad.rolle)}
@@ -158,7 +189,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
       </div>
     </li>
   );
-}
+};
 
 export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
   db,
@@ -169,19 +200,50 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
   const [leserGudstjenesteId, setLeserGudstjenesteId] = useState<string | null>(null);
   const [valgtRolle, setValgtRolle] = useState<Rolle | null>(null);
   const [maanedNokkel, setMaanedNokkel] = useState<string | null>(null);
+  const [ferdigeMaaneder, setFerdigeMaaneder] = useState<Set<string>>(() =>
+    lesFerdigeMaaneder(personId)
+  );
+  const [visIntro, setVisIntro] = useState(
+    () => localStorage.getItem(INTRO_STORAGE_KEY) !== "1"
+  );
+  const [listeAnim, setListeAnim] = useState(false);
 
   const sondager = useMemo(
     () => byggPersonligSondagsliste(db, personId, rolleFilterId),
     [db, personId, rolleFilterId]
   );
-  const maaneder = useMemo(() => grupperSondagerPerMaaned(sondager), [sondager]);
+  const maaneder = useMemo(() => byggPersonligMaanedsliste(sondager), [sondager]);
   const aktivMaanedNokkel = velgMaanedNokkel(maaneder, maanedNokkel);
   const aktivMaaned = maaneder.find((m) => m.nokkel === aktivMaanedNokkel) ?? null;
   const visRollenavn = !rolleFilterId;
+  const fremdrift = useMemo(
+    () => semesterFremdrift(maaneder, ferdigeMaaneder),
+    [maaneder, ferdigeMaaneder]
+  );
+  const nesteNokkel = aktivMaanedNokkel
+    ? nesteMaanedNokkel(maaneder, aktivMaanedNokkel)
+    : null;
+  const forrigeNokkel = aktivMaanedNokkel
+    ? forrigeMaanedNokkel(maaneder, aktivMaanedNokkel)
+    : null;
+  const nesteMaaned = nesteNokkel ? maaneder.find((m) => m.nokkel === nesteNokkel) : null;
+  const aktivErGjennomgaatt = aktivMaaned
+    ? maanedErGjennomgaatt(aktivMaaned, ferdigeMaaneder)
+    : false;
+
+  useEffect(() => {
+    setFerdigeMaaneder(lesFerdigeMaaneder(personId));
+  }, [personId]);
 
   useEffect(() => {
     setMaanedNokkel((forrige) => velgMaanedNokkel(maaneder, forrige));
   }, [maaneder]);
+
+  useEffect(() => {
+    setListeAnim(true);
+    const t = window.setTimeout(() => setListeAnim(false), 200);
+    return () => window.clearTimeout(t);
+  }, [aktivMaanedNokkel]);
 
   if (sondager.length === 0) {
     return (
@@ -197,6 +259,20 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
     if (neste) onUpdateDb(neste);
   };
 
+  const byttMaaned = (nokkel: string) => setMaanedNokkel(nokkel);
+
+  const markerFerdig = () => {
+    if (!aktivMaanedNokkel) return;
+    lagreFerdigMaaned(personId, aktivMaanedNokkel);
+    setFerdigeMaaneder(lesFerdigeMaaneder(personId));
+    if (nesteNokkel) byttMaaned(nesteNokkel);
+  };
+
+  const lukkIntro = () => {
+    localStorage.setItem(INTRO_STORAGE_KEY, "1");
+    setVisIntro(false);
+  };
+
   return (
     <>
       <div className="space-y-3">
@@ -206,20 +282,28 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
             const visAar = maaneder.some(
               (annen) => annen.nokkel !== m.nokkel && annen.aar !== m.aar
             );
+            const gjennomgaatt = maanedErGjennomgaatt(m, ferdigeMaaneder);
             return (
               <button
                 key={m.nokkel}
                 type="button"
-                onClick={() => setMaanedNokkel(m.nokkel)}
+                onClick={() => byttMaaned(m.nokkel)}
                 className={`relative shrink-0 min-h-10 px-3.5 text-sm font-semibold rounded-xl cursor-pointer transition-colors ${
                   aktiv
                     ? "bg-[#2d5a3f] text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    : gjennomgaatt
+                      ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
                 }`}
               >
-                {m.etikett}
-                {visAar ? ` ${m.aar}` : ""}
-                {m.harLedige && !aktiv ? (
+                <span className="inline-flex items-center gap-1">
+                  {gjennomgaatt && !aktiv ? (
+                    <Check className="w-3.5 h-3.5 text-[#2d5a3f]" aria-hidden />
+                  ) : null}
+                  {m.etikett}
+                  {visAar ? ` ${m.aar}` : ""}
+                </span>
+                {m.harLedige && !aktiv && !gjennomgaatt ? (
                   <span
                     className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-amber-500"
                     aria-hidden
@@ -229,6 +313,13 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
             );
           })}
         </div>
+
+        <p className="text-xs text-slate-500 px-0.5">
+          {fremdrift.tekst}
+          {nesteMaaned && aktivMaanedNokkel !== nesteNokkel
+            ? ` · ${nesteMaaned.etikett} neste`
+            : ""}
+        </p>
 
         {aktivMaaned ? (
           <p className="text-xs text-slate-500 px-0.5">
@@ -241,7 +332,11 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
           </p>
         ) : null}
 
-        <div className="space-y-1.5">
+        <div
+          className={`space-y-1.5 transition-opacity duration-200 ${
+            listeAnim ? "opacity-60" : "opacity-100"
+          }`}
+        >
           {(aktivMaaned?.sondager ?? []).map(({ gudstjeneste, roller }) => (
             <div
               key={gudstjeneste.GudstjenesteID}
@@ -297,10 +392,79 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
 
         {aktivMaaned && aktivMaaned.sondager.length === 0 ? (
           <div className="bg-white rounded-xl border border-slate-200 p-6 text-center text-sm text-slate-500">
-            Ingen gudstjenester denne måneden.
+            Ingen gudstjenester denne måneden ennå.
           </div>
         ) : null}
+
+        <div className="sticky bottom-0 z-10 -mx-1 px-1 pt-2 pb-1 bg-linear-to-t from-[#f4f8f5] via-[#f4f8f5] to-transparent">
+          <div className="flex flex-wrap items-center gap-2">
+            {forrigeNokkel ? (
+              <button
+                type="button"
+                onClick={() => byttMaaned(forrigeNokkel)}
+                className="min-h-10 px-3 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl cursor-pointer inline-flex items-center gap-1"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Forrige
+              </button>
+            ) : null}
+            {aktivMaaned && !aktivErGjennomgaatt ? (
+              <button
+                type="button"
+                onClick={markerFerdig}
+                className="min-h-10 px-3 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] border border-[#d2e8d9] rounded-xl cursor-pointer"
+              >
+                Ferdig med {aktivMaaned.etikett.toLowerCase()}
+              </button>
+            ) : null}
+            {nesteNokkel && nesteMaaned ? (
+              <button
+                type="button"
+                onClick={() => byttMaaned(nesteNokkel)}
+                className="min-h-10 px-3 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer inline-flex items-center gap-1 ml-auto"
+              >
+                Neste: {nesteMaaned.etikett.toLowerCase()}
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            ) : null}
+          </div>
+        </div>
       </div>
+
+      {visIntro ? (
+        <div className="fixed inset-0 z-50 bg-slate-900/45 flex justify-center items-end sm:items-center p-0 sm:p-4">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-pointer"
+            aria-label="Lukk"
+            onClick={lukkIntro}
+          />
+          <div className="relative bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 p-5 sheet-safe-bottom">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <h3 className="text-base font-bold text-slate-900">Planlegg semesteret</h3>
+              <button
+                type="button"
+                onClick={lukkIntro}
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl cursor-pointer"
+                aria-label="Lukk"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              Vi planlegger ett semester om gangen. Gå måned for måned, huk av der du kan være med,
+              og trykk «Ferdig med [måned]» eller «Neste» når du er ferdig med en måned.
+            </p>
+            <button
+              type="button"
+              onClick={lukkIntro}
+              className="mt-4 min-h-11 w-full px-4 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer"
+            >
+              Kom i gang
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {valgtRolle ? (
         <RoleDescriptionModal

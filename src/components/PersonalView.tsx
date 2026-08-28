@@ -147,7 +147,8 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           <p>
             Du har sagt ja til å bidra med{" "}
             <strong className="text-[#1e3e2b] font-bold">{rolleNavnTekst}</strong> i menigheten.
-            Huk av under hver søndag der du kan være med. Oppgavene hører til tjenestegrupper — åpne{" "}
+            Huk av under hver søndag der du kan være med, og gå måned for måned gjennom semesteret.
+            Oppgavene hører til tjenestegrupper — åpne{" "}
             {personensGrupper.length === 1 ? "Min gruppe" : "Mine grupper"} for å se hvem som er
             leder.
           </p>

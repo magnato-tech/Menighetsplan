@@ -2,12 +2,20 @@ import "./polyfill";
 import assert from "node:assert/strict";
 import {
   byggPåmeldingsrader,
+  byggPersonligMaanedsliste,
   byggPersonligSondagsliste,
+  byggMaanedshorisont,
   erPaameldingValgt,
   grupperSondagerPerMaaned,
   kanPaameldingEndres,
+  maanedErGjennomgaatt,
+  nesteMaanedNokkel,
+  forrigeMaanedNokkel,
+  semesterFremdrift,
+  sondagErBesvart,
   standardMaanedNokkel,
   velgMaanedNokkel,
+  SEMESTER_HORISONT_MND,
 } from "../services/paamelding";
 import type { DatabaseState, Rolle } from "../types/database";
 
@@ -270,6 +278,19 @@ function tomDb(overrides: Partial<DatabaseState> = {}): DatabaseState {
 }
 
 {
+  const horisont = byggMaanedshorisont("2026-08", SEMESTER_HORISONT_MND);
+  assert.equal(horisont.length, 6);
+  assert.deepEqual(horisont, [
+    "2026-08",
+    "2026-09",
+    "2026-10",
+    "2026-11",
+    "2026-12",
+    "2027-01",
+  ]);
+}
+
+{
   const db = tomDb({
     gudstjenester: [
       {
@@ -297,6 +318,73 @@ function tomDb(overrides: Partial<DatabaseState> = {}): DatabaseState {
   assert.equal(standardMaanedNokkel(maaneder, "2026-09-15"), "2026-09");
   assert.equal(velgMaanedNokkel(maaneder, "2026-10", "2026-09-15"), "2026-10");
   assert.equal(velgMaanedNokkel(maaneder, "2026-12", "2026-09-15"), "2026-09");
+}
+
+{
+  const db = tomDb({
+    gudstjenester: [
+      {
+        GudstjenesteID: "GUD001",
+        Dato: "2026-09-06",
+        Tid: "11:00",
+        Tema: "Test",
+        Sted: "Bedehuset",
+      },
+    ],
+  });
+  const liste = byggPersonligSondagsliste(db, "P010");
+  const maaneder = byggPersonligMaanedsliste(liste, 6, "2026-08-29");
+  assert.equal(maaneder.length, 6);
+  assert.equal(maaneder[0].nokkel, "2026-09");
+  assert.equal(maaneder[0].sondager.length, 1);
+  assert.equal(maaneder[1].sondager.length, 0);
+  assert.equal(nesteMaanedNokkel(maaneder, "2026-09"), "2026-10");
+  assert.equal(forrigeMaanedNokkel(maaneder, "2026-10"), "2026-09");
+  assert.equal(forrigeMaanedNokkel(maaneder, "2026-09"), null);
+}
+
+{
+  const db = tomDb({
+    personroller: [
+      {
+        PersonRolleID: "PR1",
+        PersonID: "P010",
+        RolleID: "R010",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    tildelinger: [
+      {
+        TildelingID: "T010",
+        GudstjenesteID: "GUD001",
+        RolleID: "R010",
+        PersonID: "P010",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    svar: [
+      {
+        SvarID: "S010",
+        TildelingID: "T010",
+        PersonID: "P010",
+        Svar: "Bekreftet",
+        Kommentar: "",
+        SvartDato: "2026-01-01",
+      },
+    ],
+  });
+  const liste = byggPersonligSondagsliste(db, "P010");
+  const maaneder = byggPersonligMaanedsliste(liste, 6, "2026-09-01");
+  assert.equal(sondagErBesvart(liste[0]), true);
+  const fremdrift = semesterFremdrift(maaneder);
+  assert.equal(fremdrift.besvart, 1);
+  assert.equal(fremdrift.totalt, 1);
+  assert.equal(maanedErGjennomgaatt(maaneder[0], new Set()), true);
+  assert.equal(maanedErGjennomgaatt(maaneder[1], new Set()), false);
+  assert.equal(maanedErGjennomgaatt(maaneder[1], new Set(["2026-10"])), true);
 }
 
 console.log("paamelding.test.ts: ok");

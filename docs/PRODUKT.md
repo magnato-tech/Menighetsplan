@@ -37,7 +37,7 @@ Hver gudstjeneste har roller med **veiledende behov** (overstyrbart per søndag)
 
 Admin ser alle grupper. Gruppeleder ser bare gruppens roller. Begge bruker samme listekomponent med ulikt omfang.
 
-**Min side-påmelding:** Frivillige ser en vertikal liste over kommende søndager, gruppert per måned med månedvelger. Under hver søndag vises én rad per egen rolle (ikon, telling `bekreftet / behov`, fornavn på andre på vakt). Grønne knapper øverst filtrerer på rolle. Avkryssing melder på eller forfall.
+**Min side-påmelding:** Frivillige ser en vertikal liste over kommende søndager, gruppert per måned med 6-måneders horisont (Aug–Jan), fremdriftstekst og «Neste måned»-CTA. Under hver søndag vises én rad per egen rolle (ikon, telling `bekreftet / behov`, fornavn på andre på vakt). Grønne knapper øverst filtrerer på rolle. Avkryssing melder på eller forfall.
 
 **Belastning** (admin) er semester-matrise per person; klikk i en celle hopper til den søndagen med personen uthevet.
 

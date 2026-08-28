@@ -138,8 +138,62 @@ export type PersonligMaaned = {
   harLedige: boolean;
 };
 
+export type SemesterFremdrift = {
+  besvart: number;
+  totalt: number;
+  tekst: string;
+};
+
+export const SEMESTER_HORISONT_MND = 6;
+
 export function maanedNokkelFraDato(dato: string): string {
   return dato.slice(0, 7);
+}
+
+function maanedEtikett(aar: number, maaned: number): string {
+  const d = new Date(aar, maaned - 1, 1);
+  const etikett = d.toLocaleDateString("nb-NO", { month: "short" }).replace(".", "");
+  return etikett.charAt(0).toUpperCase() + etikett.slice(1);
+}
+
+function tomPersonligMaaned(nokkel: string): PersonligMaaned {
+  const [aarStr, maanedStr] = nokkel.split("-");
+  const aar = Number(aarStr);
+  const maaned = Number(maanedStr);
+  return {
+    nokkel,
+    etikett: maanedEtikett(aar, maaned),
+    aar,
+    maaned,
+    sondager: [],
+    harLedige: false,
+  };
+}
+
+export function byggMaanedshorisont(fraNokkel: string, antall = SEMESTER_HORISONT_MND): string[] {
+  const [aarStr, maanedStr] = fraNokkel.split("-");
+  let aar = Number(aarStr);
+  let maaned = Number(maanedStr);
+  const result: string[] = [];
+  for (let i = 0; i < antall; i++) {
+    result.push(`${aar}-${String(maaned).padStart(2, "0")}`);
+    maaned += 1;
+    if (maaned > 12) {
+      maaned = 1;
+      aar += 1;
+    }
+  }
+  return result;
+}
+
+export function startMaanedNokkelForHorisont(
+  sondager: PersonligSondag[],
+  iDag = iDagIso()
+): string {
+  const denne = maanedNokkelFraDato(iDag);
+  if (sondager.length === 0) return denne;
+  const forste = maanedNokkelFraDato(sondager[0].gudstjeneste.Dato);
+  return denne.localeCompare(forste) > 0 ? denne : forste;
 }
 
 export function grupperSondagerPerMaaned(sondager: PersonligSondag[]): PersonligMaaned[] {
@@ -158,20 +212,82 @@ export function grupperSondagerPerMaaned(sondager: PersonligSondag[]): Personlig
       const [aarStr, maanedStr] = nokkel.split("-");
       const aar = Number(aarStr);
       const maaned = Number(maanedStr);
-      const d = new Date(aar, maaned - 1, 1);
-      const etikett = d.toLocaleDateString("nb-NO", { month: "short" }).replace(".", "");
       const harLedige = maanedSondager.some((s) =>
         s.roller.some((r) => r.status === "ledig")
       );
       return {
         nokkel,
-        etikett: etikett.charAt(0).toUpperCase() + etikett.slice(1),
+        etikett: maanedEtikett(aar, maaned),
         aar,
         maaned,
         sondager: maanedSondager,
         harLedige,
       };
     });
+}
+
+export function byggPersonligMaanedsliste(
+  sondager: PersonligSondag[],
+  antallMaaneder = SEMESTER_HORISONT_MND,
+  iDag = iDagIso()
+): PersonligMaaned[] {
+  const grupperte = new Map(grupperSondagerPerMaaned(sondager).map((m) => [m.nokkel, m]));
+  const start = startMaanedNokkelForHorisont(sondager, iDag);
+  return byggMaanedshorisont(start, antallMaaneder).map(
+    (nokkel) => grupperte.get(nokkel) ?? tomPersonligMaaned(nokkel)
+  );
+}
+
+export function sondagErBesvart(sondag: PersonligSondag): boolean {
+  if (sondag.roller.length === 0) return false;
+  return sondag.roller.every((r) => r.status !== "ledig");
+}
+
+export function maanedErGjennomgaatt(
+  maaned: PersonligMaaned,
+  manueltFerdig: ReadonlySet<string>
+): boolean {
+  if (manueltFerdig.has(maaned.nokkel)) return true;
+  if (maaned.sondager.length === 0) return false;
+  return maaned.sondager.every(sondagErBesvart);
+}
+
+export function semesterFremdrift(
+  maaneder: PersonligMaaned[],
+  manueltFerdig: ReadonlySet<string> = new Set()
+): SemesterFremdrift {
+  let totalt = 0;
+  let besvart = 0;
+  for (const m of maaneder) {
+    for (const s of m.sondager) {
+      totalt += 1;
+      if (sondagErBesvart(s)) besvart += 1;
+    }
+  }
+  const gjennomgaatte = maaneder.filter((m) => maanedErGjennomgaatt(m, manueltFerdig)).length;
+  const tekst =
+    totalt === 0
+      ? `${gjennomgaatte} av ${maaneder.length} måneder gjennomgått`
+      : `${besvart} av ${totalt} søndager besvart`;
+  return { besvart, totalt, tekst };
+}
+
+export function nesteMaanedNokkel(
+  maaneder: PersonligMaaned[],
+  aktiv: string
+): string | null {
+  const idx = maaneder.findIndex((m) => m.nokkel === aktiv);
+  if (idx < 0 || idx >= maaneder.length - 1) return null;
+  return maaneder[idx + 1].nokkel;
+}
+
+export function forrigeMaanedNokkel(
+  maaneder: PersonligMaaned[],
+  aktiv: string
+): string | null {
+  const idx = maaneder.findIndex((m) => m.nokkel === aktiv);
+  if (idx <= 0) return null;
+  return maaneder[idx - 1].nokkel;
 }
 
 export function standardMaanedNokkel(maaneder: PersonligMaaned[], iDag = iDagIso()): string | null {
