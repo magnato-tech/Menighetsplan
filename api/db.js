@@ -396,7 +396,8 @@ async function handleDbAction(env, raw) {
   try {
     let { payload, updated_at } = await supabaseHent(env);
     let state = somState(payload);
-    if (tomPayload(payload) && (env.migrateFromSheets || action === "migrateFromSheets")) {
+    const tomOgSkalHenteArk = tomPayload(payload) && (env.migrateFromSheets || action === "migrateFromSheets" || Boolean(body.googleCredential));
+    if (tomOgSkalHenteArk) {
       state = await lastFraSheets(env, body);
       const authMig = await requireAuth(env, body, state);
       if (authMig.ok === false) return { status: 401, body: { ok: false, error: authMig.error } };
