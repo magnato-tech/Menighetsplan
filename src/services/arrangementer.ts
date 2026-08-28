@@ -1,9 +1,10 @@
 import { Arrangement } from "../types/database";
-import type { DatabaseState } from "../types/database";
+import type { ArrangementTag, DatabaseState } from "../types/database";
 import { nesteNummerertId } from "./ids";
 import { tilIsoDato, tilIsoTid } from "./dato";
 import { sikreTjenestebehovFraMal, sortertMalposter } from "./mal";
 import { opprettProgramFraMal } from "./program";
+import { gruppeArrangementTagger } from "./samlingsplanlegging";
 
 export function nesteArrangementId(arrangementer: Arrangement[]): string {
   return nesteNummerertId(arrangementer, "ArrangementID", "AR");
@@ -21,6 +22,7 @@ export function opprettArrangement(
     eksternKalenderID?: string;
     malId?: string;
     gruppeId?: string;
+    tagger?: ArrangementTag[];
   }
 ): DatabaseState {
   const tittel = felt.tittel.trim();
@@ -28,6 +30,14 @@ export function opprettArrangement(
   if (!tittel || !dato) return db;
   const now = new Date().toISOString().split("T")[0];
   const malId = String(felt.malId || "").trim() || undefined;
+  const gruppeId = String(felt.gruppeId || "").trim() || undefined;
+  const gruppe = gruppeId ? (db.grupper || []).find((g) => g.GruppeID === gruppeId) : undefined;
+  const tagger: ArrangementTag[] | undefined =
+    felt.tagger?.length
+      ? felt.tagger
+      : gruppe
+        ? gruppeArrangementTagger(db, gruppe)
+        : undefined;
   const ny: Arrangement = {
     ArrangementID: nesteArrangementId(db.arrangementer || []),
     Dato: dato,
@@ -38,7 +48,8 @@ export function opprettArrangement(
     OpprettetAv: felt.opprettetAv,
     EksternKalenderID: felt.eksternKalenderID || undefined,
     MalID: malId,
-    GruppeID: String(felt.gruppeId || "").trim() || undefined,
+    GruppeID: gruppeId,
+    Tagger: tagger?.length ? tagger : undefined,
     Aktiv: true,
     OpprettetDato: now,
     SistEndret: now,

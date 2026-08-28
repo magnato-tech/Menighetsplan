@@ -12,6 +12,7 @@ export * from "./program";
 export * from "./mal";
 export * from "./persistens";
 export * from "./arrangementer";
+export * from "./samlingsplanlegging";
 export * from "./eksternKalender";
 export * from "./kalender";
 export * from "./importBackup";

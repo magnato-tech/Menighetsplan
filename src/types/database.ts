@@ -35,6 +35,21 @@ export interface Gruppetype {
   SistEndret: string;
 }
 
+export interface Samlingsplan {
+  Frekvens?: string;
+  Ukedag?: string;
+  Startdato?: string;
+  Sluttdato?: string;
+  Klokkeslett?: string;
+  Sluttid?: string;
+  SistGenerert?: string;
+}
+
+export interface ArrangementTag {
+  Kategori: string;
+  Verdi: string;
+}
+
 export interface Gruppe {
   GruppeID: string; // e.g. "G001"
   Gruppenavn: string; // e.g. "Lovsangsgruppe", "Kjøkkentjeneste"
@@ -42,6 +57,7 @@ export interface Gruppe {
   GruppelederID?: string; // Ref: Personer.PersonID
   NestlederID?: string; // Ref: Personer.PersonID
   Beskrivelse: string;
+  Samlingsplan?: Samlingsplan;
   Aktiv: boolean;
   OpprettetDato: string;
   SistEndret: string;
@@ -259,6 +275,7 @@ export interface Arrangement {
   GruppeID?: string;
   OpprettetAv?: string;
   EksternKalenderID?: string;
+  Tagger?: ArrangementTag[];
   /** Valgfri. Tom = gammel rad, bemanning som før. Satt = ny mal (kjøreplan + tilleggsvakter). */
   MalID?: string;
   Aktiv: boolean;

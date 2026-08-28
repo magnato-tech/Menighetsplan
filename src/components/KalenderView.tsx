@@ -23,8 +23,10 @@ import {
   gruppetypeForGruppe,
   gruppetypeNokkel,
 } from "../services/grupper";
+import type { ArrangementTag } from "../types/database";
 import { ArrangementDetaljView } from "./ArrangementDetaljView";
 import { KalenderAbonner } from "./KalenderAbonner";
+import { KalenderTagger } from "./KalenderTagger";
 
 type KalenderFilterKategori = "gudstjeneste" | "arrangement" | "husgruppe" | "tjenestegruppe";
 type ArrangementKategori = "arrangement" | "husgruppe" | "tjenestegruppe";
@@ -85,6 +87,7 @@ type KalenderRad = {
   tid: string;
   tittel: string;
   sted: string;
+  tagger?: ArrangementTag[];
 };
 
 function arrangementFilterKategori(db: DatabaseState, gruppeId?: string): ArrangementKategori {
@@ -164,6 +167,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
         return {
           ...h,
           arrangementKategori: arrangementFilterKategori(db, a?.GruppeID),
+          tagger: h.tagger || a?.Tagger,
         };
       });
     }
@@ -185,6 +189,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
         tid: a.Tid,
         tittel: a.Tittel,
         sted: a.Sted,
+        tagger: a.Tagger?.length ? a.Tagger : undefined,
       }));
     return [...guds, ...ar].sort((a, b) => a.dato.localeCompare(b.dato) || a.tid.localeCompare(b.tid));
   }, [db, modus, selectedPersonId]);
@@ -598,13 +603,16 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
                         key={`${h.kind}-${h.id}`}
                         type="button"
                         onClick={() => apneHendelse(h)}
-                        className={`w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded-md cursor-pointer truncate ${
+                        className={`w-full text-left text-[10px] leading-tight px-1 py-0.5 rounded-md cursor-pointer ${
                           h.kind === "arrangement"
                             ? "bg-amber-100 text-amber-900"
                             : "bg-[#eef5f1] text-[#234731]"
                         }`}
                       >
-                        {h.tid} {h.tittel}
+                        <span className="block truncate">{h.tid} {h.tittel}</span>
+                        {h.tagger?.length ? (
+                          <KalenderTagger tagger={h.tagger} kompakt className="mt-0.5" />
+                        ) : null}
                       </button>
                     ))}
                   </div>
@@ -634,6 +642,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
                     {formatDatoNo(h.dato)} · {h.tid}
                     {h.sted ? ` · ${h.sted}` : ""} · {h.kind === "arrangement" ? "Arrangement" : "Gudstjeneste"}
                   </p>
+                  {h.tagger?.length ? <KalenderTagger tagger={h.tagger} className="mt-1.5" /> : null}
                 </button>
               </li>
             ))

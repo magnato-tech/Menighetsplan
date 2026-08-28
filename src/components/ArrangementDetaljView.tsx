@@ -22,6 +22,7 @@ import { Arrangement, Person, Rolle } from "../types/database";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
+import { KalenderTagger } from "./KalenderTagger";
 import { Plus, Search } from "lucide-react";
 
 interface ArrangementDetaljViewProps {
@@ -99,6 +100,9 @@ export const ArrangementDetaljView: React.FC<ArrangementDetaljViewProps> = ({
               {arrangement.Tid}
               {arrangement.Sted ? ` · ${arrangement.Sted}` : ""}
             </p>
+            {arrangement.Tagger?.length ? (
+              <KalenderTagger tagger={arrangement.Tagger} className="mt-2" />
+            ) : null}
           </div>
           <div className="flex items-center gap-1">
             {!lese && (

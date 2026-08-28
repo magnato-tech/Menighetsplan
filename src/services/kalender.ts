@@ -1,5 +1,5 @@
 import { AppInnstillinger } from "../types/database";
-import type { DatabaseState } from "../types/database";
+import type { ArrangementTag, DatabaseState } from "../types/database";
 import { beregnProgramtider, parseKlokkeMinutter, formatKlokkeMinutter, programForGudstjeneste } from "./program";
 import { tilIsoDato } from "./dato";
 
@@ -15,6 +15,7 @@ export type KalenderHendelse = {
   tid: string;
   tittel: string;
   sted: string;
+  tagger?: ArrangementTag[];
 };
 
 export function standardInnstillinger(): AppInnstillinger {
@@ -149,6 +150,7 @@ export function kalenderHendelserForPerson(db: DatabaseState, personId: string):
       tid: a.Tid || "12:00",
       tittel: a.Tittel,
       sted: a.Sted || "",
+      tagger: a.Tagger?.length ? a.Tagger : undefined,
     }));
   return [...guds, ...ar].sort((a, b) => a.dato.localeCompare(b.dato) || a.tid.localeCompare(b.tid));
 }

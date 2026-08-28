@@ -9,9 +9,11 @@ alwaysApply: true
 
 Første versjon er inne: admin-fanen **Programmal**, per-gudstjeneste **Programaktiviteter**, **Programinstanser** (utkast/publisert), ikon for deltakere og A4-PDF via utskrift. Tildelt møteleder (ikke avvist) kan opprette fra mal, redigere og publisere **sin** søndag; standardmalen er fortsatt kun admin.
 
+**Samlingsplanlegging (v1 grunnversjon):** Accordion på gruppekort (admin + gruppeleder). Én samling eller gjentakelse (uke / annenhver uke / måned). Oppretter arrangementer i app-kalenderen med tagger for **Gruppe** og **Type gruppe**. Tjenestevalg på gruppekort er fjernet — source of truth er **Velg tjeneste** på Min side.
+
 Ikke i v1:
 
-- Samlingsplanlegging / serieplanlegging for gruppeledere
+- Samlingsplanlegging v2 (mal/tittel, rom, «andre lørdag i måneden», redigering av serie etterpå)
 - Endringslogg
 - Tilgang til admin-fanen Programmal for møteleder
 - Ny app-visning «Møteleder»

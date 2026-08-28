@@ -58,7 +58,7 @@ Admin redigerer maler under **Maler**: søndagens standard kjøreplan og arrange
 
 På gudstjenesteraden ligger **Kollekt** (hva gaven går til) og **Kunngjøringer**. Admin og tildelt møteleder (ikke avvist) redigerer dem i programdialogen. A4-PDF (`ProgramPdfArk`) viser sted, tema og bibeltekst øverst, og kollekt/kunngjøringer nederst (under øvrig bemanning når den er slått på). Tomme felt vises ikke.
 
-Ikke i denne versjonen: samlingsplanlegging for gruppeledere, endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
+Samlingsplanlegging v1 (grunnversjon på gruppekort) og arrangement-tagger er inne. Ikke i denne versjonen: samlingsplanlegging v2 (maler, rom, avansert gjentakelse), endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
 
 ## Kodekart — hvor du endrer
 

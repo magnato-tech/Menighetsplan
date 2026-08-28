@@ -20,6 +20,7 @@ import {
 import { Person } from "../types/database";
 import { GruppeMedlemListe } from "./GruppeMedlemListe";
 import { GroupLeaderGuide, type GuideStegSignal } from "./GroupLeaderGuide";
+import { Samlingsplanlegging } from "./Samlingsplanlegging";
 import {
   SondagBemanning,
   type OversiktFilter,
@@ -338,6 +339,14 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             )}
           </div>
         </div>
+        {currentGruppe && (
+          <Samlingsplanlegging
+            db={db}
+            gruppeId={currentGruppe.GruppeID}
+            onUpdateDb={onUpdateDb}
+            opprettetAv={selectedPersonId}
+          />
+        )}
       </div>
 
       {visKalenderForPerson(db, selectedPersonId, "gruppeleder") && (
