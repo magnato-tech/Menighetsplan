@@ -41,6 +41,7 @@ import { NesteSamlingKort } from "./NesteSamlingKort";
 import { GruppeKommunikasjon } from "./GruppeKommunikasjon";
 import { GruppeRessurser } from "./GruppeRessurser";
 import { SamlingOppmotePanel } from "./SamlingOppmotePanel";
+import { SamlingMeldingPanel } from "./SamlingMeldingPanel";
 import { Users, Shield, Search, HelpCircle, AlertCircle } from "lucide-react";
 import type { LederSeksjon } from "./MobilBunnmeny";
 
@@ -553,8 +554,11 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           {visSeksjon === "medlemmer" && (
             <div className="space-y-4">
               <GruppeKommunikasjon
-                medlemmer={oversiktPersoner}
+                db={db}
+                gruppeId={currentGruppe.GruppeID}
                 gruppenavn={currentGruppe.Gruppenavn}
+                opprettetAvPersonId={selectedPersonId}
+                onUpdateDb={onUpdateDb}
               />
               <GruppeMedlemListe
                 db={db}
@@ -583,17 +587,21 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                 onApenChange={setNySamlingApen}
               />
               {kommendeSamlinger.length > 0 && (
-                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">
-                    Kommende
+                <div className="space-y-4">
+                  <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                    Kommende samlinger
                   </h3>
-                  <ul className="space-y-2">
-                    {kommendeSamlinger.map((a) => (
-                      <li key={a.ArrangementID} className="text-sm text-slate-800">
-                        {formatertArrangementDato(a.Dato, a.Tid)}
-                      </li>
-                    ))}
-                  </ul>
+                  {kommendeSamlinger.map((a) => (
+                    <SamlingMeldingPanel
+                      key={a.ArrangementID}
+                      db={db}
+                      gruppeId={currentGruppe.GruppeID}
+                      gruppenavn={currentGruppe.Gruppenavn}
+                      arrangement={a}
+                      opprettetAvPersonId={selectedPersonId}
+                      onUpdateDb={onUpdateDb}
+                    />
+                  ))}
                 </div>
               )}
               {forrigeSamling && (
@@ -638,6 +646,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               statusAktor="gruppeleder"
               guideVisning={guideOpen ? guideVisning : undefined}
               guideApneForsteKort={guideOpen && guideApneForsteKort}
+              apneForsteKort
             />
           )}
 

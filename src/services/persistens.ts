@@ -263,6 +263,8 @@ function emptyState(): DatabaseState {
     arrangementer: [],
     kalenderoppgaver: [],
     samlingoppmote: [],
+    gruppeMeldinger: [],
+    varselLogg: [],
     innstillinger: standardInnstillinger(),
     personerImport: [],
     gudstjenesterImport: [],
@@ -305,6 +307,10 @@ function normalizeState(parsed: Partial<DatabaseState> | null | undefined): Data
     samlingoppmote: Array.isArray(parsed.samlingoppmote)
       ? parsed.samlingoppmote
       : base.samlingoppmote,
+    gruppeMeldinger: Array.isArray(parsed.gruppeMeldinger)
+      ? parsed.gruppeMeldinger
+      : base.gruppeMeldinger,
+    varselLogg: Array.isArray(parsed.varselLogg) ? parsed.varselLogg : base.varselLogg,
     innstillinger: parseInnstillinger(parsed.innstillinger),
     personerImport: Array.isArray(parsed.personerImport) ? parsed.personerImport : base.personerImport,
     gudstjenesterImport: Array.isArray(parsed.gudstjenesterImport) ? parsed.gudstjenesterImport : base.gudstjenesterImport,
@@ -645,6 +651,8 @@ export function byggStandardMockState(): DatabaseState {
     arrangementer: [],
     kalenderoppgaver: [],
     samlingoppmote: [],
+    gruppeMeldinger: [],
+    varselLogg: [],
     innstillinger: standardInnstillinger(),
     personerImport: initialPersonerImport,
     gudstjenesterImport: initialGudstjenesterImport,

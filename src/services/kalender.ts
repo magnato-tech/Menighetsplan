@@ -23,6 +23,8 @@ export function standardInnstillinger(): AppInnstillinger {
     visKalenderMinSide: false,
     visKalenderGruppeleder: false,
     visKalenderIcal: false,
+    visVarselSms: true,
+    visVarselEpost: true,
     eksternIcalUrl: "",
   };
 }
@@ -33,6 +35,8 @@ export function hentInnstillinger(db: Pick<DatabaseState, "innstillinger"> | nul
     visKalenderMinSide: Boolean(i?.visKalenderMinSide),
     visKalenderGruppeleder: Boolean(i?.visKalenderGruppeleder),
     visKalenderIcal: Boolean(i?.visKalenderIcal),
+    visVarselSms: i?.visVarselSms !== false,
+    visVarselEpost: i?.visVarselEpost !== false,
     eksternIcalUrl: String(i?.eksternIcalUrl || "").trim(),
   };
 }
@@ -62,6 +66,8 @@ export function parseInnstillinger(raa: unknown): AppInnstillinger {
       visKalenderMinSide: kart.get("visKalenderMinSide")?.toLowerCase() === "true",
       visKalenderGruppeleder: kart.get("visKalenderGruppeleder")?.toLowerCase() === "true",
       visKalenderIcal: kart.get("visKalenderIcal")?.toLowerCase() === "true",
+      visVarselSms: kart.get("visVarselSms")?.toLowerCase() !== "false",
+      visVarselEpost: kart.get("visVarselEpost")?.toLowerCase() !== "false",
       eksternIcalUrl: String(kart.get("eksternIcalUrl") || "").trim(),
     };
   }
@@ -71,6 +77,8 @@ export function parseInnstillinger(raa: unknown): AppInnstillinger {
       visKalenderMinSide: Boolean(o.visKalenderMinSide),
       visKalenderGruppeleder: Boolean(o.visKalenderGruppeleder),
       visKalenderIcal: Boolean(o.visKalenderIcal),
+      visVarselSms: o.visVarselSms !== false,
+      visVarselEpost: o.visVarselEpost !== false,
       eksternIcalUrl: String(o.eksternIcalUrl || "").trim(),
     };
   }
@@ -82,6 +90,8 @@ export function innstillingerTilRader(i: AppInnstillinger): { Nøkkel: string; V
     { Nøkkel: "visKalenderMinSide", Verdi: i.visKalenderMinSide ? "true" : "false" },
     { Nøkkel: "visKalenderGruppeleder", Verdi: i.visKalenderGruppeleder ? "true" : "false" },
     { Nøkkel: "visKalenderIcal", Verdi: i.visKalenderIcal ? "true" : "false" },
+    { Nøkkel: "visVarselSms", Verdi: i.visVarselSms ? "true" : "false" },
+    { Nøkkel: "visVarselEpost", Verdi: i.visVarselEpost ? "true" : "false" },
     { Nøkkel: "eksternIcalUrl", Verdi: String(i.eksternIcalUrl || "").trim() },
   ];
 }

@@ -340,6 +340,36 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
         />
       )}
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Varsel fra gruppeleder</h2>
+        <p className="text-xs text-slate-600">
+          Aktivert som standard. Når avskrudd, skjules SMS- og e-post-knappene hos gruppeleder
+          (kopier varsel fungerer fortsatt). Gjelder meldinger, samlinger og forespørsler i bemanning.
+        </p>
+        {(
+          [
+            ["visVarselSms", "Tillat SMS-varsel (enhetens SMS-app)"],
+            ["visVarselEpost", "Tillat e-post-varsel (enhetens e-post)"],
+          ] as const
+        ).map(([felt, merke]) => {
+          const i = hentInnstillinger(db);
+          return (
+            <label key={felt} className="flex items-start gap-3 text-sm text-slate-800 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={i[felt]}
+                onChange={(e) => {
+                  const neste = oppdaterInnstillinger(db, { [felt]: e.target.checked });
+                  saveDatabase(neste);
+                  onUpdateDb(neste);
+                }}
+              />
+              <span>{merke}</span>
+            </label>
+          );
+        })}
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Kalender for andre</h2>
         <p className="text-xs text-slate-600">
           Av som standard. Når du skrur på, får brukere lesekalender og/eller abonnement med

@@ -116,6 +116,8 @@ function tomDb(): DatabaseState {
   assert.equal(i.visKalenderMinSide, false);
   assert.equal(i.visKalenderGruppeleder, false);
   assert.equal(i.visKalenderIcal, false);
+  assert.equal(i.visVarselSms, true);
+  assert.equal(i.visVarselEpost, true);
   assert.equal(visKalenderForPerson(tomDb(), "P001", "minSide"), false);
   assert.deepEqual(parseInnstillinger(undefined), standardInnstillinger());
   assert.equal(parseInnstillinger([{ Nøkkel: "visKalenderIcal", Verdi: "true" }]).visKalenderIcal, true);
@@ -133,6 +135,8 @@ function tomDb(): DatabaseState {
     visKalenderMinSide: true,
     visKalenderGruppeleder: false,
     visKalenderIcal: true,
+    visVarselSms: true,
+    visVarselEpost: true,
     eksternIcalUrl: "https://example.com/kalender.ics",
   };
   assert.deepEqual(parseInnstillinger(innstillingerTilRader(lagret)), lagret);

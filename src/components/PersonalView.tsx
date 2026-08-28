@@ -10,6 +10,7 @@ import { InteresseSkjema } from "./InteresseSkjema";
 import { MineGrupperArk } from "./MineGrupperArk";
 import { KalenderView } from "./KalenderView";
 import { PersonligSondagsliste } from "./PersonligSondagsliste";
+import { MineGruppeMeldinger } from "./MineGruppeMeldinger";
 import { Info, Users } from "lucide-react";
 
 interface PersonalViewProps {
@@ -187,12 +188,15 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           visAbonner={visKalenderForPerson(db, person.PersonID, "ical")}
         />
       ) : (
-        <PersonligSondagsliste
-          db={db}
-          personId={person.PersonID}
-          rolleFilterId={rolleFilterId}
-          onUpdateDb={onUpdateDb}
-        />
+        <>
+          <MineGruppeMeldinger db={db} personId={person.PersonID} />
+          <PersonligSondagsliste
+            db={db}
+            personId={person.PersonID}
+            rolleFilterId={rolleFilterId}
+            onUpdateDb={onUpdateDb}
+          />
+        </>
       )}
 
       {visOppgaverArk ? (

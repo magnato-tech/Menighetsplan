@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   DatabaseState,
+  antallGjenstaendeMaaneder,
   byggPersonligMaanedsliste,
   byggPersonligSondagsliste,
   erPaameldingValgt,
   forrigeMaanedNokkel,
+  forsteUferdigeMaaned,
   kanPaameldingEndres,
   maanedErGjennomgaatt,
   nesteMaanedNokkel,
@@ -17,7 +19,7 @@ import {
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { ProgramLeserModal } from "./ProgramLeserModal";
-import { RoleDescriptionModal } from "./RoleDescriptionModal";
+import { RoleDescriptionModal, oppsummerInstruks } from "./RoleDescriptionModal";
 import {
   Check,
   ChevronLeft,
@@ -31,7 +33,8 @@ import {
 import type { Rolle } from "../types/database";
 import type { PåmeldingsRad } from "../services/dataService";
 
-const INTRO_STORAGE_KEY = "min-side-semester-intro";
+const INTRO_STORAGE_PREFIX = "min-side-semester-intro:";
+const BANNER_SESSION_KEY = "min-side-semester-banner-lukket";
 const FERDIG_STORAGE_PREFIX = "min-side-maaned-ferdig:";
 
 interface PersonligSondagslisteProps {
@@ -62,6 +65,30 @@ function lesFerdigeMaaneder(personId: string): Set<string> {
   }
 }
 
+function harSettIntro(personId: string): boolean {
+  return localStorage.getItem(`${INTRO_STORAGE_PREFIX}${personId}`) === "1";
+}
+
+function markerIntroSett(personId: string) {
+  localStorage.setItem(`${INTRO_STORAGE_PREFIX}${personId}`, "1");
+}
+
+function erBannerLukketDenneSesjonen(): boolean {
+  try {
+    return sessionStorage.getItem(BANNER_SESSION_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function lukkBannerForSesjon() {
+  try {
+    sessionStorage.setItem(BANNER_SESSION_KEY, "1");
+  } catch {
+    // Ignorer hvis sessionStorage er utilgjengelig
+  }
+}
+
 function lagreFerdigMaaned(personId: string, nokkel: string) {
   const neste = lesFerdigeMaaneder(personId);
   neste.add(nokkel);
@@ -74,6 +101,9 @@ type RolleRadProps = {
   personId: string;
   kompakt: boolean;
   visRollenavn: boolean;
+  instruksTekst?: string;
+  /** Kun første søndagskort viser instruks-knapp. */
+  visInstruksKnapp?: boolean;
   onToggle: (gudstjenesteId: string, rolleId: string, checked: boolean) => void;
   onVisInstruks: (rolle: Rolle) => void;
 };
@@ -84,12 +114,18 @@ const RolleRad: React.FC<RolleRadProps> = ({
   personId,
   kompakt,
   visRollenavn,
+  instruksTekst,
+  visInstruksKnapp = false,
   onToggle,
   onVisInstruks,
 }) => {
   const [visAndre, setVisAndre] = useState(false);
   const valgt = erPaameldingValgt(rad.status);
   const kanEndre = kanPaameldingEndres(rad.status);
+  const visInstruksOppsummering =
+    Boolean(instruksTekst) && (valgt || rad.status === "venter" || rad.status === "stengt");
+  const instruksKort = visInstruksOppsummering ? oppsummerInstruks(instruksTekst!) : "";
+  const visKnapp = visInstruksKnapp && Boolean(instruksKort);
   const andre = rad.personerPå.filter((p) => p.personId !== personId);
   const telling =
     rad.maks != null
@@ -97,96 +133,104 @@ const RolleRad: React.FC<RolleRadProps> = ({
       : `${rad.bekreftetAntall}/${rad.behov}`;
 
   return (
-    <li className={`flex items-center gap-2 min-w-0 ${kompakt ? "py-1.5" : "py-2"}`}>
-      <button
-        type="button"
-        onClick={() => onVisInstruks(rad.rolle)}
-        className="flex items-center gap-1.5 min-w-0 shrink-0 text-left cursor-pointer rounded-lg hover:bg-slate-50 px-0.5"
-        title="Se instruks"
-      >
+    <li className={`min-w-0 ${visKnapp ? "py-2" : kompakt ? "py-1.5" : "py-2"}`}>
+      <div className="flex items-center gap-2 min-w-0">
         <RolleIkon rollenavn={rad.rolle.Rollenavn} className={kompakt ? "w-7 h-7" : "w-8 h-8"} />
         {visRollenavn ? (
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 hidden sm:inline">
+          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 shrink-0 min-w-[4.5rem]">
             {rad.rolle.Rollenavn}
           </span>
         ) : null}
-      </button>
 
-      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0 tabular-nums">
-        {telling}
-      </span>
+        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0 tabular-nums">
+          {telling}
+        </span>
 
-      <div className="flex-1 min-w-0 flex justify-end">
-        {andre.length === 0 ? (
-          <span className="text-[11px] text-slate-400">—</span>
-        ) : (
-          <>
-            <div className="hidden sm:flex flex-wrap gap-1 justify-end">
-              {andre.map((p) => (
-                <span
-                  key={p.personId}
-                  className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                    p.status === "Bekreftet"
-                      ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
-                      : "bg-amber-50 text-amber-800 border border-amber-200"
-                  }`}
-                >
-                  {p.navn}
-                  {p.status === "Venter" ? " ·" : ""}
-                </span>
-              ))}
-            </div>
-            <div className="sm:hidden">
-              {!visAndre ? (
-                <button
-                  type="button"
-                  onClick={() => setVisAndre(true)}
-                  className="text-[11px] font-medium text-[#2d5a3f] hover:underline cursor-pointer"
-                >
-                  {andre.length === 1 ? andre[0].navn : `${andre.length} andre`}
-                </button>
-              ) : (
-                <div className="flex flex-wrap gap-1 justify-end">
-                  {andre.map((p) => (
-                    <span
-                      key={p.personId}
-                      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                        p.status === "Bekreftet"
-                          ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
-                          : "bg-amber-50 text-amber-800 border border-amber-200"
-                      }`}
-                    >
-                      {p.navn}
-                    </span>
-                  ))}
+        <div className="flex-1 min-w-0 flex justify-end">
+          {andre.length === 0 ? (
+            <span className="text-[11px] text-slate-400">—</span>
+          ) : (
+            <>
+              <div className="hidden sm:flex flex-wrap gap-1 justify-end">
+                {andre.map((p) => (
+                  <span
+                    key={p.personId}
+                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
+                      p.status === "Bekreftet"
+                        ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
+                        : "bg-amber-50 text-amber-800 border border-amber-200"
+                    }`}
+                  >
+                    {p.navn}
+                    {p.status === "Venter" ? " ·" : ""}
+                  </span>
+                ))}
+              </div>
+              <div className="sm:hidden">
+                {!visAndre ? (
                   <button
                     type="button"
-                    onClick={() => setVisAndre(false)}
-                    className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                    aria-label="Skjul navn"
+                    onClick={() => setVisAndre(true)}
+                    className="text-[11px] font-medium text-[#2d5a3f] hover:underline cursor-pointer"
                   >
-                    <ChevronUp className="w-3.5 h-3.5" />
+                    {andre.length === 1 ? andre[0].navn : `${andre.length} andre`}
                   </button>
-                </div>
-              )}
-            </div>
-          </>
-        )}
+                ) : (
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {andre.map((p) => (
+                      <span
+                        key={p.personId}
+                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
+                          p.status === "Bekreftet"
+                            ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
+                            : "bg-amber-50 text-amber-800 border border-amber-200"
+                        }`}
+                      >
+                        {p.navn}
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setVisAndre(false)}
+                      className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                      aria-label="Skjul navn"
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="shrink-0 flex items-center gap-1">
+          {rad.status === "stengt" ? (
+            <span className="text-[10px] font-semibold text-slate-500">Fullt</span>
+          ) : null}
+          <input
+            type="checkbox"
+            checked={valgt}
+            disabled={!kanEndre && !valgt}
+            onChange={(e) => onToggle(gudstjenesteId, rad.rolle.RolleID, e.target.checked)}
+            aria-label={`Meld meg på ${rad.rolle.Rollenavn}`}
+            className="w-5 h-5 rounded border-slate-300 text-[#2d5a3f] focus:ring-[#2d5a3f] cursor-pointer disabled:opacity-40 disabled:cursor-default"
+          />
+        </div>
       </div>
 
-      <div className="shrink-0 flex items-center gap-1">
-        {rad.status === "stengt" ? (
-          <span className="text-[10px] font-semibold text-slate-500">Fullt</span>
-        ) : null}
-        <input
-          type="checkbox"
-          checked={valgt}
-          disabled={!kanEndre && !valgt}
-          onChange={(e) => onToggle(gudstjenesteId, rad.rolle.RolleID, e.target.checked)}
-          aria-label={`Meld meg på ${rad.rolle.Rollenavn}`}
-          className="w-4 h-4 sm:w-5 sm:h-5 rounded border-slate-300 text-[#2d5a3f] focus:ring-[#2d5a3f] cursor-pointer disabled:opacity-40 disabled:cursor-default"
-        />
-      </div>
+      {visKnapp ? (
+        <div className="mt-2 pl-9 sm:pl-10">
+          <button
+            type="button"
+            onClick={() => onVisInstruks(rad.rolle)}
+            className="w-full min-h-11 px-3.5 py-2.5 flex items-center gap-2 text-left text-sm text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#dceee3] border border-[#d2e8d9] rounded-xl cursor-pointer"
+          >
+            <span className="flex-1 min-w-0 line-clamp-2 leading-snug">{instruksKort}</span>
+            <ChevronRight className="w-5 h-5 shrink-0" aria-hidden />
+          </button>
+        </div>
+      ) : null}
     </li>
   );
 };
@@ -203,9 +247,8 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
   const [ferdigeMaaneder, setFerdigeMaaneder] = useState<Set<string>>(() =>
     lesFerdigeMaaneder(personId)
   );
-  const [visIntro, setVisIntro] = useState(
-    () => localStorage.getItem(INTRO_STORAGE_KEY) !== "1"
-  );
+  const [visIntro, setVisIntro] = useState(() => !harSettIntro(personId));
+  const [bannerLukket, setBannerLukket] = useState(() => erBannerLukketDenneSesjonen());
   const [listeAnim, setListeAnim] = useState(false);
 
   const sondager = useMemo(
@@ -230,9 +273,21 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
   const aktivErGjennomgaatt = aktivMaaned
     ? maanedErGjennomgaatt(aktivMaaned, ferdigeMaaneder)
     : false;
+  const gjenstaendeMaaneder = useMemo(
+    () => antallGjenstaendeMaaneder(maaneder, ferdigeMaaneder),
+    [maaneder, ferdigeMaaneder]
+  );
+  const forsteUferdige = useMemo(
+    () => forsteUferdigeMaaned(maaneder, ferdigeMaaneder),
+    [maaneder, ferdigeMaaneder]
+  );
+  const visPaminnelseBanner =
+    !visIntro && gjenstaendeMaaneder > 0 && !bannerLukket;
 
   useEffect(() => {
     setFerdigeMaaneder(lesFerdigeMaaneder(personId));
+    setVisIntro(!harSettIntro(personId));
+    setBannerLukket(erBannerLukketDenneSesjonen());
   }, [personId]);
 
   useEffect(() => {
@@ -269,13 +324,58 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
   };
 
   const lukkIntro = () => {
-    localStorage.setItem(INTRO_STORAGE_KEY, "1");
+    markerIntroSett(personId);
     setVisIntro(false);
+  };
+
+  const lukkPaminnelseBanner = () => {
+    lukkBannerForSesjon();
+    setBannerLukket(true);
+  };
+
+  const gaTilNesteUferdige = () => {
+    if (forsteUferdige) byttMaaned(forsteUferdige.nokkel);
   };
 
   return (
     <>
       <div className="space-y-3">
+        {visPaminnelseBanner ? (
+          <div
+            role="status"
+            className="flex items-start gap-2 rounded-xl border border-[#d2e8d9] bg-[#eef5f1] px-3 py-2.5"
+          >
+            <Info className="w-4 h-4 text-[#2d5a3f] shrink-0 mt-0.5" aria-hidden />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-[#1e3e2b]">
+                {gjenstaendeMaaneder === 1
+                  ? "1 måned gjenstår i semesterplanen"
+                  : `${gjenstaendeMaaneder} måneder gjenstår i semesterplanen`}
+              </p>
+              <p className="text-xs text-[#2d5a3f]/80 mt-0.5">
+                Gå måned for måned og huk av der du kan være med.
+              </p>
+              {forsteUferdige ? (
+                <button
+                  type="button"
+                  onClick={gaTilNesteUferdige}
+                  className="mt-1.5 text-xs font-semibold text-[#2d5a3f] hover:underline cursor-pointer"
+                >
+                  Gå til {forsteUferdige.etikett.toLowerCase()}
+                </button>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={lukkPaminnelseBanner}
+              className="p-1 text-[#2d5a3f]/70 hover:text-[#2d5a3f] hover:bg-[#d2e8d9]/50 rounded-lg cursor-pointer shrink-0"
+              aria-label="Skjul påminnelse"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : null}
+
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-thin">
           {maaneder.map((m) => {
             const aktiv = m.nokkel === aktivMaanedNokkel;
@@ -337,7 +437,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
             listeAnim ? "opacity-60" : "opacity-100"
           }`}
         >
-          {(aktivMaaned?.sondager ?? []).map(({ gudstjeneste, roller }) => (
+          {(aktivMaaned?.sondager ?? []).map(({ gudstjeneste, roller }, sondagIndex) => (
             <div
               key={gudstjeneste.GudstjenesteID}
               className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden"
@@ -381,8 +481,13 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
                     personId={personId}
                     kompakt
                     visRollenavn={visRollenavn}
+                    instruksTekst={
+                      db.rollebeskrivelser.find((rb) => rb.RolleID === rad.rolle.RolleID)
+                        ?.Rollebeskrivelse
+                    }
                     onToggle={handleToggle}
                     onVisInstruks={setValgtRolle}
+                    visInstruksKnapp={sondagIndex === 0}
                   />
                 ))}
               </ul>

@@ -32,6 +32,21 @@ if (typeof globalThis.sessionStorage === "undefined") {
   });
 }
 
+if (typeof globalThis.window === "undefined") {
+  Object.defineProperty(globalThis, "window", {
+    value: {
+      location: {
+        origin: "https://test.menighetsplan.no",
+        pathname: "/",
+        search: "",
+        href: "https://test.menighetsplan.no/",
+      },
+      history: { replaceState: () => {} },
+    },
+    configurable: true,
+  });
+}
+
 const meta = import.meta as ImportMeta & { env?: Record<string, unknown> };
 if (!meta.env) {
   (meta as { env: Record<string, unknown> }).env = {

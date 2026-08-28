@@ -272,6 +272,20 @@ export function semesterFremdrift(
   return { besvart, totalt, tekst };
 }
 
+export function antallGjenstaendeMaaneder(
+  maaneder: PersonligMaaned[],
+  manueltFerdig: ReadonlySet<string> = new Set()
+): number {
+  return maaneder.filter((m) => !maanedErGjennomgaatt(m, manueltFerdig)).length;
+}
+
+export function forsteUferdigeMaaned(
+  maaneder: PersonligMaaned[],
+  manueltFerdig: ReadonlySet<string> = new Set()
+): PersonligMaaned | null {
+  return maaneder.find((m) => !maanedErGjennomgaatt(m, manueltFerdig)) ?? null;
+}
+
 export function nesteMaanedNokkel(
   maaneder: PersonligMaaned[],
   aktiv: string

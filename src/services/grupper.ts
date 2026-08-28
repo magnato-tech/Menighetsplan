@@ -203,6 +203,21 @@ export function erTjenestegruppe(db: DatabaseState, gruppe: Gruppe): boolean {
   return !nøkkel || nøkkel === "tjenestegruppe";
 }
 
+export type StandardLederSeksjon = "hjem" | "bemanning";
+
+/** Standard startseksjon for gruppeleder: Bemanning for tjenestegrupper med roller, ellers Hjem. */
+export function standardLederSeksjon(
+  db: DatabaseState,
+  personId: string
+): StandardLederSeksjon {
+  for (const gruppe of finnGrupperSomLederEllerNestleder(db, personId)) {
+    if (!erTjenestegruppe(db, gruppe)) continue;
+    const harRoller = db.roller.some((r) => r.Aktiv && r.GruppeID === gruppe.GruppeID);
+    if (harRoller) return "bemanning";
+  }
+  return "hjem";
+}
+
 export function erGruppeledergruppe(db: DatabaseState, gruppe: Gruppe): boolean {
   return gruppetypeNokkel(gruppetypeForGruppe(db, gruppe)?.Navn) === "gruppeledergruppe";
 }

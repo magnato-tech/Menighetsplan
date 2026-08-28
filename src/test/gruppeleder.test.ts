@@ -14,6 +14,7 @@ import {
   opprettNyPersonFraGruppeleder,
   settSamlingOppmote,
 } from "../services/gruppeOppfolging";
+import { standardLederSeksjon } from "../services/grupper";
 import type { DatabaseState, Gruppe, Person } from "../types/database";
 
 const gruppe: Gruppe = {
@@ -127,6 +128,57 @@ function tomDb(): DatabaseState {
   const db = tomDb();
   const medOppmote = settSamlingOppmote(db, "AR001", "G010", "P001", true);
   assert.equal(hentOppmoteForSamling(medOppmote, "AR001").length, 1);
+}
+
+{
+  const tjenesteDb: DatabaseState = {
+    ...tomDb(),
+    gruppetyper: [
+      { GruppetypeID: "GT001", Navn: "Tjenestegruppe", Beskrivelse: "", Aktiv: true, OpprettetDato: "2026-01-01", SistEndret: "2026-01-01" },
+      { GruppetypeID: "GT004", Navn: "Husgruppe", Beskrivelse: "", Aktiv: true, OpprettetDato: "2026-01-01", SistEndret: "2026-01-01" },
+    ],
+    grupper: [
+      {
+        GruppeID: "G100",
+        Gruppenavn: "Rigging",
+        GruppetypeID: "GT001",
+        GruppelederID: "P100",
+        Beskrivelse: "",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+      {
+        GruppeID: "G200",
+        Gruppenavn: "Fredagsgruppa",
+        GruppetypeID: "GT004",
+        GruppelederID: "P200",
+        Beskrivelse: "",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    roller: [
+      {
+        RolleID: "R100",
+        Rollenavn: "Rigging",
+        GruppeID: "G100",
+        Beskrivelse: "",
+        Behov: 2,
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    personer: [
+      { PersonID: "P100", Navn: "Tek Leder", Fornavn: "Tek", Etternavn: "Leder", Epost: "", Telefon: "", Aktiv: true, OpprettetDato: "2026-01-01", SistEndret: "2026-01-01" },
+      { PersonID: "P200", Navn: "Hus Leder", Fornavn: "Hus", Etternavn: "Leder", Epost: "", Telefon: "", Aktiv: true, OpprettetDato: "2026-01-01", SistEndret: "2026-01-01" },
+    ],
+  };
+  assert.equal(standardLederSeksjon(tjenesteDb, "P100"), "bemanning");
+  assert.equal(standardLederSeksjon(tjenesteDb, "P200"), "hjem");
+  assert.equal(standardLederSeksjon(tjenesteDb, "P999"), "hjem");
 }
 
 console.log("gruppeArrangementer + gruppeOppfolging: ok");

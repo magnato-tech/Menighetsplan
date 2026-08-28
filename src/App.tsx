@@ -20,6 +20,7 @@ import {
   erDemoVersjon,
   SKARP_APP_URL,
   erMedITjenestegruppe,
+  standardLederSeksjon,
   REMOTE_SAVE_FEIL_EVENT,
   harPaagaaendeRemoteSave,
   type DevDataSource,
@@ -197,7 +198,11 @@ export default function App() {
       const tokenParam = erMagiskLenkeToken(raattToken) ? raattToken : hentMagiskToken();
 
       const velgStartvisning = (personId: string) => {
-        setActiveView(startvisningForTilgang(hentTilgang(db, personId)));
+        const view = startvisningForTilgang(hentTilgang(db, personId));
+        setActiveView(view);
+        if (view === "leader") {
+          setLederSeksjon(standardLederSeksjon(db, personId));
+        }
       };
 
       if (raattToken && !erMagiskLenkeToken(raattToken)) {
@@ -246,9 +251,13 @@ export default function App() {
           setSelectedPersonId(sikret.person.PersonID);
           setIsMagicLinkUser(false);
           setInnloggetViaGoogle(true);
-          setActiveView(
-            startvisningForTilgang(hentTilgang(sikret.db, sikret.person.PersonID))
+          const startView = startvisningForTilgang(
+            hentTilgang(sikret.db, sikret.person.PersonID)
           );
+          setActiveView(startView);
+          if (startView === "leader") {
+            setLederSeksjon(standardLederSeksjon(sikret.db, sikret.person.PersonID));
+          }
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
@@ -283,7 +292,10 @@ export default function App() {
   const handleSelectPerson = (personId: string, view?: AppView) => {
     setLeaderViewAsObserverId(null);
     setSelectedPersonId(personId);
-    setLederSeksjon("hjem");
+    const nesteView = view ?? activeView;
+    setLederSeksjon(
+      nesteView === "leader" && db ? standardLederSeksjon(db, personId) : "hjem"
+    );
     setVisOppgaverArk(false);
     if (view) {
       setActiveView(view);
@@ -305,9 +317,10 @@ export default function App() {
   };
 
   const handleReturnFromLeaderView = () => {
-    if (!leaderViewAsObserverId) return;
+    if (!leaderViewAsObserverId || !db) return;
     setSelectedPersonId(leaderViewAsObserverId);
     setLeaderViewAsObserverId(null);
+    setLederSeksjon(standardLederSeksjon(db, leaderViewAsObserverId));
     setActiveView("leader");
     setVisOppgaverArk(false);
   };
@@ -336,7 +349,9 @@ export default function App() {
     if (view !== "personal") {
       setVisOppgaverArk(false);
     }
-    if (view === "leader") setLederSeksjon("hjem");
+    if (view === "leader" && db) {
+      setLederSeksjon(standardLederSeksjon(db, selectedPersonId));
+    }
     setActiveView(view);
   };
 

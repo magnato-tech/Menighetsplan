@@ -11,7 +11,9 @@ Datakilde (mock vs Supabase, Sheets som backup): [DATAKILDE.md](DATAKILDE.md).
 - Lar tjenestegruppeledere bemanne **sine** roller og se gruppemedlemmer.
 - Lar administrator styre hele huset: kalender, søndager, register, grupper, roller, programmal og innstillinger.
 
-SMS-utsending er **ikke** på plass. Knappen hos gruppeleder er en deaktivert plassholder.
+SMS-utsending via leverandør-API er **ikke** på plass. Gruppeleder varsler med enhetens SMS/e-post (`sms:` / `mailto:`) med kort tekst og personlig Min side-lenke; meldingsinnholdet ligger i appen.
+
+**Kommunikasjon (fase 0):** Gruppeleder skriver `GruppeMelding` (fasit) og stabile samlingsdetaljer i `Arrangement.Beskrivelse`. Medlemmer leser på Min side. Varsel bygges som `VarselUtkast` i `kommunikasjon.ts` og sendes manuelt via `sendVarselManuelt` — UI bygger ikke SMS-tekst selv. Senere SMS-API bytter bare leveranselag (`sendVarselViaApi`) uten ny meldingsmodell.
 
 ## Tre visninger
 
@@ -20,7 +22,7 @@ Tilgang styres av roller og gruppetilhørighet (`hentTilgang`).
 | Visning | Hvem | Hva |
 | --- | --- | --- |
 | **Min side** | Alle innloggede | Vertikal søndagsliste med egne roller (avkryssing for påmelding), filter per rolle, ledige plasser og andre på vakt, kjøreplan-ikon når relevant |
-| **Tjenestegruppeleder** | Leder eller nestleder for minst én gruppe | Egen arbeidsflate: neste samling, medlemmer, Ny samling, bemanning (tjenestegruppe), oppfølging |
+| **Tjenestegruppeleder** | Leder eller nestleder for minst én gruppe | Egen arbeidsflate: neste samling, medlemmer, Ny samling, bemanning (tjenestegruppe), oppfølging. Tjenestegruppe-ledere lander på **Bemanning** med første kommende gudstjeneste åpen. |
 | **Administrator** | Person med rollen Administrator | Alle faner under |
 
 Administrator kan «se som» en annen person for å teste.
@@ -37,7 +39,7 @@ Hver gudstjeneste har roller med **veiledende behov** (overstyrbart per søndag)
 
 Admin ser alle grupper. Gruppeleder ser bare gruppens roller. Begge bruker samme listekomponent med ulikt omfang.
 
-**Min side-påmelding:** Frivillige ser en vertikal liste over kommende søndager, gruppert per måned med 6-måneders horisont (Aug–Jan), fremdriftstekst og «Neste måned»-CTA. Under hver søndag vises én rad per egen rolle (ikon, telling `bekreftet / behov`, fornavn på andre på vakt). Grønne knapper øverst filtrerer på rolle. Avkryssing melder på eller forfall.
+**Min side-påmelding:** Frivillige ser en vertikal liste over kommende søndager, gruppert per måned med 6-måneders horisont (Aug–Jan), fremdriftstekst og «Neste måned»-CTA. Første besøk viser engangs-intro per person; deretter vises en diskret påminnelsesbanner mens måneder gjenstår. Under hver søndag vises én rad per egen rolle (ikon, telling `bekreftet / behov`, fornavn på andre på vakt). Grønne knapper øverst filtrerer på rolle. Avkryssing melder på eller forfall.
 
 **Belastning** (admin) er semester-matrise per person; klikk i en celle hopper til den søndagen med personen uthevet.
 
@@ -60,7 +62,7 @@ Admin redigerer maler under **Maler**: søndagens standard kjøreplan og arrange
 
 På gudstjenesteraden ligger **Kollekt** (hva gaven går til) og **Kunngjøringer**. Admin og tildelt møteleder (ikke avvist) redigerer dem i programdialogen. A4-PDF (`ProgramPdfArk`) viser sted, tema og bibeltekst øverst, og kollekt/kunngjøringer nederst (under øvrig bemanning når den er slått på). Tomme felt vises ikke.
 
-Samlingsplanlegging v1 (grunnversjon på gruppekort) og arrangement-tagger er inne. **Gruppeleder-arbeidsflate v1:** egen IA med Hjem / Medlemmer / Samlinger / Bemanning, neste samling og neste gruppeledersamling, Ny samling, gruppekommunikasjon (e-post / navneliste), oppmøte og oppfølgingsignaler, ny person-status. Ikke i denne versjonen: samlingsplanlegging v2 (maler, rom, avansert gjentakelse), endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
+Samlingsplanlegging v1 (grunnversjon på gruppekort) og arrangement-tagger er inne. **Gruppeleder-arbeidsflate v1:** egen IA med Hjem / Medlemmer / Samlinger / Bemanning, neste samling og neste gruppeledersamling, Ny samling, **interne gruppemeldinger** (fasit på Min side) med varsel via SMS/e-post-lenke, gruppekommunikasjon, oppmøte og oppfølgingsignaler, ny person-status. Tjenestegruppe-ledere lander på Bemanning med første søndag åpen. Ikke i denne versjonen: samlingsplanlegging v2 (maler, rom, avansert gjentakelse), endringslogg, egen visning «Møteleder», frysing av navn ved publisering, parallelle spor, én-klikks PDF-fil. Se `.cursor/rules/backlog.mdc`.
 
 ## Kodekart — hvor du endrer
 
@@ -75,6 +77,7 @@ Importer forretningslogikk fra `src/services/dataService.ts` (fatade). Filene un
 | `grupper.ts` | Ledere, medlemskap, gruppelederteam |
 | `gruppeArrangementer.ts` | Neste/kommende samlinger per gruppe |
 | `gruppeOppfolging.ts` | Ny person, oppmøte, oppfølging, gruppekommunikasjon |
+| `kommunikasjon.ts` | Gruppemeldinger, varselutkast, manuell SMS/e-post-lenke |
 | `program.ts` | Søndagsmal, instans, publisering, programtider, kollekt/kunngjøringer |
 | `mal.ts` | Arrangementmaler, bemanning fra kjøreplan + tilleggsvakter |
 | `arrangementer.ts` | Opprette og slette arrangementer |
@@ -92,12 +95,15 @@ Datamodellen (`DatabaseState` og tabeller) ligger i `src/types/database.ts`. Moc
 | Fil | Ansvar |
 | --- | --- |
 | `App.tsx` | Innlogging, last data, bytte visning |
-| `PersonalView.tsx` | Min side (filter, søndagsliste) |
+| `PersonalView.tsx` | Min side (meldinger, filter, søndagsliste) |
 | `PersonligSondagsliste.tsx` | Vertikal påmeldingsliste per søndag |
+| `MineGruppeMeldinger.tsx` | Meldinger og kommende samlinger på Min side |
 | `GroupLeaderView.tsx` | Gruppeleder-arbeidsflate: Hjem, medlemmer, samlinger, bemanning |
 | `GruppeMedlemListe.tsx` | Medlemmer og kontakt |
 | `NesteSamlingKort.tsx` | Neste samling / gruppeledersamling |
-| `GruppeKommunikasjon.tsx` | E-post til gruppen og kopier navneliste |
+| `GruppeKommunikasjon.tsx` | Meldinger, varsel og navneliste |
+| `SamlingMeldingPanel.tsx` | Detaljer og melding per kommende samling |
+| `VarselKnapper.tsx` | Kopier / SMS / e-post fra varselutkast |
 | `SamlingOppmotePanel.tsx` | Oppmøte på forrige samling |
 | `SondagBemanning.tsx` | Felles søndagsliste (admin og leder) |
 | `AdminView.tsx` | Admin-faner og kryss-hopp |

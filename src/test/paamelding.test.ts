@@ -10,6 +10,8 @@ import {
   kanPaameldingEndres,
   maanedErGjennomgaatt,
   nesteMaanedNokkel,
+  antallGjenstaendeMaaneder,
+  forsteUferdigeMaaned,
   forrigeMaanedNokkel,
   semesterFremdrift,
   sondagErBesvart,
@@ -385,6 +387,48 @@ function tomDb(overrides: Partial<DatabaseState> = {}): DatabaseState {
   assert.equal(maanedErGjennomgaatt(maaneder[0], new Set()), true);
   assert.equal(maanedErGjennomgaatt(maaneder[1], new Set()), false);
   assert.equal(maanedErGjennomgaatt(maaneder[1], new Set(["2026-10"])), true);
+}
+
+{
+  const db = tomDb({
+    personroller: [
+      {
+        PersonRolleID: "PR1",
+        PersonID: "P010",
+        RolleID: "R010",
+        Aktiv: true,
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    tildelinger: [
+      {
+        TildelingID: "T010",
+        GudstjenesteID: "GUD001",
+        RolleID: "R010",
+        PersonID: "P010",
+        OpprettetDato: "2026-01-01",
+        SistEndret: "2026-01-01",
+      },
+    ],
+    svar: [
+      {
+        SvarID: "S010",
+        TildelingID: "T010",
+        PersonID: "P010",
+        Svar: "Bekreftet",
+        Kommentar: "",
+        SvartDato: "2026-01-01",
+      },
+    ],
+  });
+  const liste = byggPersonligSondagsliste(db, "P010");
+  const maaneder = byggPersonligMaanedsliste(liste, 6, "2026-09-01");
+  const ferdig = new Set(["2026-09"]);
+  assert.equal(antallGjenstaendeMaaneder(maaneder, ferdig), 5);
+  assert.equal(forsteUferdigeMaaned(maaneder, ferdig)?.nokkel, "2026-10");
+  assert.equal(antallGjenstaendeMaaneder(maaneder, new Set(maaneder.map((m) => m.nokkel))), 0);
+  assert.equal(forsteUferdigeMaaned(maaneder, new Set(maaneder.map((m) => m.nokkel))), null);
 }
 
 console.log("paamelding.test.ts: ok");

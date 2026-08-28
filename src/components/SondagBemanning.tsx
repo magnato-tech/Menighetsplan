@@ -17,6 +17,9 @@ import {
   visProgramIkon,
   kanRedigereProgram,
   erHendelseRad,
+  byggVarselForesporsel,
+  hentInnstillinger,
+  loggManuelleVarsler,
 } from "../services/dataService";
 import { Gudstjeneste, Rolle } from "../types/database";
 import { RolleIkon } from "./RolleIkon";
@@ -26,6 +29,7 @@ import { GudstjenesteProgramView } from "./GudstjenesteProgramView";
 import { RoleDescriptionModal } from "./RoleDescriptionModal";
 import { ListeArkBryter, Planleggingsark, type ArkVisning } from "./Planleggingsark";
 import { ProgramLeserModal } from "./ProgramLeserModal";
+import { VarselKnapper } from "./VarselKnapper";
 import {
   Users,
   Plus,
@@ -175,6 +179,7 @@ export interface SondagBemanningProps {
   rolleInstruksRedigerbar?: boolean;
   guideVisning?: ArkVisning;
   guideApneForsteKort?: boolean;
+  apneForsteKort?: boolean;
 }
 
 export const SondagBemanning: React.FC<SondagBemanningProps> = ({
@@ -210,6 +215,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   rolleInstruksRedigerbar = false,
   guideVisning,
   guideApneForsteKort = false,
+  apneForsteKort = false,
 }) => {
   const [selectedRolleForModal, setSelectedRolleForModal] = useState<Rolle | null>(null);
   const [editNeedModal, setEditNeedModal] = useState<{
@@ -227,7 +233,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     hoppTil?.gudstjenesteId ?? null
   );
   const [visTidligere, setVisTidligere] = useState(false);
-  const [servicesVisning, setServicesVisning] = useState<ArkVisning>("liste");
+  const [servicesVisning, setServicesVisning] = useState<ArkVisning>(
+    statusAktor === "gruppeleder" ? "ark" : "liste"
+  );
   const [arkGudstjenesteId, setArkGudstjenesteId] = useState<string | null>(null);
   const [gudstjenesteKortFane, setGudstjenesteKortFane] = useState<
     Record<string, "bemanning" | "kjoreplan">
@@ -239,6 +247,8 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     navn: string;
     status: "Bekreftet" | "Venter" | "Avvist";
   } | null>(null);
+
+  const varselInnstillinger = hentInnstillinger(db);
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 768px)");
@@ -267,9 +277,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const forsteKommendeId = kommendeGudstjenester[0]?.GudstjenesteID;
 
   useEffect(() => {
-    if (!guideApneForsteKort || !forsteKommendeId) return;
+    if ((!apneForsteKort && !guideApneForsteKort) || !forsteKommendeId) return;
     setVisDetalj((prev) => ({ ...prev, [forsteKommendeId]: true }));
-  }, [guideApneForsteKort, forsteKommendeId]);
+  }, [apneForsteKort, guideApneForsteKort, forsteKommendeId]);
 
   const semesterOversikt = kommendeGudstjenester.reduce(
     (acc, gud) => plusBemanningstall(acc, summerBemanning(db, gud.GudstjenesteID, omfangRoller)),
@@ -559,7 +569,8 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             const isAvvist = status === "Avvist";
             const visningsnavn = tildelingVisningsnavn(db, t);
             return (
-              <div key={t.TildelingID} className="inline-flex items-center gap-0.5 min-w-0">
+              <div key={t.TildelingID} className="inline-flex flex-col items-end gap-1 min-w-0">
+              <div className="inline-flex items-center gap-0.5 min-w-0">
               <div
                 className={`inline-flex items-center gap-1 pl-2 pr-2 py-0.5 rounded-xl text-xs border ${
                   uthevPersonId === t.PersonID ? "ring-2 ring-[#2d5a3f] ring-offset-1" : ""
@@ -653,6 +664,29 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                 >
                   <MoreHorizontal className="w-5 h-5" />
                 </button>
+              </div>
+              {statusAktor === "gruppeleder" && status === "Venter" && !t.EksternNavn ? (
+                (() => {
+                  const utkast = byggVarselForesporsel(db, {
+                    personId: t.PersonID,
+                    rolleNavn: rolle.Rollenavn,
+                    gudstjenesteDato: gudstjeneste.Dato,
+                  });
+                  if (!utkast) return null;
+                  return (
+                    <VarselKnapper
+                      modus="enkel"
+                      kompakt
+                      utkast={[utkast]}
+                      visSms={varselInnstillinger.visVarselSms}
+                      visEpost={varselInnstillinger.visVarselEpost}
+                      onVarslet={(kanal) =>
+                        onUpdateDb(loggManuelleVarsler(db, [utkast], kanal))
+                      }
+                    />
+                  );
+                })()
+              ) : null}
               </div>
             );
           })}

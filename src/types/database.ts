@@ -87,6 +87,29 @@ export interface SamlingOppmote {
   SistEndret: string;
 }
 
+/** Intern melding fra gruppeleder til gruppemedlemmer (fasit i appen). */
+export interface GruppeMelding {
+  GruppeMeldingID: string;
+  GruppeID: string;
+  ArrangementID?: string;
+  Tekst: string;
+  OpprettetAvPersonID: string;
+  OpprettetDato: string;
+  SistEndret: string;
+}
+
+export type VarselLoggStatus = "manuell" | "sendt" | "feilet";
+
+/** Logg over utgående varsler (manuell nå, API senere). */
+export interface VarselLogg {
+  VarselID: string;
+  PersonID: string;
+  GruppeMeldingID?: string;
+  Kanal: "sms" | "epost" | "kopier";
+  Status: VarselLoggStatus;
+  Tidspunkt: string;
+}
+
 export interface Gruppemedlem {
   GruppeMedlemID: string; // e.g. "GM001"
   GruppeID: string; // Ref: Grupper.GruppeID
@@ -345,6 +368,10 @@ export interface AppInnstillinger {
   visKalenderMinSide: boolean;
   visKalenderGruppeleder: boolean;
   visKalenderIcal: boolean;
+  /** Gruppeleder kan varsle via enhetens SMS-app. Standard på. */
+  visVarselSms: boolean;
+  /** Gruppeleder kan varsle via enhetens e-post. Standard på. */
+  visVarselEpost: boolean;
   /** Offentlig ICS-adresse for synk. Tom = kirkens standardfeed. */
   eksternIcalUrl?: string;
 }
@@ -386,6 +413,8 @@ export interface DatabaseState {
   arrangementer: Arrangement[];
   kalenderoppgaver: Kalenderoppgave[];
   samlingoppmote?: SamlingOppmote[];
+  gruppeMeldinger?: GruppeMelding[];
+  varselLogg?: VarselLogg[];
   innstillinger?: AppInnstillinger;
   personerImport: PersonerImport[];
   gudstjenesterImport: GudstjenesterImport[];
