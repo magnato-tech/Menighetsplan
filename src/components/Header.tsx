@@ -137,7 +137,7 @@ export const Header: React.FC<HeaderProps> = ({
                                 )}
                                 {personTilgang.isLeader && (
                                   <span className="bg-[#eef5f1] text-[#2d5a3f] text-[10px] px-1.5 py-0.5 rounded font-medium border border-[#d2e8d9]">
-                                    Tjenestegruppeleder
+                                    Gruppeleder
                                   </span>
                                 )}
                               </div>
@@ -276,7 +276,7 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Users className="w-4 h-4" />
-            <span>Tjenestegruppeleder</span>
+            <span>Gruppeledere</span>
             {tilgang.isLeader && (
               <span
                 className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${

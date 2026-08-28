@@ -4,6 +4,8 @@ import {
   finnGrupperSomLederEllerNestleder,
   finnMedlemmerIGruppe,
   genererPersonligLenke,
+  gruppetypeForGruppe,
+  erTjenestegruppe,
   hentSvarStatus,
   saveDatabase,
   settDeltakelseForPerson,
@@ -192,13 +194,13 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             {person?.Navn || "Valgt person"} er ikke registrert som gruppeleder
           </h2>
           <p className="text-slate-600 text-sm mt-1 max-w-md mx-auto">
-            I Menighetsplan får gruppeledere tilgang til gruppen de leder, medlemmene og
-            bemanning for tilknyttede roller. Sett personen som leder eller nestleder på
-            gruppekortet under Administrator.
+            I Menighetsplan får gruppeledere oversikt over gruppen de leder og medlemmene.
+            Tjenestegrupper får i tillegg bemanning til gudstjenester. Sett personen som leder
+            eller nestleder på gruppekortet under Administrator.
           </p>
           <div className="mt-6 pt-6 border-t border-slate-100 max-w-lg mx-auto">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-3">
-              Velg en tjenestegruppeleder for å teste visningen:
+              Velg en gruppeleder for å teste visningen:
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {alleGruppeledere.map((leder) => {
@@ -235,12 +237,16 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const gruppensRoller = db.roller.filter(
     (r) => r.Aktiv && visGruppeIds.includes(r.GruppeID)
   );
+  const visGudstjenesteBemanning = visGrupper.some((g) => erTjenestegruppe(db, g));
 
   const tittel =
     currentGruppe?.Gruppenavn ||
     (visGrupper.length > 1
-      ? `Alle tjenestegrupper (${visGrupper.length})`
-      : "Tjenestegruppe");
+      ? `Alle grupper (${visGrupper.length})`
+      : "Gruppe");
+  const typeNavn = currentGruppe
+    ? gruppetypeForGruppe(db, currentGruppe)?.Navn
+    : undefined;
   const beskrivelse =
     currentGruppe?.Beskrivelse ||
     visGrupper.map((g) => g.Gruppenavn).join(" · ");
@@ -287,11 +293,16 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             <div className="flex items-center gap-2 text-xs font-semibold text-[#2d5a3f] uppercase tracking-wider">
               <Users className="w-4 h-4" />
               <span>
-                Tjenestegruppeleder-visning
+                Gruppeleder-visning
                 {person?.Fornavn ? ` for ${person.Fornavn}` : ""}
               </span>
             </div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">{tittel}</h2>
+            {typeNavn ? (
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-0.5">
+                {typeNavn}
+              </p>
+            ) : null}
             <p className="hidden sm:block text-xs sm:text-sm text-slate-500 mt-0.5">{beskrivelse}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -307,7 +318,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
             {lededeGrupper.length > 1 && (
               <div className="flex items-center gap-2">
                 <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                  Tjenestegruppe:
+                  Gruppe:
                 </span>
                 <select
                   value={activeGruppeId}
@@ -365,6 +376,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         />
       ) : (
       <>
+      {visGudstjenesteBemanning && gruppensRoller.length > 0 ? (
       <SondagBemanning
         db={db}
         onUpdateDb={onUpdateDb}
@@ -374,7 +386,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         kpiTittel="Semesteret totalt"
         kpiBeskrivelse={
           visGrupper.length === 1
-            ? `Tallene gjelder ${currentGruppe?.Gruppenavn || "denne tjenestegruppen"}, ikke oppgaver personen har i andre grupper.`
+            ? `Tallene gjelder ${currentGruppe?.Gruppenavn || "denne gruppen"}, ikke oppgaver personen har i andre grupper.`
             : `Tallene gjelder ${visGrupper.map((g) => g.Gruppenavn).join(", ")}.`
         }
         visKpiAlltid
@@ -407,8 +419,13 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
         guideVisning={guideOpen ? guideVisning : undefined}
         guideApneForsteKort={guideOpen && guideApneForsteKort}
       />
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 text-sm text-slate-600">
+          Denne gruppen har ingen gudstjenesteoppgaver. Medlemslisten er oversikten over gruppen.
+        </div>
+      )}
 
-      <div className={visOversiktFilter === "medlemmer" ? undefined : "hidden md:block"}>
+      <div className={visOversiktFilter === "medlemmer" || !visGudstjenesteBemanning ? undefined : "hidden md:block"}>
         <GruppeMedlemListe
           db={db}
           medlemmer={oversiktPersoner}

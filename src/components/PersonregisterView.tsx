@@ -228,7 +228,7 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
                 className="w-full text-xs border border-slate-200 rounded-xl p-2 bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
               >
                 <option value="all">Alle tilganger / roller</option>
-                <option value="leaders">Kun tjenestegruppeledere</option>
+                <option value="leaders">Kun gruppeledere</option>
                 <option value="admins">Kun administratorer</option>
                 <option value="members">Kun ordinære medlemmer</option>
               </select>

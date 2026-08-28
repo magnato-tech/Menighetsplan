@@ -119,7 +119,9 @@ const leder = db.personer.find((p) => {
   const t = hentTilgang(db, p.PersonID);
   return t.isLeader && !t.isAdmin;
 });
-assert.ok(leder, "mock-data skal ha en tjenestegruppeleder");
+assert.ok(leder, "mock-data skal ha en gruppeleder");
+assert.equal(hentTilgang(db, "P007").isLeader, true, "husgruppeleder skal ha gruppeleder-visning");
+assert.equal(hentTilgang(db, "P007").views.includes("leader"), true);
 assert.equal(hentTilgang(db, "P009").isAdmin, false);
 assert.equal(admin!.Tilgangsnivå, "admin");
 assert.equal(tilgangsnivaaForPerson(db, admin!.PersonID), "admin");

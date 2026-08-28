@@ -73,9 +73,9 @@ export const PersonlenkeInnstillinger: React.FC<PersonlenkeInnstillingerProps> =
   if (!person) return null;
 
   const rolle = tilgang.isAdmin
-    ? "Administrator (Min side, tjenestegruppeleder og admin)"
+    ? "Administrator (Min side, gruppeledere og admin)"
     : tilgang.isLeader
-      ? "Tjenestegruppeleder (Min side og gruppeleder)"
+      ? "Gruppeleder (Min side og gruppeoversikt)"
       : "Vanlig bruker (bare Min side)";
 
   return (

@@ -50,7 +50,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
     | "maler"
     | "sync"
   >("services");
-  const [groupTypeFilter, setGroupTypeFilter] = useState("alle");
+  const [groupTypeFilter, setGroupTypeFilter] = useState<string[]>([]);
   const [editingGruppeId, setEditingGruppeId] = useState<string | null>(null);
   const [newGroupModal, setNewGroupModal] = useState(false);
   const [copiedPersonId, setCopiedPersonId] = useState<string | null>(null);
@@ -219,7 +219,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
             const { db: neste, gruppetypeId } = opprettGruppetype(db, navn);
             saveDatabase(neste);
             onUpdateDb(neste);
-            if (gruppetypeId) setGroupTypeFilter(gruppetypeId);
+            if (gruppetypeId) setGroupTypeFilter([gruppetypeId]);
           }}
         />
       )}

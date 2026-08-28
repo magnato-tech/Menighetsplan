@@ -226,6 +226,15 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
     setApentArrangementId(h.id);
   };
 
+  const apneNyttArrangement = (dato?: string) => {
+    setNyFelt((prev) => ({
+      ...prev,
+      dato: dato || isoDato(new Date()),
+      malId: prev.malId || foreslaMalId(db, prev.tittel),
+    }));
+    setNyApen(true);
+  };
+
   const hoppTilKalender = (dato?: string) => {
     if (dato) {
       setNå(parseIso(dato));
@@ -278,14 +287,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
             <>
           <button
             type="button"
-            onClick={() => {
-              setNyFelt((prev) => ({
-                ...prev,
-                dato: isoDato(new Date()),
-                malId: foreslaMalId(db, prev.tittel),
-              }));
-              setNyApen(true);
-            }}
+            onClick={() => apneNyttArrangement()}
             className="min-h-11 px-3.5 py-2 bg-[#2d5a3f] hover:bg-[#234731] text-white text-xs font-semibold rounded-xl inline-flex items-center gap-1.5 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -492,13 +494,25 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
               return (
                 <div
                   key={iso}
-                  className={`min-h-24 border-t border-r border-slate-100 p-1 ${
+                  className={`group relative min-h-24 border-t border-r border-slate-100 p-1 ${
                     uthevet ? "bg-emerald-50 ring-2 ring-inset ring-[#2d5a3f]" : iMnd ? "bg-white" : "bg-slate-50"
                   }`}
                 >
-                  <p className={`text-[11px] font-semibold px-1 ${iMnd ? "text-slate-700" : "text-slate-400"}`}>
-                    {dag.getDate()}
-                  </p>
+                  <div className="flex items-start justify-between gap-0.5">
+                    <p className={`text-[11px] font-semibold px-1 ${iMnd ? "text-slate-700" : "text-slate-400"}`}>
+                      {dag.getDate()}
+                    </p>
+                    {modus === "admin" && (
+                      <button
+                        type="button"
+                        onClick={() => apneNyttArrangement(iso)}
+                        className="shrink-0 p-0.5 rounded-md text-slate-400 hover:text-[#2d5a3f] hover:bg-[#eef5f1] cursor-pointer opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 focus:outline-none [@media(hover:none)]:opacity-80"
+                        aria-label={`Nytt arrangement ${formatDatoNo(iso)}`}
+                      >
+                        <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-0.5">
                     {liste.map((h) => (
                       <button

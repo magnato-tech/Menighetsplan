@@ -137,6 +137,12 @@ export function nesteGruppetypeId(gruppetyper: Gruppetype[]): string {
   return nesteNummerertId(gruppetyper, "GruppetypeID", "GT");
 }
 
+/** Tom liste = vis alle. «alle» tømmer utvalget. Ellers veksler typen inn/ut. */
+export function toggleGruppetypeFilter(valgte: string[], id: string): string[] {
+  if (!id || id === "alle") return [];
+  return valgte.includes(id) ? valgte.filter((x) => x !== id) : [...valgte, id];
+}
+
 /** Oppretter en gruppekategori, eller reaktiverer en inaktiv med samme navn. */
 export function opprettGruppetype(
   db: DatabaseState,
@@ -184,8 +190,6 @@ export function nesteGruppeMedlemId(gruppemedlemmer: Gruppemedlem[]): string {
 
 export const LEDERFORUM_AUTO_NOTAT = "auto";
 
-const LEDERFORUM_KILDETYPER = new Set(["tjenestegruppe", "husgruppe", "barnekirke"]);
-
 export function gruppetypeNokkel(navn: string | undefined): string {
   return String(navn || "").trim().toLowerCase();
 }
@@ -206,9 +210,7 @@ export function erGruppeledergruppe(db: DatabaseState, gruppe: Gruppe): boolean 
 export function inngarILederforum(db: DatabaseState, gruppe: Gruppe): boolean {
   if (!gruppe.Aktiv) return false;
   if (erGruppeledergruppe(db, gruppe)) return false;
-  const nøkkel = gruppetypeNokkel(gruppetypeForGruppe(db, gruppe)?.Navn);
-  if (!nøkkel) return true;
-  return LEDERFORUM_KILDETYPER.has(nøkkel);
+  return true;
 }
 
 export function erLederforumAutoMedlem(gm: Gruppemedlem): boolean {

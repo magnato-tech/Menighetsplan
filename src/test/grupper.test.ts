@@ -13,6 +13,7 @@ import {
   applyLoadedState,
   slettGruppe,
   opprettGruppetype,
+  toggleGruppetypeFilter,
 } from "../services/dataService";
 import { Gruppe, Gruppetype, Person } from "../types/database";
 
@@ -125,9 +126,9 @@ assert.ok(
 );
 
 const kilder = lederforumKilderForPerson(synket, "P001");
-assert.equal(kilder.length, 1);
-assert.equal(kilder[0].gruppenavn, "Lovsang");
-assert.equal(kilder[0].rolle, "Leder");
+assert.equal(kilder.length, 2);
+assert.ok(kilder.some((k) => k.gruppenavn === "Lovsang" && k.rolle === "Leder"));
+assert.ok(kilder.some((k) => k.gruppenavn === "Lederskap" && k.rolle === "Leder"));
 
 assert.equal(hentTilgang(synket, "P001").isLeader, true);
 assert.equal(hentTilgang(synket, "P090").isLeader, true);
@@ -303,5 +304,12 @@ assert.equal(
   duplikat.db.gruppetyper.filter((gt) => gt.Aktiv).length,
   medNyType.db.gruppetyper.filter((gt) => gt.Aktiv).length
 );
+
+assert.deepEqual(toggleGruppetypeFilter([], "alle"), []);
+assert.deepEqual(toggleGruppetypeFilter([], "GT001"), ["GT001"]);
+assert.deepEqual(toggleGruppetypeFilter(["GT001"], "GT004"), ["GT001", "GT004"]);
+assert.deepEqual(toggleGruppetypeFilter(["GT001", "GT004"], "GT001"), ["GT004"]);
+assert.deepEqual(toggleGruppetypeFilter(["GT004"], "GT004"), []);
+assert.deepEqual(toggleGruppetypeFilter(["GT001", "GT004"], "alle"), []);
 
 console.log("grupper.test.ts: alle tester ok");

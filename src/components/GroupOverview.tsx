@@ -6,6 +6,7 @@ import {
   AppView,
   erTjenestegruppe,
   gruppetypeNokkel,
+  toggleGruppetypeFilter,
 } from "../services/dataService";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
@@ -84,8 +85,8 @@ function ikonNavn(db: DatabaseState, gruppe: Gruppe): string {
 
 interface GroupOverviewProps {
   db: DatabaseState;
-  groupTypeFilter: string;
-  onGroupTypeFilter: (id: string) => void;
+  groupTypeFilter: string[];
+  onGroupTypeFilter: (ids: string[]) => void;
   copiedPersonId: string | null;
   onCopyLink: (personId: string) => void;
   onOpenEdit: (gruppeId: string) => void;
@@ -130,7 +131,7 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
     const q = sok.trim().toLowerCase();
     return db.grupper
       .filter((g) => g.Aktiv)
-      .filter((g) => groupTypeFilter === "alle" || g.GruppetypeID === groupTypeFilter)
+      .filter((g) => groupTypeFilter.length === 0 || groupTypeFilter.includes(g.GruppetypeID))
       .filter((g) => {
         if (!q) return true;
         const typeNavn = db.gruppetyper.find((gt) => gt.GruppetypeID === g.GruppetypeID)?.Navn || "";
@@ -143,6 +144,12 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
       })
       .sort((a, b) => a.Gruppenavn.localeCompare(b.Gruppenavn, "nb"));
   }, [db, groupTypeFilter, sok]);
+
+  const visAlle = groupTypeFilter.length === 0;
+
+  const velgType = (id: string) => {
+    onGroupTypeFilter(toggleGruppetypeFilter(groupTypeFilter, id));
+  };
 
   return (
     <div className="space-y-4">
@@ -169,14 +176,13 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-1.5" data-testid="gruppe-piller" role="tablist" aria-label="Gruppetype">
+        <div className="flex flex-wrap items-center gap-1.5" data-testid="gruppe-piller" role="group" aria-label="Filtrer gruppetype">
           <button
             type="button"
-            role="tab"
-            aria-selected={groupTypeFilter === "alle"}
-            onClick={() => onGroupTypeFilter("alle")}
+            aria-pressed={visAlle}
+            onClick={() => velgType("alle")}
             className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${
-              groupTypeFilter === "alle"
+              visAlle
                 ? "bg-[#2d5a3f] text-white"
                 : "bg-white border border-slate-200 text-slate-600 hover:border-[#2d5a3f]/40"
             }`}
@@ -185,14 +191,13 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
           </button>
           {typer.map((gt) => {
             const n = antallAktiveForType(db, gt.GruppetypeID);
-            const valgt = groupTypeFilter === gt.GruppetypeID;
+            const valgt = groupTypeFilter.includes(gt.GruppetypeID);
             return (
               <button
                 key={gt.GruppetypeID}
                 type="button"
-                role="tab"
-                aria-selected={valgt}
-                onClick={() => onGroupTypeFilter(gt.GruppetypeID)}
+                aria-pressed={valgt}
+                onClick={() => velgType(gt.GruppetypeID)}
                 className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer ${
                   valgt
                     ? "bg-[#2d5a3f] text-white"
@@ -261,7 +266,7 @@ export const GroupOverview: React.FC<GroupOverviewProps> = ({
             const typeNavn =
               db.gruppetyper.find((gt) => gt.GruppetypeID === gruppe.GruppetypeID)?.Navn || "";
             const isCopiedLeder = leder && copiedPersonId === leder.PersonID;
-            const visLederknapp = Boolean(leder && erTjenestegruppe(db, gruppe));
+            const visLederknapp = Boolean(leder);
             const rolleNavn = aktiveRollerIGruppe(db, gruppe.GruppeID).map((r) => r.Rollenavn);
             const visTomRoller = erTjenestegruppe(db, gruppe);
 

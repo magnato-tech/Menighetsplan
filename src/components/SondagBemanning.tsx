@@ -1155,7 +1155,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
           <div className="bg-white p-6 rounded-2xl border border-slate-200 text-center">
             <AlertCircle className="w-8 h-8 text-amber-500 mx-auto mb-2" />
             <p className="text-sm text-slate-600">
-              Ingen roller er tilknyttet denne tjenestegruppen i dagens register.
+              Ingen roller er tilknyttet denne gruppen i dagens register.
             </p>
           </div>
         ) : (

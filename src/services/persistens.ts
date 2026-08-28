@@ -22,7 +22,7 @@ import {
   initialMalTilleggsvakter,
 } from "../data/initialData";
 import { hentApiIdentitet, lagreAdminSesjonPersonId } from "./innlogging";
-import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa } from "./tilgang";
+import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa, synkTilgangsnivaaEtterGruppeledere } from "./tilgang";
 import { synkGruppeledergruppe } from "./grupper";
 import { sikreSmagruppelederRolle } from "./roller";
 import { sikreStandardMaler } from "./mal";
@@ -670,6 +670,11 @@ export function applyLoadedState(state: DatabaseState): DatabaseState {
       return Sted === g.Sted ? g : { ...g, Sted };
     }),
   });
+  const synketNivaa = synkTilgangsnivaaEtterGruppeledere(fixed);
+  if (synketNivaa.personer.some((p, i) => p !== fixed.personer[i])) {
+    fixed = synketNivaa;
+    endret = true;
+  }
   const lydBilde = korrigerLydBildeTilRigg(fixed);
   fixed = lydBilde.state;
   if (lydBilde.endret) endret = true;

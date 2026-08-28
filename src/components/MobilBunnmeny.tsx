@@ -80,7 +80,7 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
       });
     }
     if (tilgang.views.includes("leader")) {
-      poster.push({ id: "nav-leader", kind: "nav", view: "leader", etikett: "Gruppe" });
+      poster.push({ id: "nav-leader", kind: "nav", view: "leader", etikett: "Ledere" });
     }
     if (tilgang.views.includes("admin")) {
       poster.push({ id: "nav-admin", kind: "nav", view: "admin", etikett: "Admin" });
@@ -98,7 +98,7 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
   } else {
     poster.push({ id: "nav-personal", kind: "nav", view: "personal", etikett: "Min side" });
     if (tilgang.views.includes("leader")) {
-      poster.push({ id: "nav-leader", kind: "nav", view: "leader", etikett: "Gruppe" });
+      poster.push({ id: "nav-leader", kind: "nav", view: "leader", etikett: "Ledere" });
     }
     poster.push({ id: "nav-admin", kind: "nav", view: "admin", etikett: "Admin" });
   }

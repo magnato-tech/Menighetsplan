@@ -335,7 +335,7 @@ export const GroupAdminModal: React.FC<GroupAdminModalProps> = ({
 
         {erGruppeledergruppe(db, gruppe) && (
           <p className="mb-4 text-xs text-slate-600 bg-[#eef5f1] border border-[#d2e8d9] rounded-xl px-3 py-2">
-            Ledere og nestledere fra tjenestegrupper, husgrupper og barnekirke oppdateres automatisk og kan ikke fjernes her. Ta dem ut som leder i sin egen gruppe først. Manuelle tillegg kan fjernes.
+            Ledere og nestledere fra alle grupper oppdateres automatisk og kan ikke fjernes her. Ta dem ut som leder i sin egen gruppe først. Manuelle tillegg kan fjernes.
           </p>
         )}
 
