@@ -91,7 +91,12 @@ function mountDbApi(
         {
           supabaseUrl: (env.SUPABASE_URL || "").trim(),
           supabaseKey: (env.SUPABASE_SERVICE_ROLE_KEY || "").trim(),
-          googleClientId: (env.GOOGLE_CLIENT_ID || env.VITE_GOOGLE_CLIENT_ID || "").trim(),
+          googleClientId: (
+            process.env.GOOGLE_CLIENT_ID ||
+            env.GOOGLE_CLIENT_ID ||
+            env.VITE_GOOGLE_CLIENT_ID ||
+            ""
+          ).trim(),
           appsScriptUrl: (env.APPS_SCRIPT_URL || env.VITE_APPS_SCRIPT_URL || DEFAULT_GAS_URL).trim(),
           migrateFromSheets: lesEnvFlag(env.MIGRATE_FROM_SHEETS),
         },
@@ -167,7 +172,12 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, process.cwd(), '');
   const gasUrl = env.VITE_APPS_SCRIPT_URL || DEFAULT_GAS_URL;
   // Vercel blokkerer VITE_* som Secret. GOOGLE_CLIENT_ID injiseres i klienten ved build.
-  const googleClientId = (env.GOOGLE_CLIENT_ID || env.VITE_GOOGLE_CLIENT_ID || '').trim();
+  const googleClientId = (
+    process.env.GOOGLE_CLIENT_ID ||
+    env.GOOGLE_CLIENT_ID ||
+    env.VITE_GOOGLE_CLIENT_ID ||
+    ''
+  ).trim();
 
   return {
     define: {

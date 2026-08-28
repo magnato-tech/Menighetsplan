@@ -308,15 +308,34 @@ async function supabaseLagre(env, payload) {
   return rader[0]?.updated_at;
 }
 async function verifyGoogleEmail(env, idToken) {
-  if (!env.googleClientId) return null;
-  const res = await fetch(
-    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`
-  );
-  if (!res.ok) return null;
+  if (!env.googleClientId) {
+    return { error: "Mangler GOOGLE_CLIENT_ID p\xE5 serveren. Sett den i Vercel og redeploy." };
+  }
+  const res = await fetch("https://oauth2.googleapis.com/tokeninfo", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `id_token=${encodeURIComponent(idToken)}`
+  });
+  if (!res.ok) {
+    return {
+      error: "Google-\xF8kten er utl\xF8pt eller ugyldig. Klikk \xABLogg p\xE5 som Magnar\xBB p\xE5 nytt (ikke bare last siden)."
+    };
+  }
   const info = await res.json();
-  if (info.error || info.aud !== env.googleClientId) return null;
-  if (info.email_verified === false || info.email_verified === "false") return null;
-  return String(info.email || "").trim().toLowerCase() || null;
+  if (info.error) {
+    return { error: "Google-\xF8kten er utl\xF8pt. Logg inn med Google p\xE5 nytt." };
+  }
+  if (info.aud !== env.googleClientId && info.azp !== env.googleClientId) {
+    return {
+      error: "Google-klienten p\xE5 serveren matcher ikke innloggingen. Sjekk at GOOGLE_CLIENT_ID i Vercel er den fra MasterChurchPlan, og at den gjelder Production (ikke bare Build)."
+    };
+  }
+  if (info.email_verified === false || info.email_verified === "false") {
+    return { error: "Google-kontoen har ikke bekreftet e-postadresse." };
+  }
+  const email = String(info.email || "").trim().toLowerCase();
+  if (!email) return { error: "Google-innlogging ga ingen e-postadresse." };
+  return { email };
 }
 function epostErMagnar(epost) {
   return epost.trim().toLowerCase() === MAGNAR_GOOGLE_EPOST.toLowerCase();
@@ -343,8 +362,9 @@ async function lastFraSheets(env, body) {
 }
 async function requireAuth(env, body, state) {
   if (body.googleCredential) {
-    const email = await verifyGoogleEmail(env, String(body.googleCredential));
-    if (!email) return { ok: false, error: "Ugyldig Google-innlogging." };
+    const google = await verifyGoogleEmail(env, String(body.googleCredential));
+    if ("error" in google) return { ok: false, error: google.error };
+    const email = google.email;
     const db = state;
     const person = finnPersonForGoogleSesjon(db, email);
     if (epostErMagnar(email) && (!person || !erAdministrator(db, person.PersonID))) {

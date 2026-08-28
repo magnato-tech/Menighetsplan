@@ -91,6 +91,9 @@ export default function App() {
       .catch((e) => {
         if (!cancelled) {
           const melding = e instanceof Error ? e.message : String(e);
+          if (/google/i.test(melding)) {
+            slettAdminSesjon();
+          }
           setLoadError(melding);
           setStartFeil(melding);
           setViserStartside(true);
