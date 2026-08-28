@@ -473,6 +473,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </p>
         </div>
       </div>
+      </div>
       )}
 
       {/* Datastatistikk nå */}
