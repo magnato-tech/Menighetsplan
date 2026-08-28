@@ -85,6 +85,16 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
     setTimeout(() => setStatusMessage(null), 4000);
   };
 
+  const handleResetScriptUrl = () => {
+    setScriptUrl(DEFAULT_REMOTE_SCRIPT_URL);
+    saveCustomScriptUrl(DEFAULT_REMOTE_SCRIPT_URL);
+    setStatusMessage({
+      type: "success",
+      text: "Standard Apps Script-URL er satt. Prøv Google Sheets-knappen på nytt.",
+    });
+    setTimeout(() => setStatusMessage(null), 5000);
+  };
+
   const handleSaveIcalUrl = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmet = icalUrlUtkast.trim().replace(/^webcal:\/\//i, "https://");
@@ -526,6 +536,11 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
               Aktiv standard-URL for menigheten
             </span>
           )}
+          {!isUsingDefault && scriptUrl.trim() && (
+            <span className="text-[11px] bg-amber-100 text-amber-900 px-2 py-0.5 rounded-md font-medium border border-amber-200">
+              Egendefinert URL — feil adresse gir «Ukjent action» eller innloggingsfeil
+            </span>
+          )}
         </div>
 
         <form onSubmit={handleSaveUrl} className="space-y-3">
@@ -548,17 +563,24 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
                 <Save className="w-3.5 h-3.5" />
                 <span>Lagre URL</span>
               </button>
+              {!isUsingDefault && (
+                <button
+                  type="button"
+                  onClick={handleResetScriptUrl}
+                  className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition cursor-pointer shrink-0"
+                >
+                  Bruk standard
+                </button>
+              )}
             </div>
           </div>
         </form>
 
         <div className="text-[11px] text-slate-500 space-y-1">
           <p>
-            <strong>Tips:</strong> Daglig lagring går til Supabase. Trykk{" "}
-            <strong>«Hent fra Google-arket til Supabase»</strong> for å erstatte testdata med
-            den gamle databasen i arket. Bruk <strong>«Eksporter backup til Google Sheets»</strong> når
-            du vil ha en kopi tilbake i arket.
-            Excel-importfanene leses via <strong>«Import fra Excel-faner»</strong>.
+            <strong>Tips:</strong> Daglig lagring går til Supabase. Google Sheets er backup.
+            Hvis knapper mot arket feiler: klikk <strong>Bruk standard</strong> over, logg ut og inn med Google,
+            og sjekk at <code>GOOGLE_CLIENT_ID</code> er satt i Apps Script (Prosjektinnstillinger → Skriptegenskaper).
           </p>
         </div>
       </div>

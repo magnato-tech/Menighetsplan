@@ -1077,7 +1077,7 @@ export async function eksporterTilImportfaner(state: DatabaseState): Promise<{
       error: "Mock-modus skriver ikke til arket. Velg «Ekte data» først.",
     };
   }
-  const base = getApiBase();
+  const base = getSheetsApiBase();
   if (!base) {
     return { success: false, error: "Mangler Apps Script-URL." };
   }
