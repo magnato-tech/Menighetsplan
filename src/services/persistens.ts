@@ -754,13 +754,23 @@ export async function loadDatabase(): Promise<DatabaseState> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REMOTE_FETCH_TIMEOUT_MS);
   try {
-    const text = await fetchJson(base, {
+      const text = await fetchJson(base, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "load", ...requireRemoteAuth() }),
       signal: controller.signal,
     });
-    const payload = JSON.parse(text);
+    let payload: { ok?: boolean; data?: unknown; error?: string; updated_at?: string; personId?: string; isAdmin?: boolean };
+    try {
+      payload = JSON.parse(text);
+    } catch {
+      const hint = text.trim().slice(0, 120).replace(/\s+/g, " ");
+      throw new Error(
+        text.includes("A server error")
+          ? "Databasetjenesten krasjet. Prøv igjen om et minutt, eller sjekk Vercel-loggene for /api/db."
+          : `Ugyldig svar fra databasen: ${hint || "(tomt)"}`
+      );
+    }
     if (payload?.ok && payload.data) {
       noterPersondataFraServer(payload.isAdmin);
       if (payload.updated_at) sisteRemoteUpdatedAt = String(payload.updated_at);
