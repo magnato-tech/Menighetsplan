@@ -45,7 +45,7 @@ import { PersonalView } from "./components/PersonalView";
 import { GroupLeaderView } from "./components/GroupLeaderView";
 import { AdminView } from "./components/AdminView";
 import { MobilBunnmeny, type LederSeksjon } from "./components/MobilBunnmeny";
-import { Shield, ArrowLeft } from "lucide-react";
+import { Shield, ArrowLeft, Users } from "lucide-react";
 import { Rolle } from "./types/database";
 
 export default function App() {
@@ -67,6 +67,7 @@ export default function App() {
   const [visOppgaverArk, setVisOppgaverArk] = useState(false);
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
   const [adminSimulatingPersonId, setAdminSimulatingPersonId] = useState<string | null>(null);
+  const [leaderViewAsObserverId, setLeaderViewAsObserverId] = useState<string | null>(null);
 
   const harValgtStartvisning = useRef(false);
   const [viserStartside, setViserStartside] = useState(() => {
@@ -282,6 +283,7 @@ export default function App() {
   }, [db]);
 
   const handleSelectPerson = (personId: string, view?: AppView) => {
+    setLeaderViewAsObserverId(null);
     setSelectedPersonId(personId);
     setDatePickerRolle(null);
     setLederSeksjon("gruppe");
@@ -297,7 +299,26 @@ export default function App() {
     }
   };
 
+  const handleLeaderViewAs = (memberId: string, view: AppView = "personal") => {
+    setLeaderViewAsObserverId((prev) => prev ?? selectedPersonId);
+    setSelectedPersonId(memberId);
+    setDatePickerRolle(null);
+    setLederSeksjon("gruppe");
+    setVisOppgaverArk(false);
+    setActiveView(view);
+  };
+
+  const handleReturnFromLeaderView = () => {
+    if (!leaderViewAsObserverId) return;
+    setSelectedPersonId(leaderViewAsObserverId);
+    setLeaderViewAsObserverId(null);
+    setActiveView("leader");
+    setDatePickerRolle(null);
+    setVisOppgaverArk(false);
+  };
+
   const handleAdminSimulatePerson = (personId: string, targetView: AppView = "personal") => {
+    setLeaderViewAsObserverId(null);
     setAdminSimulatingPersonId(personId);
     setSelectedPersonId(personId);
     setActiveView(targetView);
@@ -309,6 +330,7 @@ export default function App() {
     if (firstAdmin) {
       setSelectedPersonId(firstAdmin.PersonID);
     }
+    setLeaderViewAsObserverId(null);
     setAdminSimulatingPersonId(null);
     setActiveView("admin");
   };
@@ -440,6 +462,9 @@ export default function App() {
   const activePerson = db.personer.find((p) => p.PersonID === selectedPersonId);
   const tilgang = hentTilgang(db, selectedPersonId);
   const isActualAdmin = tilgang.isAdmin;
+  const observerPerson = leaderViewAsObserverId
+    ? db.personer.find((p) => p.PersonID === leaderViewAsObserverId)
+    : null;
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
@@ -467,6 +492,25 @@ export default function App() {
             onClick={() => setRemoteSaveFeil(null)}
           >
             Skjul
+          </button>
+        </div>
+      )}
+      {leaderViewAsObserverId && (
+        <div className="bg-sky-500 text-slate-950 px-4 py-2 text-xs font-medium flex items-center justify-between shadow-sm sticky top-0 z-40">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4 text-slate-950" />
+            <span>
+              <strong>Gruppeleder-visning:</strong> Du ser nå skjermen slik den oppleves av{" "}
+              <strong>{activePerson?.Navn || selectedPersonId}</strong>.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={handleReturnFromLeaderView}
+            className="bg-slate-900 hover:bg-slate-800 text-white px-3 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-xs"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Tilbake til {observerPerson?.Fornavn || "gruppeleder"}
           </button>
         </div>
       )}
@@ -529,6 +573,7 @@ export default function App() {
             selectedPersonId={selectedPersonId}
             onUpdateDb={handleUpdateDb}
             onSelectPerson={handleSelectPerson}
+            onViewAsMember={handleLeaderViewAs}
             lederSeksjon={lederSeksjon}
             onLederSeksjon={setLederSeksjon}
             fokusMedlemmerNokkel={fokusMedlemmerNokkel}

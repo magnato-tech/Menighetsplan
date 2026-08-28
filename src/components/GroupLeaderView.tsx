@@ -38,6 +38,7 @@ interface GroupLeaderViewProps {
   selectedPersonId: string;
   onUpdateDb: (updatedDb: DatabaseState) => void;
   onSelectPerson: (personId: string, view?: AppView) => void;
+  onViewAsMember?: (personId: string, view?: AppView) => void;
   lederSeksjon?: LederSeksjon;
   onLederSeksjon?: (seksjon: LederSeksjon) => void;
   fokusMedlemmerNokkel?: number;
@@ -78,6 +79,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   selectedPersonId,
   onUpdateDb,
   onSelectPerson,
+  onViewAsMember,
   lederSeksjon = "gruppe",
   onLederSeksjon,
   fokusMedlemmerNokkel = 0,
@@ -434,6 +436,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           copiedPersonId={copiedPersonId}
           onCopyLink={handleCopyLink}
           onSelectPerson={onSelectPerson}
+          onViewAsMember={onViewAsMember}
           onLeggTilMedlem={handleLeggTilMedlem}
         />
       </div>

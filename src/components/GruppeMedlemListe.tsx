@@ -19,6 +19,7 @@ interface GruppeMedlemListeProps {
   copiedPersonId: string | null;
   onCopyLink: (personId: string) => void;
   onSelectPerson: (personId: string, view?: AppView) => void;
+  onViewAsMember?: (personId: string, view?: AppView) => void;
   onLeggTilMedlem: (personId: string) => void;
 }
 
@@ -30,6 +31,7 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
   copiedPersonId,
   onCopyLink,
   onSelectPerson,
+  onViewAsMember,
   onLeggTilMedlem,
 }) => {
   const [medlemSok, setMedlemSok] = useState("");
@@ -171,9 +173,11 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
                     </div>
                     <div className="flex items-center gap-1 shrink-0 pt-0.5">
                       <IkonHandling
-                        label={`Se Min side som ${m.Fornavn || m.Navn}`}
+                        label={`Forhåndsvis Min side som ${m.Fornavn || m.Navn}`}
                         Icon={Eye}
-                        onClick={() => onSelectPerson(m.PersonID, "personal")}
+                        onClick={() =>
+                          (onViewAsMember ?? onSelectPerson)(m.PersonID, "personal")
+                        }
                       />
                       <IkonHandling
                         label="Kopier personlenke"
