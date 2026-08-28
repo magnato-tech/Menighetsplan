@@ -54,7 +54,7 @@ export default function App() {
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoadingRemote, setIsLoadingRemote] = useState<boolean>(() => {
-    const remote = import.meta.env.PROD || getDevDataSource() === "remote";
+    const remote = getDevDataSource() === "remote";
     return remote && (Boolean(lesMagiskTokenFraUrl()) || Boolean(hentAdminGoogleCredential()));
   });
   const [activeView, setActiveView] = useState<AppView>("personal");
@@ -68,7 +68,7 @@ export default function App() {
 
   const harValgtStartvisning = useRef(false);
   const [viserStartside, setViserStartside] = useState(() => {
-    const remote = import.meta.env.PROD || getDevDataSource() === "remote";
+    const remote = getDevDataSource() === "remote";
     if (!remote) return false;
     return !lesMagiskTokenFraUrl() && !hentAdminGoogleCredential();
   });
@@ -143,7 +143,6 @@ export default function App() {
   };
 
   const handleUseMockFallback = () => {
-    if (import.meta.env.PROD) return;
     void switchDevDataSource("mock").then((mock) => {
       setDataSource("mock");
       setLoadError(null);
@@ -153,7 +152,6 @@ export default function App() {
   };
 
   const handleSwitchDataSource = (source: DevDataSource) => {
-    if (import.meta.env.PROD) return;
     if (source === "remote" && !harApiIdentitet()) {
       setDevDataSource("remote");
       setDataSource("remote");
@@ -335,7 +333,6 @@ export default function App() {
   };
 
   const handleFortsettLokalt = () => {
-    if (import.meta.env.PROD) return;
     slettMagiskToken();
     slettAdminSesjon();
     setStartFeil(null);
@@ -395,7 +392,7 @@ export default function App() {
         feilmelding={startFeil}
         onLimInnLenke={handleLimInnLenke}
         onGoogleCredential={handleGoogleCredential}
-        onFortsettLokalt={import.meta.env.DEV ? handleFortsettLokalt : undefined}
+        onFortsettLokalt={handleFortsettLokalt}
       />
     );
   }
@@ -416,15 +413,13 @@ export default function App() {
                 >
                   Prøv igjen
                 </button>
-                {import.meta.env.DEV && (
-                  <button
-                    type="button"
-                    onClick={handleUseMockFallback}
-                    className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 cursor-pointer"
-                  >
-                    Bruk mock-data
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleUseMockFallback}
+                  className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 cursor-pointer"
+                >
+                  Bruk testdata
+                </button>
               </div>
             </>
           ) : (
@@ -443,9 +438,10 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-100/70 text-slate-900 font-sans flex flex-col selection:bg-indigo-500 selection:text-white">
-      {dataSource === "mock" && import.meta.env.DEV && (
+      {dataSource === "mock" && (
         <div className="bg-amber-100 text-amber-950 px-4 py-2 text-xs font-medium text-center border-b border-amber-200">
-          Utvikling: mock-data. Leser og skriver ikke til Supabase. Bytt under Administrator → Innstillinger.
+          Testdata i denne nettleseren — skrives ikke til Supabase eller Google-arket. Bytt til ekte
+          data under Administrator → Innstillinger.
         </div>
       )}
       {remoteSaveFeil && (

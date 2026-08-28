@@ -113,7 +113,6 @@ let sessionMockOverride = false;
 let devDataSource: DevDataSource | null = null;
 
 export function getDevDataSource(): DevDataSource {
-  if (import.meta.env?.PROD) return "remote";
   if (devDataSource) return devDataSource;
   try {
     const saved = localStorage.getItem(DEV_SOURCE_KEY);
@@ -124,12 +123,15 @@ export function getDevDataSource(): DevDataSource {
   } catch {
     // Ignore
   }
-  devDataSource = import.meta.env?.VITE_USE_REMOTE_DATA === "true" ? "remote" : "mock";
+  devDataSource = import.meta.env?.PROD
+    ? "remote"
+    : import.meta.env?.VITE_USE_REMOTE_DATA === "true"
+      ? "remote"
+      : "mock";
   return devDataSource;
 }
 
 export function setDevDataSource(source: DevDataSource): void {
-  if (import.meta.env?.PROD) return;
   devDataSource = source;
   sessionMockOverride = false;
   try {
@@ -145,6 +147,7 @@ function currentLocalStorageKey(): string {
 
 function persistLocalState(state: DatabaseState): void {
   try {
+    if (typeof localStorage === "undefined") return;
     localStorage.setItem(currentLocalStorageKey(), JSON.stringify(state));
   } catch (e) {
     console.warn("Kunne ikke lagre til localStorage cache:", e);
@@ -152,11 +155,10 @@ function persistLocalState(state: DatabaseState): void {
 }
 
 /**
- * Produksjon bruker alltid Supabase via /api/db.
- * Utvikling: admin-valget (localStorage), ellers mock som standard.
+ * Ekte data: Supabase via /api/db.
+ * Mock: testdata i nettleseren (valg på startsiden eller Admin → Innstillinger).
  */
 export function useRemoteData(): boolean {
-  if (import.meta.env?.PROD) return true;
   return getDevDataSource() === "remote";
 }
 
@@ -634,6 +636,25 @@ export function byggStandardMockState(): DatabaseState {
     gudstjenesterImport: initialGudstjenesterImport,
     rollebeskrivelseImport: initialRollebeskrivelseImport,
   });
+}
+
+/** Overskriver gjeldende app-data med testdata. På ekte data skrives det til Supabase, ikke til Google-arket. */
+export async function populerMedMockData(): Promise<{
+  success: boolean;
+  data?: DatabaseState;
+  error?: string;
+}> {
+  try {
+    const state = byggStandardMockState();
+    persistLocalState(state);
+    saveDatabase(state);
+    if (shouldWriteToRemote()) {
+      await whenRemoteSaveIdle();
+    }
+    return { success: true, data: state };
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 function requireRemoteAuth(): { token?: string; googleCredential?: string } {
@@ -1176,16 +1197,16 @@ export function populateMockDatabase(): DatabaseState {
   return state;
 }
 
-/** Bytt datakilde i utvikling. Mock leser/skriver aldri remote. */
+/** Bytt datakilde. Mock leser/skriver aldri remote. */
 export async function switchDevDataSource(source: DevDataSource): Promise<DatabaseState> {
-  if (import.meta.env.PROD) {
-    return loadDatabase();
-  }
   setDevDataSource(source);
   if (source === "mock") {
     return loadLocalDatabase();
   }
   const lastet = await loadDatabase();
+  if (import.meta.env.PROD) {
+    return lastet;
+  }
   const fraMock = lesLocalJson(MOCK_STORAGE_KEY);
   const flettet = applyLoadedState(normalizeState(flettLastetMedLokalCache(lastet, fraMock)));
   saveDatabase(flettet);

@@ -17,6 +17,7 @@ import {
   gyldigIcalHttpUrl,
   KIRKE_ICAL_KATEGORI_URL,
   hentSisteRemoteOppdatert,
+  populerMedMockData,
 } from "../services/dataService";
 import { PersonlenkeInnstillinger } from "./PersonlenkeInnstillinger";
 import {
@@ -28,6 +29,7 @@ import {
   Link,
   Database,
   FileSpreadsheet,
+  FlaskConical,
 } from "lucide-react";
 
 interface GoogleSheetsSyncProps {
@@ -52,6 +54,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
   const [isMigrating, setIsMigrating] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [isSeeding, setIsSeeding] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<{
     type: "success" | "error" | "info";
     text: string;
@@ -155,6 +158,29 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
     }
   };
 
+  const handlePopulerMock = async () => {
+    const mal = remoteEnabled
+      ? "Overskrive dataene i Supabase med testdata? Google-arket endres ikke. Du kan hente arket etterpå for å få tilbake den gamle databasen."
+      : "Overskrive testdataene i denne nettleseren med standard mock? Supabase og Google-arket endres ikke.";
+    if (!window.confirm(mal)) return;
+    setIsSeeding(true);
+    setStatusMessage({ type: "info", text: "Fyller med testdata …" });
+    const res = await populerMedMockData();
+    setIsSeeding(false);
+    if (res.success && res.data) {
+      onUpdateDb(res.data);
+      setStatusMessage({
+        type: "success",
+        text: `Testdata er lastet inn: ${res.data.personer.length} personer, ${res.data.gudstjenester.length} gudstjenester og ${res.data.grupper.length} grupper.`,
+      });
+    } else {
+      setStatusMessage({
+        type: "error",
+        text: res.error || "Kunne ikke laste testdata.",
+      });
+    }
+  };
+
   const handleUploadToSheets = async () => {
     if (
       !window.confirm(
@@ -219,12 +245,12 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
 
   return (
     <div className="space-y-6">
-      {import.meta.env.DEV && onSwitchDataSource && (
+      {onSwitchDataSource && (
         <div className="rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 space-y-3">
           <h2 className="text-lg font-bold text-slate-900">Datakilde</h2>
           <p className="text-xs text-slate-700">
-            Mock-data lagres bare i denne nettleseren. Ekte data leser og skriver Supabase —
-            da må du være innlogget med personlig admin-lenke eller Google.
+            Testdata lagres bare i denne nettleseren og treffer ikke Supabase eller Google-arket.
+            Ekte data krever innlogging (Google eller personlenke).
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             <button
@@ -236,9 +262,9 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
                   : "border-slate-200 bg-white hover:bg-slate-50"
               }`}
             >
-              <div className="text-sm font-bold text-slate-900">Mock-data</div>
+              <div className="text-sm font-bold text-slate-900">Testdata</div>
               <div className="text-xs text-slate-600 mt-1">
-                Testdata. Ingen Sheets-trafikk.
+                Mock fra appen. Trygt å klikke rundt.
               </div>
             </button>
             <button
@@ -252,16 +278,20 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             >
               <div className="text-sm font-bold text-slate-900">Ekte data</div>
               <div className="text-xs text-slate-600 mt-1">
-                Leser Supabase. Krever personlig admin-lenke.
+                Supabase. Kan erstattes fra Google-arket.
               </div>
             </button>
           </div>
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isMigrating || isSeeding}
+            onClick={() => void handlePopulerMock()}
+            className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <FlaskConical className={`w-4 h-4 ${isSeeding ? "opacity-50" : ""}`} />
+            <span>{isSeeding ? "Fyller testdata..." : "Populer med testdata"}</span>
+          </button>
         </div>
-      )}
-      {!import.meta.env.DEV && (
-        <p className="text-xs text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
-          Live-siden har ingen Datakilde-fane. Den bruker alltid Supabase.
-        </p>
       )}
       {selectedPersonId && (
         <PersonlenkeInnstillinger
@@ -362,7 +392,16 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           )}
           <button
             type="button"
-            disabled={isLoading || isUploading || isExporting || isMigrating || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isSeeding}
+            onClick={() => void handlePopulerMock()}
+            className="px-3.5 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-950 border border-amber-300 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
+          >
+            <FlaskConical className={`w-4 h-4 ${isSeeding ? "opacity-50" : ""}`} />
+            <span>{isSeeding ? "Fyller testdata..." : "Populer med testdata"}</span>
+          </button>
+          <button
+            type="button"
+            disabled={isLoading || isUploading || isExporting || isMigrating || isSeeding || !remoteEnabled}
             onClick={() => void handleEksporterImportBackup()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -371,7 +410,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || isExporting || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isExporting || isSeeding || !remoteEnabled}
             onClick={() => void handleReloadSupabase()}
             className="px-4 py-2.5 bg-[#2d5a3f] hover:bg-[#234731] disabled:opacity-50 text-white text-xs font-semibold rounded-xl shadow-xs transition flex items-center gap-2 cursor-pointer"
           >
@@ -380,7 +419,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isSeeding || !remoteEnabled}
             onClick={() => void handleMigrerFraArk()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >
@@ -389,7 +428,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </button>
           <button
             type="button"
-            disabled={isLoading || isUploading || isMigrating || !remoteEnabled}
+            disabled={isLoading || isUploading || isMigrating || isSeeding || !remoteEnabled}
             onClick={() => void handleUploadToSheets()}
             className="px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 text-xs font-semibold rounded-xl transition flex items-center gap-2 cursor-pointer disabled:opacity-50"
           >

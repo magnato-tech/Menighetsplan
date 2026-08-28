@@ -159,7 +159,7 @@ export const Startside: React.FC<StartsideProps> = ({
                 onClick={onFortsettLokalt}
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-800 text-sm font-semibold cursor-pointer"
               >
-                Tilbake til mock-data (uten Google-ark)
+                Tilbake til testdata (kun i denne nettleseren)
               </button>
             )}
           </div>
