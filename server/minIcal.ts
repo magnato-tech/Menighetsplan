@@ -33,6 +33,7 @@ function debugLog(
   message: string,
   data: Record<string, unknown>
 ): void {
+  if (process.env.VERCEL) return;
   fetch("http://127.0.0.1:7773/ingest/22f8ce1a-6ae6-4b39-94db-6128c87cda21", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "c1c83b" },
@@ -72,7 +73,7 @@ export default async function handler(
     // #region agent log
     debugLog("B", "minIcal missing token", {});
     // #endregion
-    res.status(400).send(TOM_ICS);
+    res.status(200).send(TOM_ICS);
     return;
   }
 
@@ -94,7 +95,14 @@ export default async function handler(
     // #endregion
 
     if (!upstream.ok || !ics.includes("BEGIN:VCALENDAR")) {
-      res.status(502).send(TOM_ICS);
+      // #region agent log
+      debugLog("C", "minIcal upstream invalid", {
+        ok: upstream.ok,
+        status: upstream.status,
+        icsLen: ics.length,
+      });
+      // #endregion
+      res.status(200).send(TOM_ICS);
       return;
     }
     res.status(200).send(ics);
@@ -102,6 +110,6 @@ export default async function handler(
     // #region agent log
     debugLog("D", "minIcal fetch error", { error: String(err) });
     // #endregion
-    res.status(502).send(TOM_ICS);
+    res.status(200).send(TOM_ICS);
   }
 }

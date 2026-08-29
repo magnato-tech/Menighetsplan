@@ -42,6 +42,7 @@ function tokenFra(req) {
   return "";
 }
 function debugLog(hypothesisId, message, data) {
+  if (process.env.VERCEL) return;
   fetch("http://127.0.0.1:7773/ingest/22f8ce1a-6ae6-4b39-94db-6128c87cda21", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "c1c83b" },
@@ -68,7 +69,7 @@ async function handler(req, res) {
   res.setHeader("Cache-Control", "public, max-age=300");
   if (!t) {
     debugLog("B", "minIcal missing token", {});
-    res.status(400).send(TOM_ICS);
+    res.status(200).send(TOM_ICS);
     return;
   }
   const dest = `${GAS_URL.replace(/\/$/, "")}?action=minIcal&t=${encodeURIComponent(t)}`;
@@ -86,13 +87,18 @@ async function handler(req, res) {
       startsWithVcal: ics.startsWith("BEGIN:VCALENDAR")
     });
     if (!upstream.ok || !ics.includes("BEGIN:VCALENDAR")) {
-      res.status(502).send(TOM_ICS);
+      debugLog("C", "minIcal upstream invalid", {
+        ok: upstream.ok,
+        status: upstream.status,
+        icsLen: ics.length
+      });
+      res.status(200).send(TOM_ICS);
       return;
     }
     res.status(200).send(ics);
   } catch (err) {
     debugLog("D", "minIcal fetch error", { error: String(err) });
-    res.status(502).send(TOM_ICS);
+    res.status(200).send(TOM_ICS);
   }
 }
 // Annotate the CommonJS export names for ESM import in node:
