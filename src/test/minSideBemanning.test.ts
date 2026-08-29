@@ -290,6 +290,52 @@ function reload(db: DatabaseState): DatabaseState {
 }
 
 {
+  let db = settDeltakelseForPerson(tomDb(), "P010", GUD_ID, "R005", "Avventer");
+  const t1 = db.tildelinger.find(
+    (x) => x.GudstjenesteID === GUD_ID && x.RolleID === "R005" && x.PersonID === "P010"
+  )!;
+  db = {
+    ...db,
+    tildelinger: [
+      ...db.tildelinger,
+      {
+        TildelingID: "T999",
+        GudstjenesteID: GUD_ID,
+        RolleID: "R005",
+        PersonID: "P010",
+        OpprettetDato: "2026-01-20",
+        SistEndret: "2026-01-20",
+      },
+    ],
+    svar: [
+      ...db.svar,
+      {
+        SvarID: "S999",
+        TildelingID: "T999",
+        PersonID: "P010",
+        Svar: "Venter",
+        SvartDato: "",
+      },
+    ],
+  };
+  const foresp = hentKommendeForesporsler(db, "P010").find((f) => f.tildelingId === "T999");
+  assert.ok(foresp);
+  db =
+    svarPaForesporsel(
+      db,
+      "P010",
+      foresp!.gudstjenesteId,
+      foresp!.rolleId,
+      "Avvist",
+      "har dårlig tid",
+      foresp!.tildelingId
+    ) || db;
+  assert.equal(hentSvarStatus(db, "T999"), "Avvist");
+  assert.equal(hentSvarStatus(db, t1.TildelingID), "Venter");
+  assert.equal(hentKommendeForesporsler(db, "P010").length, 1);
+}
+
+{
   const db = tomDb();
   const result = velgDatoForPerson(db, "P010", GUD_ID, "R010");
   assert.equal(result.success, false);

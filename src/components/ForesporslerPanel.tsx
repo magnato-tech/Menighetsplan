@@ -116,7 +116,8 @@ export const ForesporslerPanel: React.FC<ForesporslerPanelProps> = ({
       rad.gudstjenesteId,
       rad.rolleId,
       svar,
-      melding
+      melding,
+      rad.tildelingId
     );
     if (neste) onUpdateDb(neste);
   };

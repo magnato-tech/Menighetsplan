@@ -3,9 +3,6 @@ import {
   AppView,
   DatabaseState,
   hentTilgang,
-  visKalenderForPerson,
-  finnGrupperSomLederEllerNestleder,
-  erTjenestegruppe,
 } from "../services/dataService";
 import {
   Ellipsis,
@@ -20,11 +17,21 @@ import {
 
 export type LederSeksjon = "hjem" | "medlemmer" | "samlinger" | "bemanning" | "kalender";
 
+export type LederNavTilstand = {
+  visMedlemmer: boolean;
+  visBemanning: boolean;
+  visSamlinger: boolean;
+  visKalender: boolean;
+  visHjem: boolean;
+  primarSeksjon: LederSeksjon;
+};
+
 interface MobilBunnmenyProps {
   db: DatabaseState;
   personId: string;
   activeView: AppView;
   lederSeksjon: LederSeksjon;
+  lederNavTilstand?: LederNavTilstand;
   onNavigate: (view: AppView) => void;
   onFokusHjem: () => void;
   onFokusMedlemmer: () => void;
@@ -58,6 +65,7 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
   personId,
   activeView,
   lederSeksjon,
+  lederNavTilstand,
   onNavigate,
   onFokusHjem,
   onFokusMedlemmer,
@@ -67,9 +75,6 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
 }) => {
   const [flereApen, setFlereApen] = useState(false);
   const tilgang = hentTilgang(db, personId);
-  const lederTjenestegruppe = finnGrupperSomLederEllerNestleder(db, personId).some((g) =>
-    erTjenestegruppe(db, g)
-  );
 
   const poster: BunnPost[] = [];
   if (activeView === "personal") {
@@ -81,15 +86,32 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
     }
   } else if (activeView === "leader") {
     poster.push({ id: "nav-personal", kind: "nav", view: "personal", etikett: "Min side" });
-    if (lederTjenestegruppe) {
-      poster.push({ id: "bemanning", kind: "bemanning", etikett: "Bemanning" });
+
+    const primar = lederNavTilstand?.primarSeksjon;
+    const lederPoster: BunnPost[] = [];
+    if (lederNavTilstand?.visBemanning) {
+      lederPoster.push({ id: "bemanning", kind: "bemanning", etikett: "Bemanning" });
     }
-    poster.push({ id: "medlemmer", kind: "medlemmer", etikett: "Medlemmer" });
-    poster.push({ id: "samlinger", kind: "samlinger", etikett: "Samlinger" });
-    poster.push({ id: "hjem", kind: "hjem", etikett: "Hjem" });
-    if (visKalenderForPerson(db, personId, "gruppeleder")) {
-      poster.push({ id: "kalender", kind: "kalender", etikett: "Kalender" });
+    if (lederNavTilstand?.visSamlinger) {
+      lederPoster.push({ id: "samlinger", kind: "samlinger", etikett: "Samlinger" });
     }
+    if (lederNavTilstand?.visMedlemmer) {
+      lederPoster.push({ id: "medlemmer", kind: "medlemmer", etikett: "Medlemmer" });
+    }
+    if (lederNavTilstand?.visHjem !== false) {
+      lederPoster.push({ id: "hjem", kind: "hjem", etikett: "Hjem" });
+    }
+    if (lederNavTilstand?.visKalender) {
+      lederPoster.push({ id: "kalender", kind: "kalender", etikett: "Kalender" });
+    }
+    if (primar && primar !== "hjem") {
+      lederPoster.sort((a, b) => {
+        const aErPrimar = a.kind === primar ? 0 : 1;
+        const bErPrimar = b.kind === primar ? 0 : 1;
+        return aErPrimar - bErPrimar;
+      });
+    }
+    poster.push(...lederPoster);
     if (tilgang.views.includes("admin")) {
       poster.push({ id: "nav-admin", kind: "nav", view: "admin", etikett: "Admin" });
     }

@@ -59,22 +59,13 @@ export const GruppeSondagStatusPanel: React.FC<GruppeSondagStatusPanelProps> = (
           <li key={rad.rolle.RolleID} className="min-w-0 py-1.5">
             <div className="flex items-center gap-2 min-w-0">
               <RolleIkon rollenavn={rad.rolle.Rollenavn} className="w-7 h-7" />
-              <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 shrink-0 min-w-[4.5rem]">
+              <span className="min-w-0 flex-1 sm:flex-none text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 sm:shrink-0 sm:min-w-[4.5rem] truncate">
                 {rad.rolle.Rollenavn}
               </span>
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0 tabular-nums">
                 {telling}
               </span>
-              <div className="ml-auto flex items-center gap-1 shrink-0 justify-end flex-wrap">
-                {rad.personerPå.map((p) => (
-                  <span
-                    key={p.personId}
-                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)}`}
-                  >
-                    {p.navn}
-                    {p.status === "Venter" ? " ·" : ""}
-                  </span>
-                ))}
+              <div className="ml-auto flex items-center gap-1 shrink-0 justify-end">
                 {kanMeldPa ? (
                   <MinSideRolleKnapper
                     rollenavn={rad.rolle.Rollenavn}
@@ -86,6 +77,19 @@ export const GruppeSondagStatusPanel: React.FC<GruppeSondagStatusPanelProps> = (
                     onMeldForfallClick={() => {}}
                     onSvarForesporsel={() => {}}
                   />
+                ) : null}
+                {rad.personerPå.length > 0 ? (
+                  <div className="hidden sm:flex flex-wrap gap-1 justify-end max-w-[9rem] lg:max-w-none">
+                    {rad.personerPå.map((p) => (
+                      <span
+                        key={p.personId}
+                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)}`}
+                      >
+                        {p.navn}
+                        {p.status === "Venter" ? " ·" : ""}
+                      </span>
+                    ))}
+                  </div>
                 ) : null}
               </div>
             </div>

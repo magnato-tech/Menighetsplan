@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   DatabaseState,
   finnGrupperSomLederEllerNestleder,
@@ -24,6 +24,7 @@ import {
   formatertArrangementDato,
   oppfølgingsSignaler,
   opprettNyPersonFraGruppeleder,
+  standardLederSeksjonForGruppe,
 } from "../services/dataService";
 import { Person } from "../types/database";
 import { GruppeMedlemListe } from "./GruppeMedlemListe";
@@ -43,7 +44,7 @@ import { GruppeRessurser } from "./GruppeRessurser";
 import { SamlingOppmotePanel } from "./SamlingOppmotePanel";
 import { SamlingMeldingPanel } from "./SamlingMeldingPanel";
 import { Users, Shield, Search, HelpCircle, AlertCircle } from "lucide-react";
-import type { LederSeksjon } from "./MobilBunnmeny";
+import type { LederSeksjon, LederNavTilstand } from "./MobilBunnmeny";
 
 const ALLE_GRUPPER = "";
 
@@ -55,6 +56,7 @@ interface GroupLeaderViewProps {
   onViewAsMember?: (personId: string, view?: AppView) => void;
   lederSeksjon?: LederSeksjon;
   onLederSeksjon?: (seksjon: LederSeksjon) => void;
+  onLederNavTilstand?: (tilstand: LederNavTilstand) => void;
   fokusMedlemmerNokkel?: number;
 }
 
@@ -107,6 +109,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   onViewAsMember,
   lederSeksjon = "hjem",
   onLederSeksjon,
+  onLederNavTilstand,
   fokusMedlemmerNokkel = 0,
 }) => {
   const [copiedPersonId, setCopiedPersonId] = useState<string | null>(null);
@@ -120,6 +123,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const [guideApneForsteKort, setGuideApneForsteKort] = useState(false);
   const [activeGruppeId, setActiveGruppeId] = useState(ALLE_GRUPPER);
   const [nySamlingApen, setNySamlingApen] = useState(false);
+  const forrigeGruppeIdRef = useRef<string | null>(null);
 
   const person = db.personer.find((p) => p.PersonID === selectedPersonId);
   const lededeGrupper = person
@@ -165,6 +169,59 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
       : lededeGrupper.filter((g) => g.GruppeID === activeGruppeId);
   const currentGruppe = visGrupper.length === 1 ? visGrupper[0] : undefined;
   const visGruppeIds = visGrupper.map((g) => g.GruppeID);
+  const gruppensRollerForNav = db.roller.filter(
+    (r) => r.Aktiv && visGruppeIds.includes(r.GruppeID)
+  );
+  const harBemanningPrimar = Boolean(
+    currentGruppe &&
+      erTjenestegruppe(db, currentGruppe) &&
+      gruppensRollerForNav.length > 0
+  );
+  const primarSeksjon: LederSeksjon = currentGruppe
+    ? standardLederSeksjonForGruppe(db, currentGruppe)
+    : "hjem";
+
+  useEffect(() => {
+    if (lededeGrupper.length === 0) {
+      onLederNavTilstand?.({
+        visMedlemmer: false,
+        visBemanning: false,
+        visSamlinger: false,
+        visKalender: false,
+        visHjem: false,
+        primarSeksjon: "hjem",
+      });
+      return;
+    }
+    onLederNavTilstand?.({
+      visMedlemmer: Boolean(currentGruppe),
+      visBemanning: harBemanningPrimar,
+      visSamlinger: Boolean(currentGruppe),
+      visKalender: Boolean(
+        currentGruppe && visKalenderForPerson(db, selectedPersonId, "gruppeleder")
+      ),
+      visHjem: Boolean(currentGruppe) && !harBemanningPrimar,
+      primarSeksjon,
+    });
+  }, [
+    lededeGrupper.length,
+    currentGruppe,
+    harBemanningPrimar,
+    primarSeksjon,
+    db,
+    selectedPersonId,
+    onLederNavTilstand,
+  ]);
+
+  useEffect(() => {
+    if (!currentGruppe) {
+      forrigeGruppeIdRef.current = null;
+      return;
+    }
+    if (forrigeGruppeIdRef.current === currentGruppe.GruppeID) return;
+    forrigeGruppeIdRef.current = currentGruppe.GruppeID;
+    onLederSeksjon?.(standardLederSeksjonForGruppe(db, currentGruppe));
+  }, [currentGruppe, db, onLederSeksjon]);
 
   const handleCopyLink = (targetPersonId: string) => {
     const link = genererDelbarLenke(targetPersonId, db);
@@ -340,18 +397,33 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
       )
     : [];
   const guideType = guideTypeForGruppe(db, currentGruppe);
+  const erTjenesteMedBemanning =
+    Boolean(currentGruppe) &&
+    erTjenestegruppe(db, currentGruppe) &&
+    gruppensRoller.length > 0;
 
-  const seksjonsFaner: { id: LederSeksjon; merke: string; skjul?: boolean }[] = [
-    { id: "hjem", merke: "Hjem" },
-    { id: "medlemmer", merke: "Medlemmer" },
-    { id: "samlinger", merke: "Samlinger" },
-    { id: "bemanning", merke: "Bemanning", skjul: !visGudstjenesteBemanning },
-    {
-      id: "kalender",
-      merke: "Kalender",
-      skjul: !visKalenderForPerson(db, selectedPersonId, "gruppeleder"),
-    },
-  ];
+  const seksjonsFaner: { id: LederSeksjon; merke: string; skjul?: boolean }[] = erTjenesteMedBemanning
+    ? [
+        { id: "bemanning", merke: "Bemanning" },
+        { id: "medlemmer", merke: "Medlemmer" },
+        { id: "samlinger", merke: "Samlinger" },
+        {
+          id: "kalender",
+          merke: "Kalender",
+          skjul: !visKalenderForPerson(db, selectedPersonId, "gruppeleder"),
+        },
+      ]
+    : [
+        { id: "samlinger", merke: "Samlinger" },
+        { id: "medlemmer", merke: "Medlemmer" },
+        { id: "hjem", merke: "Oversikt" },
+        { id: "bemanning", merke: "Bemanning", skjul: true },
+        {
+          id: "kalender",
+          merke: "Kalender",
+          skjul: !visKalenderForPerson(db, selectedPersonId, "gruppeleder"),
+        },
+      ];
 
   const visSeksjon = lederSeksjon;
 
@@ -396,6 +468,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                   onChange={(e) => setActiveGruppeId(e.target.value)}
                   className="text-sm font-medium border border-slate-300 rounded-xl px-3 py-2 bg-slate-50 focus:ring-2 focus:ring-[#2d5a3f] focus:outline-hidden"
                 >
+                  <option value={ALLE_GRUPPER}>Velg gruppe</option>
                   {lededeGrupper.map((g) => (
                     <option key={g.GruppeID} value={g.GruppeID}>
                       {g.Gruppenavn}
@@ -467,14 +540,16 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                 className="grid grid-cols-1 lg:grid-cols-2 gap-4"
                 data-guide="neste-samling"
               >
-                <NesteSamlingKort
-                  tittel={`Neste samling i ${currentGruppe.Gruppenavn}`}
-                  info={nesteSamling}
-                  onNySamling={() => {
-                    onLederSeksjon?.("samlinger");
-                    setNySamlingApen(true);
-                  }}
-                />
+                {!erTjenesteMedBemanning ? (
+                  <NesteSamlingKort
+                    tittel={`Neste samling i ${currentGruppe.Gruppenavn}`}
+                    info={nesteSamling}
+                    onNySamling={() => {
+                      onLederSeksjon?.("samlinger");
+                      setNySamlingApen(true);
+                    }}
+                  />
+                ) : null}
                 {signaler.length > 0 && (
                   <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
                     <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-800 flex items-center gap-1.5 mb-2">
@@ -532,18 +607,6 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               <div className="hidden md:block">
                 <GruppeRessurser ressurser={currentGruppe.Ressurser} />
               </div>
-
-              {visGudstjenesteBemanning && gruppensRoller.length > 0 && (
-                <div className="text-sm">
-                  <button
-                    type="button"
-                    onClick={() => onLederSeksjon?.("bemanning")}
-                    className="text-[#2d5a3f] font-semibold hover:underline cursor-pointer"
-                  >
-                    Gå til bemanning →
-                  </button>
-                </div>
-              )}
             </div>
           )}
 

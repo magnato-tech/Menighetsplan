@@ -27,7 +27,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Info,
   Pencil,
   ScrollText,
@@ -121,7 +120,8 @@ type RolleRadProps = {
     gudstjenesteId: string,
     rolleId: string,
     svar: "Bekreftet" | "Avvist",
-    melding?: string
+    melding?: string,
+    tildelingId?: string
   ) => void;
   onMeldForfall: (
     gudstjenesteId: string,
@@ -144,7 +144,6 @@ const RolleRad: React.FC<RolleRadProps> = ({
   onMeldForfall,
   onVisInstruks,
 }) => {
-  const [visAndre, setVisAndre] = useState(false);
   const [visFrafall, setVisFrafall] = useState(false);
   const harInstruks = visInstruksKnapp && Boolean(instruksTekst?.trim());
   const navnIRad = rad.personerPå;
@@ -171,9 +170,25 @@ const RolleRad: React.FC<RolleRadProps> = ({
       <div className="flex items-center gap-2 min-w-0">
         <RolleIkon rollenavn={rad.rolle.Rollenavn} className={kompakt ? "w-7 h-7" : "w-8 h-8"} />
         {visRollenavn ? (
-          <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 shrink-0 min-w-[4.5rem]">
-            {rad.rolle.Rollenavn}
-          </span>
+          harInstruks ? (
+            <>
+              <button
+                type="button"
+                onClick={() => onVisInstruks(rad.rolle)}
+                aria-label={`Instruks for ${rad.rolle.Rollenavn}`}
+                className="sm:hidden min-w-0 flex-1 text-left text-[11px] font-bold uppercase tracking-wider text-[#2d5a3f] truncate cursor-pointer"
+              >
+                {rad.rolle.Rollenavn}
+              </button>
+              <span className="hidden sm:inline text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 shrink-0 min-w-[4.5rem]">
+                {rad.rolle.Rollenavn}
+              </span>
+            </>
+          ) : (
+            <span className="min-w-0 flex-1 sm:flex-none text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-800 sm:shrink-0 sm:min-w-[4.5rem] truncate">
+              {rad.rolle.Rollenavn}
+            </span>
+          )
         ) : null}
 
         {harInstruks ? (
@@ -181,7 +196,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
             type="button"
             onClick={() => onVisInstruks(rad.rolle)}
             aria-label={`Instruks for ${rad.rolle.Rollenavn}`}
-            className="inline-flex items-center gap-0.5 min-h-8 px-1.5 rounded-lg border border-[#d2e8d9] bg-[#eef5f1] text-[#2d5a3f] hover:bg-[#dceee3] cursor-pointer shrink-0"
+            className="hidden sm:inline-flex items-center gap-0.5 min-h-8 px-1.5 rounded-lg border border-[#d2e8d9] bg-[#eef5f1] text-[#2d5a3f] hover:bg-[#dceee3] cursor-pointer shrink-0"
           >
             <Info className="w-4 h-4" />
             <ChevronRight className="w-3.5 h-3.5" />
@@ -192,37 +207,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
           {telling}
         </span>
 
-        <div className="ml-auto flex items-center gap-1 shrink-0 justify-end flex-wrap">
-          {navnIRad.length > 0 ? (
-            <>
-              <div className="hidden sm:flex flex-wrap gap-1 justify-end">
-                {navnIRad.map(renderPersonNavn)}
-              </div>
-              <div className="sm:hidden">
-                {!visAndre ? (
-                  <button
-                    type="button"
-                    onClick={() => setVisAndre(true)}
-                    className="text-[11px] font-medium text-[#2d5a3f] hover:underline cursor-pointer"
-                  >
-                    {navnIRad.length === 1 ? navnIRad[0].navn : `${navnIRad.length} navn`}
-                  </button>
-                ) : (
-                  <div className="flex flex-wrap gap-1 justify-end">
-                    {navnIRad.map(renderPersonNavn)}
-                    <button
-                      type="button"
-                      onClick={() => setVisAndre(false)}
-                      className="p-0.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                      aria-label="Skjul navn"
-                    >
-                      <ChevronUp className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </>
-          ) : null}
+        <div className="ml-auto flex items-center gap-1 shrink-0 justify-end">
           {(erForespurt || erBekreftet || kanHukePa || rad.status === "stengt") && (
             <MinSideRolleKnapper
               rollenavn={rad.rolle.Rollenavn}
@@ -233,10 +218,21 @@ const RolleRad: React.FC<RolleRadProps> = ({
               onMeldPa={() => onToggle(gudstjenesteId, rad.rolle.RolleID, true)}
               onMeldForfallClick={() => setVisFrafall(true)}
               onSvarForesporsel={(svar) =>
-                onSvarForesporsel(gudstjenesteId, rad.rolle.RolleID, svar)
+                onSvarForesporsel(
+                  gudstjenesteId,
+                  rad.rolle.RolleID,
+                  svar,
+                  undefined,
+                  rad.minTildelingId
+                )
               }
             />
           )}
+          {navnIRad.length > 0 ? (
+            <div className="hidden sm:flex flex-wrap gap-1 justify-end max-w-[9rem] lg:max-w-none">
+              {navnIRad.map(renderPersonNavn)}
+            </div>
+          ) : null}
         </div>
       </div>
 
@@ -342,9 +338,18 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
     gudstjenesteId: string,
     rolleId: string,
     svar: "Bekreftet" | "Avvist",
-    melding?: string
+    melding?: string,
+    tildelingId?: string
   ) => {
-    const neste = svarPaForesporsel(db, personId, gudstjenesteId, rolleId, svar, melding);
+    const neste = svarPaForesporsel(
+      db,
+      personId,
+      gudstjenesteId,
+      rolleId,
+      svar,
+      melding,
+      tildelingId
+    );
     if (neste) onUpdateDb(neste);
   };
 

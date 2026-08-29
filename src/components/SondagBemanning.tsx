@@ -297,12 +297,14 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       : 0;
 
   const visKommendeGudstjenester = kommendeGudstjenester.filter((gud) => {
+    if (servicesVisning !== "liste" || !oversiktFilter) return true;
     const rader = gruppeRaderForGudstjeneste(db, gud.GudstjenesteID, false, rolleIds);
     const totalt = summerGruppeRader(rader);
     return trefferOversiktFilter(totalt, oversiktFilter);
   });
 
   const visTidligereFiltrert = tidligereGudstjenester.filter((gud) => {
+    if (servicesVisning !== "liste" || !oversiktFilter) return true;
     const totalt = summerGruppeRader(
       gruppeRaderForGudstjeneste(db, gud.GudstjenesteID, false, rolleIds)
     );
@@ -314,7 +316,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     : undefined;
 
   useEffect(() => {
-    if (oversiktFilter !== "venter") return;
+    if (servicesVisning !== "liste" || oversiktFilter !== "venter") return;
     const ids = db.gudstjenester
       .filter((gud) => gud.Dato >= iDag)
       .filter((gud) =>
@@ -331,7 +333,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       });
       return neste;
     });
-  }, [oversiktFilter, db, iDag, rolleIds]);
+  }, [oversiktFilter, servicesVisning, db, iDag, rolleIds]);
 
   useEffect(() => {
     if (!vis || !scrollTilGudstjenesteId) return;
@@ -377,6 +379,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     if (id === "medlemmer") {
       toggleMedlemmerPanel();
       return;
+    }
+    if (servicesVisning === "ark") {
+      setServicesVisning("liste");
     }
     velgOversiktFilter(id);
   };
@@ -615,7 +620,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                   }
                 />
                 <span
-                  className={`max-w-[120px] truncate ${isAvvist ? "line-through opacity-75" : ""}`}
+                  className={`hidden md:inline max-w-[120px] truncate ${isAvvist ? "line-through opacity-75" : ""}`}
                   title={p?.Navn || visningsnavn}
                 >
                   {visningsnavn}
@@ -739,7 +744,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   };
 
   const renderGudstjenesteKort = (gudstjeneste: Gudstjeneste) => {
-    const visAlleTall = !oversiktFilter;
+    const visAlleTall = servicesVisning !== "liste" || !oversiktFilter;
     const alleRader = gruppeRaderForGudstjeneste(
       db,
       gudstjeneste.GudstjenesteID,
@@ -1019,20 +1024,20 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       id: "ledige",
       tall: semesterOversikt.ledige,
       label: "Ledige",
-      aktiv: oversiktFilter === "ledige",
+      aktiv: servicesVisning === "liste" && oversiktFilter === "ledige",
     },
     {
       id: "forfall",
       tall: semesterOversikt.forfall,
       label: "Forfall",
-      aktiv: oversiktFilter === "forfall",
+      aktiv: servicesVisning === "liste" && oversiktFilter === "forfall",
     },
-    { id: "venter", tall: semesterOversikt.venter, label: "Venter", aktiv: oversiktFilter === "venter" },
+    { id: "venter", tall: semesterOversikt.venter, label: "Venter", aktiv: servicesVisning === "liste" && oversiktFilter === "venter" },
     {
       id: "bekreftet",
       tall: semesterOversikt.bekreftet,
       label: kompakt ? `Bekr. (${bekreftetProsent}%)` : "Bekr.",
-      aktiv: oversiktFilter === "bekreftet",
+      aktiv: servicesVisning === "liste" && oversiktFilter === "bekreftet",
     },
     ...(visMedlemmerKpi
       ? [
@@ -1098,7 +1103,8 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       : []),
   ];
 
-  const filterFotnote = oversiktFilter ? (
+  const filterFotnote =
+    servicesVisning === "liste" && oversiktFilter ? (
       <p className="text-[11px] text-slate-500">
         Viser{" "}
         {oversiktFilter === "bekreftet"
@@ -1157,7 +1163,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       >
         {storeKort.map((kort) => {
           const valgt =
-            kort.id === "medlemmer" ? visMedlemmerPanel : oversiktFilter === kort.id;
+            kort.id === "medlemmer"
+              ? visMedlemmerPanel
+              : servicesVisning === "liste" && oversiktFilter === kort.id;
           return (
             <button
               key={kort.id}
@@ -1198,34 +1206,30 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     </button>
   );
 
-  const visningBryter = visListe && !verktoyVenstre && (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      {listeTittel ? (
-        <h3 className="text-sm font-bold text-slate-900">{listeTittel}</h3>
-      ) : (
-        <span />
-      )}
-      <div className="flex flex-wrap items-center gap-2 ml-auto">
-        <div data-guide="liste-ark" className="hidden md:block">
-          <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
-        </div>
-        <p className="md:hidden text-[11px] text-slate-500 w-full">
-          Planleggingsarket er laget for større skjerm.
-        </p>
-        {kanOpprettGudstjeneste && servicesVisning === "ark" && nyGudstjenesteKnapp}
-      </div>
+  const listeArkBryter = (
+    <div data-guide="liste-ark" className="hidden md:block">
+      <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
+    </div>
+  );
+
+  const listeTittelRad = visListe && listeTittel && (
+    <h3 className="text-sm font-bold text-slate-900">{listeTittel}</h3>
+  );
+
+  const visningsRad = visListe && (
+    <div className="flex flex-wrap items-center justify-end gap-2">
+      {listeArkBryter}
+      {kanOpprettGudstjeneste && servicesVisning === "ark" && nyGudstjenesteKnapp}
+      <p className="md:hidden text-[11px] text-slate-500 w-full">
+        Planleggingsarket er laget for større skjerm.
+      </p>
     </div>
   );
 
   const samletVerktoy = verktoyVenstre ? (
     <div className="flex items-center gap-2 min-w-0">
       <div className="min-w-0 flex-1">{verktoyVenstre}</div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <div data-guide="liste-ark" className="hidden md:block">
-          <ListeArkBryter visning={servicesVisning} onChange={setServicesVisning} />
-        </div>
-        {nyGudstjenesteKnapp}
-      </div>
+      <div className="flex items-center gap-1.5 shrink-0">{nyGudstjenesteKnapp}</div>
     </div>
   ) : null;
 
@@ -1243,14 +1247,14 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         ) : (
           <>
             {visKpiAlltid && kpiBlokk}
-            {servicesVisning === "liste" && visningBryter}
+            {listeTittelRad}
+            {visningsRad}
             {servicesVisning === "ark" && visListe && (
               <div
                 className={
                   statusAktor === "administrator" ? "ark-fullbredde space-y-2" : "space-y-2"
                 }
               >
-                {visningBryter}
                 <Planleggingsark
                   db={db}
                   onUpdateDb={onUpdateDb}

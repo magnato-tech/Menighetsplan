@@ -386,7 +386,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
         {(
           [
             ["alle", "Alle"],
@@ -405,7 +405,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
             key={id}
             type="button"
             onClick={() => toggleFilter(id)}
-            className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
+            className={`min-h-8 sm:min-h-11 px-2 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold rounded-lg sm:rounded-xl cursor-pointer ${
               aktiv ? "bg-[#2d5a3f] text-white" : "bg-slate-100 text-slate-700"
             }`}
           >
@@ -413,11 +413,11 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
           </button>
           );
         })}
-        <div className="ml-auto flex gap-1">
+        <div className="ml-auto flex gap-1 shrink-0">
           <button
             type="button"
             onClick={() => setVisning("maaned")}
-            className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
+            className={`min-h-8 sm:min-h-11 px-2 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold rounded-lg sm:rounded-xl cursor-pointer ${
               visning === "maaned" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"
             }`}
           >
@@ -426,7 +426,7 @@ export const KalenderView: React.FC<KalenderViewProps> = ({
           <button
             type="button"
             onClick={() => setVisning("liste")}
-            className={`min-h-11 px-3 py-1.5 text-xs font-semibold rounded-xl cursor-pointer ${
+            className={`min-h-8 sm:min-h-11 px-2 sm:px-3 py-1 text-[11px] sm:text-xs font-semibold rounded-lg sm:rounded-xl cursor-pointer ${
               visning === "liste" ? "bg-slate-800 text-white" : "bg-slate-100 text-slate-700"
             }`}
           >

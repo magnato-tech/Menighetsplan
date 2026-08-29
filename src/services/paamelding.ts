@@ -39,6 +39,8 @@ export type PåmeldingsRad = {
   personerPå: PåmeldingsPerson[];
   status: PåmeldingsStatus;
   harHuketRolle: boolean;
+  /** Tildeling for innlogget person på denne søndagen, når relevant. */
+  minTildelingId?: string;
 };
 
 export type PersonligSondag = {
@@ -239,14 +241,17 @@ export function svarPaForesporsel(
   gudstjenesteId: string,
   rolleId: string,
   svar: "Bekreftet" | "Avvist",
-  kommentar?: string
+  kommentar?: string,
+  tildelingId?: string
 ): DatabaseState | undefined {
-  const tildeling = db.tildelinger.find(
-    (t) =>
-      t.GudstjenesteID === gudstjenesteId &&
-      t.RolleID === rolleId &&
-      t.PersonID === personId
-  );
+  const tildeling = tildelingId
+    ? db.tildelinger.find((t) => t.TildelingID === tildelingId && t.PersonID === personId)
+    : db.tildelinger.find(
+        (t) =>
+          t.GudstjenesteID === gudstjenesteId &&
+          t.RolleID === rolleId &&
+          t.PersonID === personId
+      );
   if (!tildeling) return undefined;
   const melding =
     svar === "Bekreftet"
@@ -348,6 +353,7 @@ export function byggPåmeldingsrader(
         personerPå,
         status,
         harHuketRolle,
+        minTildelingId: minTildeling?.TildelingID,
       };
     });
 }

@@ -47,7 +47,7 @@ import { Startside } from "./components/Startside";
 import { PersonalView } from "./components/PersonalView";
 import { GroupLeaderView } from "./components/GroupLeaderView";
 import { AdminView } from "./components/AdminView";
-import { MobilBunnmeny, type LederSeksjon } from "./components/MobilBunnmeny";
+import { MobilBunnmeny, type LederSeksjon, type LederNavTilstand } from "./components/MobilBunnmeny";
 import { Shield, ArrowLeft, Users } from "lucide-react";
 
 export default function App() {
@@ -64,11 +64,39 @@ export default function App() {
   const [activeView, setActiveView] = useState<AppView>("personal");
   const [selectedPersonId, setSelectedPersonId] = useState<string>("P001");
   const [lederSeksjon, setLederSeksjon] = useState<LederSeksjon>("hjem");
+  const [lederNavTilstand, setLederNavTilstand] = useState<LederNavTilstand>({
+    visMedlemmer: false,
+    visBemanning: false,
+    visSamlinger: false,
+    visKalender: false,
+    visHjem: false,
+    primarSeksjon: "hjem",
+  });
   const [fokusMedlemmerNokkel, setFokusMedlemmerNokkel] = useState(0);
   const [visOppgaverArk, setVisOppgaverArk] = useState(false);
   const [isMagicLinkUser, setIsMagicLinkUser] = useState<boolean>(false);
   const [adminSimulatingPersonId, setAdminSimulatingPersonId] = useState<string | null>(null);
   const [leaderViewAsObserverId, setLeaderViewAsObserverId] = useState<string | null>(null);
+
+  const handleLederNavTilstand = useCallback((tilstand: LederNavTilstand) => {
+    setLederNavTilstand(tilstand);
+  }, []);
+
+  useEffect(() => {
+    if (activeView !== "leader") return;
+    const fallback = lederNavTilstand.primarSeksjon;
+    if (lederSeksjon === "medlemmer" && !lederNavTilstand.visMedlemmer) {
+      setLederSeksjon(fallback);
+    } else if (lederSeksjon === "bemanning" && !lederNavTilstand.visBemanning) {
+      setLederSeksjon(fallback);
+    } else if (lederSeksjon === "samlinger" && !lederNavTilstand.visSamlinger) {
+      setLederSeksjon(fallback);
+    } else if (lederSeksjon === "kalender" && !lederNavTilstand.visKalender) {
+      setLederSeksjon(fallback);
+    } else if (lederSeksjon === "hjem" && !lederNavTilstand.visHjem) {
+      setLederSeksjon(fallback);
+    }
+  }, [activeView, lederSeksjon, lederNavTilstand]);
 
   const harValgtStartvisning = useRef(false);
   const [viserStartside, setViserStartside] = useState(() => {
@@ -614,6 +642,7 @@ export default function App() {
             onViewAsMember={handleLeaderViewAs}
             lederSeksjon={lederSeksjon}
             onLederSeksjon={setLederSeksjon}
+            onLederNavTilstand={handleLederNavTilstand}
             fokusMedlemmerNokkel={fokusMedlemmerNokkel}
           />
         )}
@@ -648,11 +677,12 @@ export default function App() {
           personId={selectedPersonId}
           activeView={activeView}
           lederSeksjon={lederSeksjon}
+          lederNavTilstand={lederNavTilstand}
           onNavigate={handleNavigateView}
           onFokusHjem={() => {
             if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;
             setActiveView("leader");
-            setLederSeksjon("hjem");
+            setLederSeksjon(lederNavTilstand.visHjem ? "hjem" : lederNavTilstand.primarSeksjon);
           }}
           onFokusMedlemmer={() => {
             if (!visningErTillatt(hentTilgang(db, selectedPersonId), "leader")) return;

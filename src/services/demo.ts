@@ -151,6 +151,22 @@ export function applyDemoBemanningScenarios(state: DatabaseState): DatabaseState
     SvartDato: "2026-01-19",
   });
 
+  ensureTildeling({
+    TildelingID: "T020",
+    GudstjenesteID: "GUD003",
+    RolleID: "R005",
+    PersonID: "P008",
+    OpprettetDato: "2026-01-20",
+    SistEndret: "2026-01-20",
+  });
+  ensureSvar({
+    SvarID: "S020",
+    TildelingID: "T020",
+    PersonID: "P008",
+    Svar: "Venter",
+    SvartDato: "",
+  });
+
   return endret ? { ...state, tildelinger, svar } : state;
 }
 

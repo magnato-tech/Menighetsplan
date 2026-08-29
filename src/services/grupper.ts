@@ -203,18 +203,35 @@ export function erTjenestegruppe(db: DatabaseState, gruppe: Gruppe): boolean {
   return !nøkkel || nøkkel === "tjenestegruppe";
 }
 
-export type StandardLederSeksjon = "hjem" | "bemanning";
+export type StandardLederSeksjon = "hjem" | "bemanning" | "samlinger";
 
-/** Standard startseksjon for gruppeleder: Bemanning for tjenestegrupper med roller, ellers Hjem. */
+/** Primær arbeidsflate for valgt gruppe: bemanning (tjeneste) eller samlinger (øvrige). */
+export function standardLederSeksjonForGruppe(
+  db: DatabaseState,
+  gruppe: Gruppe
+): StandardLederSeksjon {
+  if (erTjenestegruppe(db, gruppe)) {
+    const harRoller = db.roller.some((r) => r.Aktiv && r.GruppeID === gruppe.GruppeID);
+    if (harRoller) return "bemanning";
+  }
+  return "samlinger";
+}
+
+/** Standard startseksjon før gruppe er valgt, eller for enkeltgruppe. */
 export function standardLederSeksjon(
   db: DatabaseState,
   personId: string
 ): StandardLederSeksjon {
-  for (const gruppe of finnGrupperSomLederEllerNestleder(db, personId)) {
+  const grupper = finnGrupperSomLederEllerNestleder(db, personId);
+  if (grupper.length === 1) {
+    return standardLederSeksjonForGruppe(db, grupper[0]);
+  }
+  for (const gruppe of grupper) {
     if (!erTjenestegruppe(db, gruppe)) continue;
     const harRoller = db.roller.some((r) => r.Aktiv && r.GruppeID === gruppe.GruppeID);
     if (harRoller) return "bemanning";
   }
+  if (grupper.length > 0) return "samlinger";
   return "hjem";
 }
 

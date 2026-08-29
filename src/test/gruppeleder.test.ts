@@ -14,7 +14,7 @@ import {
   opprettNyPersonFraGruppeleder,
   settSamlingOppmote,
 } from "../services/gruppeOppfolging";
-import { standardLederSeksjon } from "../services/grupper";
+import { standardLederSeksjon, standardLederSeksjonForGruppe } from "../services/grupper";
 import type { DatabaseState, Gruppe, Person } from "../types/database";
 
 const gruppe: Gruppe = {
@@ -177,8 +177,10 @@ function tomDb(): DatabaseState {
     ],
   };
   assert.equal(standardLederSeksjon(tjenesteDb, "P100"), "bemanning");
-  assert.equal(standardLederSeksjon(tjenesteDb, "P200"), "hjem");
+  assert.equal(standardLederSeksjon(tjenesteDb, "P200"), "samlinger");
   assert.equal(standardLederSeksjon(tjenesteDb, "P999"), "hjem");
+  assert.equal(standardLederSeksjonForGruppe(tjenesteDb, tjenesteDb.grupper[0]), "bemanning");
+  assert.equal(standardLederSeksjonForGruppe(tjenesteDb, tjenesteDb.grupper[1]), "samlinger");
 }
 
 console.log("gruppeArrangementer + gruppeOppfolging: ok");
