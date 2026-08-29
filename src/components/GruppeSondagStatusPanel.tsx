@@ -80,15 +80,24 @@ export const GruppeSondagStatusPanel: React.FC<GruppeSondagStatusPanelProps> = (
                 ) : null}
                 {rad.personerPå.length > 0 ? (
                   <div className="hidden sm:flex flex-wrap gap-1 justify-end max-w-[9rem] lg:max-w-none">
-                    {rad.personerPå.map((p) => (
-                      <span
-                        key={p.personId}
-                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)}`}
-                      >
-                        {p.navn}
-                        {p.status === "Venter" ? " ·" : ""}
-                      </span>
-                    ))}
+                    {rad.personerPå.map((p) => {
+                      const forfallTittel =
+                        p.status === "Avvist" && p.forfallMelding
+                          ? `${p.erSystemmelding ? "Systemmelding" : "Melding fra medlem"}${p.forfallDato ? ` · ${p.forfallDato}` : ""}: ${p.forfallMelding}`
+                          : undefined;
+                      return (
+                        <span
+                          key={p.personId}
+                          title={forfallTittel}
+                          className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)} ${
+                            forfallTittel ? "cursor-help underline decoration-dotted decoration-slate-400" : ""
+                          }`}
+                        >
+                          {p.navn}
+                          {p.status === "Venter" ? " ·" : ""}
+                        </span>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>

@@ -61,6 +61,11 @@ export interface GruppeRessurs {
   Tekst?: string;
 }
 
+export interface GruppeSystemmeldinger {
+  /** Gruppeleder kan skru av auto-forfall-melding for sin gruppe. Standard på. */
+  forfallAutoAktivert?: boolean;
+}
+
 export interface Gruppe {
   GruppeID: string; // e.g. "G001"
   Gruppenavn: string; // e.g. "Lovsangsgruppe", "Kjøkkentjeneste"
@@ -71,6 +76,7 @@ export interface Gruppe {
   Samlingsplan?: Samlingsplan;
   /** Lenker og notater gruppeleder kan lese (admin setter). */
   Ressurser?: GruppeRessurs[];
+  Systemmeldinger?: GruppeSystemmeldinger;
   Aktiv: boolean;
   OpprettetDato: string;
   SistEndret: string;
@@ -87,7 +93,11 @@ export interface SamlingOppmote {
   SistEndret: string;
 }
 
-/** Intern melding fra gruppeleder til gruppemedlemmer (fasit i appen). */
+export type GruppeMeldingKilde = "system" | "gruppeleder" | "medlem";
+
+export type GruppeMeldingHendelseType = "forfall" | "manuell" | "samling";
+
+/** Intern melding til gruppemedlemmer (menneske eller systemgenerert). */
 export interface GruppeMelding {
   GruppeMeldingID: string;
   GruppeID: string;
@@ -96,6 +106,13 @@ export interface GruppeMelding {
   OpprettetAvPersonID: string;
   OpprettetDato: string;
   SistEndret: string;
+  Kilde?: GruppeMeldingKilde;
+  HendelseType?: GruppeMeldingHendelseType;
+  GudstjenesteID?: string;
+  RolleID?: string;
+  TildelingID?: string;
+  /** Ved systemmelding: personen som utløste hendelsen (f.eks. forfall). */
+  UtlostAvPersonID?: string;
 }
 
 export type VarselLoggStatus = "manuell" | "sendt" | "feilet";
@@ -374,6 +391,12 @@ export interface AppInnstillinger {
   visVarselEpost: boolean;
   /** Offentlig ICS-adresse for synk. Tom = kirkens standardfeed. */
   eksternIcalUrl?: string;
+  /** Global av/på for auto-forfall-systemmeldinger. Standard på. */
+  systemmeldingForfallAktivert?: boolean;
+  /** Admin-eid mal for auto-forfall. Tom = innebygd standard. */
+  systemmeldingForfallMal?: string;
+  /** Vis meldingsfane på Min side for gruppemedlemmer. Standard av. */
+  visMeldingerMinSide?: boolean;
 }
 
 export type KalenderoppgaveStatus = "Åpen" | "Avvist" | "Opprettet";

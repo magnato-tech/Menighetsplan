@@ -10,7 +10,6 @@ import {
   synkTilgangsnivaaEtterGruppeledere,
   erDemoVersjon,
 } from "../services/dataService";
-import { DemoTestlenkerPanel } from "./DemoTestlenkerPanel";
 import { ImportMigrationModal } from "./ImportMigrationModal";
 import { GroupAdminModal } from "./GroupAdminModal";
 import { GoogleSheetsSync } from "./GoogleSheetsSync";
@@ -109,7 +108,6 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-      {erDemoVersjon() && <DemoTestlenkerPanel />}
       <div className="relative">
         <div className="flex border-b border-slate-200 gap-1 overflow-x-auto">
           {primaere.map((fane) => {

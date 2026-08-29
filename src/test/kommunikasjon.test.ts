@@ -111,8 +111,11 @@ function tomDb(): DatabaseState {
     gruppeId: "G001",
     tekst: "Husk mat",
     opprettetAvPersonId: "P002",
+    kilde: "gruppeleder",
+    hendelseType: "manuell",
   });
   assert.equal(medMelding.gruppeMeldinger?.length, 1);
+  assert.equal(medMelding.gruppeMeldinger![0].Kilde, "gruppeleder");
   assert.equal(meldingerForPerson(medMelding, "P001").length, 1);
   const melding = medMelding.gruppeMeldinger![0];
   const utkast = byggVarselForMelding(medMelding, melding, [db.personer[0]]);

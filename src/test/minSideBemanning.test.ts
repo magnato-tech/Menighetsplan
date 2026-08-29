@@ -255,16 +255,50 @@ function reload(db: DatabaseState): DatabaseState {
   assert.equal(hentSvarStatus(db, t!.TildelingID), "Avvist");
   assert.equal(db.gruppeMeldinger?.length, 1);
   assert.match(db.gruppeMeldinger![0].Tekst, /Lovsang/i);
+  assert.equal(db.gruppeMeldinger![0].Kilde, "medlem");
+  assert.equal(db.gruppeMeldinger![0].HendelseType, "forfall");
 }
 
 {
   let db = settDeltakelseForPerson(tomDb(), "P010", GUD_ID, "R005", "Deltar");
   db = meldForfall(db, "P010", GUD_ID, "R005")!;
+  assert.equal(db.gruppeMeldinger?.length, 1);
+  assert.equal(db.gruppeMeldinger![0].Kilde, "system");
+  assert.equal(db.gruppeMeldinger![0].HendelseType, "forfall");
   const rad = byggPåmeldingsrader(db, "P011", lovsangRolle)[0];
   const forfall = rad.personerPå.find((p) => p.personId === "P010");
   assert.equal(forfall?.status, "Avvist");
+  assert.ok(forfall?.forfallMelding);
+  assert.equal(forfall?.erSystemmelding, true);
   const gruppe = byggGruppeSondagStatus(db, "P011", GUD_ID);
   assert.ok(gruppe.some((g) => g.roller.some((r) => r.forfall >= 1)));
+}
+
+{
+  let db = settDeltakelseForPerson(tomDb(), "P010", GUD_ID, "R005", "Deltar");
+  db = {
+    ...db,
+    innstillinger: {
+      ...db.innstillinger,
+      systemmeldingForfallAktivert: false,
+    },
+  };
+  db = meldForfall(db, "P010", GUD_ID, "R005")!;
+  assert.equal(db.gruppeMeldinger?.length ?? 0, 0);
+}
+
+{
+  let db = settDeltakelseForPerson(tomDb(), "P010", GUD_ID, "R005", "Deltar");
+  db = {
+    ...db,
+    grupper: db.grupper.map((g) =>
+      g.GruppeID === "G001"
+        ? { ...g, Systemmeldinger: { forfallAutoAktivert: false } }
+        : g
+    ),
+  };
+  db = meldForfall(db, "P010", GUD_ID, "R005")!;
+  assert.equal(db.gruppeMeldinger?.length ?? 0, 0);
 }
 
 {

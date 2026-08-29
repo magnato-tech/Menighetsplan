@@ -12,6 +12,29 @@ export function finnGrupperSomLederEllerNestleder(
   );
 }
 
+export type PersonLederskap = {
+  gruppeId: string;
+  gruppenavn: string;
+  rolle: "Leder" | "Nestleder";
+};
+
+/** Leder- eller nestlederroller per gruppe, sortert på gruppenavn. */
+export function hentLederskapForPerson(
+  db: DatabaseState,
+  personId: string
+): PersonLederskap[] {
+  const out: PersonLederskap[] = [];
+  for (const g of db.grupper || []) {
+    if (!g.Aktiv) continue;
+    if (g.GruppelederID === personId) {
+      out.push({ gruppeId: g.GruppeID, gruppenavn: g.Gruppenavn, rolle: "Leder" });
+    } else if (g.NestlederID === personId) {
+      out.push({ gruppeId: g.GruppeID, gruppenavn: g.Gruppenavn, rolle: "Nestleder" });
+    }
+  }
+  return out.sort((a, b) => a.gruppenavn.localeCompare(b.gruppenavn, "nb"));
+}
+
 /**
  * Gruppeleder-hjelpefunksjoner:
  * Finner grupper der personen er registrert som GruppelederID, NestlederID

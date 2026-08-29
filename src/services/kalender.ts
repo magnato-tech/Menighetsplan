@@ -26,6 +26,9 @@ export function standardInnstillinger(): AppInnstillinger {
     visVarselSms: true,
     visVarselEpost: true,
     eksternIcalUrl: "",
+    systemmeldingForfallAktivert: true,
+    systemmeldingForfallMal: "",
+    visMeldingerMinSide: false,
   };
 }
 
@@ -38,6 +41,9 @@ export function hentInnstillinger(db: Pick<DatabaseState, "innstillinger"> | nul
     visVarselSms: i?.visVarselSms !== false,
     visVarselEpost: i?.visVarselEpost !== false,
     eksternIcalUrl: String(i?.eksternIcalUrl || "").trim(),
+    systemmeldingForfallAktivert: i?.systemmeldingForfallAktivert !== false,
+    systemmeldingForfallMal: String(i?.systemmeldingForfallMal || "").trim(),
+    visMeldingerMinSide: Boolean(i?.visMeldingerMinSide),
   };
 }
 
@@ -50,6 +56,22 @@ export function visKalenderForPerson(
   if (flate === "minSide") return i.visKalenderMinSide;
   if (flate === "gruppeleder") return i.visKalenderGruppeleder;
   return i.visKalenderIcal;
+}
+
+function personHarGruppeForMeldinger(db: DatabaseState, personId: string): boolean {
+  for (const gm of db.gruppemedlemmer || []) {
+    if (gm.Aktiv && gm.PersonID === personId) return true;
+  }
+  for (const g of db.grupper || []) {
+    if (!g.Aktiv) continue;
+    if (g.GruppelederID === personId || g.NestlederID === personId) return true;
+  }
+  return false;
+}
+
+export function visMeldingerForPerson(db: DatabaseState, personId: string): boolean {
+  if (!hentInnstillinger(db).visMeldingerMinSide) return false;
+  return personHarGruppeForMeldinger(db, personId);
 }
 
 export function parseInnstillinger(raa: unknown): AppInnstillinger {
@@ -69,6 +91,9 @@ export function parseInnstillinger(raa: unknown): AppInnstillinger {
       visVarselSms: kart.get("visVarselSms")?.toLowerCase() !== "false",
       visVarselEpost: kart.get("visVarselEpost")?.toLowerCase() !== "false",
       eksternIcalUrl: String(kart.get("eksternIcalUrl") || "").trim(),
+      systemmeldingForfallAktivert: kart.get("systemmeldingForfallAktivert")?.toLowerCase() !== "false",
+      systemmeldingForfallMal: String(kart.get("systemmeldingForfallMal") || "").trim(),
+      visMeldingerMinSide: kart.get("visMeldingerMinSide")?.toLowerCase() === "true",
     };
   }
   if (typeof raa === "object") {
@@ -80,6 +105,9 @@ export function parseInnstillinger(raa: unknown): AppInnstillinger {
       visVarselSms: o.visVarselSms !== false,
       visVarselEpost: o.visVarselEpost !== false,
       eksternIcalUrl: String(o.eksternIcalUrl || "").trim(),
+      systemmeldingForfallAktivert: o.systemmeldingForfallAktivert !== false,
+      systemmeldingForfallMal: String(o.systemmeldingForfallMal || "").trim(),
+      visMeldingerMinSide: Boolean(o.visMeldingerMinSide),
     };
   }
   return base;
@@ -93,6 +121,12 @@ export function innstillingerTilRader(i: AppInnstillinger): { Nøkkel: string; V
     { Nøkkel: "visVarselSms", Verdi: i.visVarselSms ? "true" : "false" },
     { Nøkkel: "visVarselEpost", Verdi: i.visVarselEpost ? "true" : "false" },
     { Nøkkel: "eksternIcalUrl", Verdi: String(i.eksternIcalUrl || "").trim() },
+    {
+      Nøkkel: "systemmeldingForfallAktivert",
+      Verdi: i.systemmeldingForfallAktivert !== false ? "true" : "false",
+    },
+    { Nøkkel: "systemmeldingForfallMal", Verdi: String(i.systemmeldingForfallMal || "").trim() },
+    { Nøkkel: "visMeldingerMinSide", Verdi: i.visMeldingerMinSide ? "true" : "false" },
   ];
 }
 

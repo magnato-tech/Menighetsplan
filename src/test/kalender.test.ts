@@ -138,6 +138,9 @@ function tomDb(): DatabaseState {
     visVarselSms: true,
     visVarselEpost: true,
     eksternIcalUrl: "https://example.com/kalender.ics",
+    systemmeldingForfallAktivert: true,
+    systemmeldingForfallMal: "",
+    visMeldingerMinSide: false,
   };
   assert.deepEqual(parseInnstillinger(innstillingerTilRader(lagret)), lagret);
   assert.equal(

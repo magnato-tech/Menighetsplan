@@ -5,6 +5,7 @@ import {
   erGruppeledergruppe,
   erObligatoriskIGruppelederteam,
   erTjenestegruppe,
+  finnMedlemmerIGruppe,
   finnTjenestegrupperForPerson,
   sikreGruppemedlemskap,
 } from "./grupper";
@@ -436,6 +437,16 @@ export type MinGruppeKontakt = {
   erDeg: boolean;
 };
 
+export type MinGruppeMedlem = {
+  personId: string;
+  navn: string;
+  epost: string | null;
+  telefon: string | null;
+  erDeg: boolean;
+  rolle: "Leder" | "Nestleder" | null;
+  oppgaver: string[];
+};
+
 export type MinGruppeKort = {
   gruppeId: string;
   gruppenavn: string;
@@ -444,6 +455,7 @@ export type MinGruppeKort = {
   lederNavn: string | null;
   nestlederNavn: string | null;
   kontakter: MinGruppeKontakt[];
+  medlemmer: MinGruppeMedlem[];
 };
 
 function kontaktFraPerson(person?: {
@@ -530,6 +542,85 @@ function byggGruppeKontakter(
   return kontakter;
 }
 
+function fulltNavn(person: { Navn: string; Fornavn?: string; Etternavn?: string }): string {
+  const navn = String(person.Navn || "").trim();
+  if (navn) return navn;
+  return [person.Fornavn, person.Etternavn].filter(Boolean).join(" ").trim() || "Ukjent";
+}
+
+function byggGruppeMedlemmer(
+  db: DatabaseState,
+  gruppe: Gruppe,
+  personId: string
+): MinGruppeMedlem[] {
+  const gruppeRolleIds = new Set(
+    db.roller
+      .filter((r) => r.GruppeID === gruppe.GruppeID && r.Aktiv)
+      .map((r) => r.RolleID)
+  );
+
+  const byId = new Map<string, MinGruppeMedlem>();
+
+  const leggTil = (
+    person: { PersonID: string; Navn: string; Fornavn?: string; Etternavn?: string; Epost?: string; Telefon?: string },
+    rolle: "Leder" | "Nestleder" | null
+  ) => {
+    const oppgaver = db.personroller
+      .filter((pr) => pr.PersonID === person.PersonID && pr.Aktiv)
+      .map((pr) => db.roller.find((r) => r.RolleID === pr.RolleID))
+      .filter((r): r is Rolle => Boolean(r && gruppeRolleIds.has(r.RolleID)))
+      .map((r) => r.Rollenavn)
+      .sort((a, b) => a.localeCompare(b, "nb"));
+
+    const eksisterende = byId.get(person.PersonID);
+    const priorRolle = eksisterende?.rolle ?? null;
+    const valgtRolle =
+      rolle === "Leder" || priorRolle === "Leder"
+        ? "Leder"
+        : rolle === "Nestleder" || priorRolle === "Nestleder"
+          ? "Nestleder"
+          : null;
+
+    byId.set(person.PersonID, {
+      personId: person.PersonID,
+      navn: fulltNavn(person),
+      epost: kontaktFraPerson(person).epost,
+      telefon: kontaktFraPerson(person).telefon,
+      erDeg: person.PersonID === personId,
+      rolle: valgtRolle,
+      oppgaver: oppgaver.length > 0 ? oppgaver : eksisterende?.oppgaver ?? [],
+    });
+  };
+
+  for (const m of finnMedlemmerIGruppe(db, gruppe.GruppeID)) {
+    let rolle: "Leder" | "Nestleder" | null = null;
+    if (gruppe.GruppelederID === m.person.PersonID) rolle = "Leder";
+    else if (gruppe.NestlederID === m.person.PersonID) rolle = "Nestleder";
+    leggTil(m.person, rolle);
+  }
+
+  if (gruppe.GruppelederID) {
+    const leder = db.personer.find((p) => p.PersonID === gruppe.GruppelederID);
+    if (leder) leggTil(leder, "Leder");
+  }
+  if (gruppe.NestlederID) {
+    const nestleder = db.personer.find((p) => p.PersonID === gruppe.NestlederID);
+    if (nestleder) leggTil(nestleder, "Nestleder");
+  }
+
+  const pri = (m: MinGruppeMedlem): number => {
+    if (m.rolle === "Leder") return 0;
+    if (m.rolle === "Nestleder") return 1;
+    return 2;
+  };
+
+  return Array.from(byId.values()).sort((a, b) => {
+    const p = pri(a) - pri(b);
+    if (p !== 0) return p;
+    return a.navn.localeCompare(b.navn, "nb");
+  });
+}
+
 /** Tjeneste- og husgrupper personen er med i, med leder og hukede oppgaver. */
 export function mineGrupperForPerson(db: DatabaseState, personId: string): MinGruppeKort[] {
   const valgte = new Set(aktiveTjenesteRolleIds(db, personId));
@@ -553,6 +644,7 @@ export function mineGrupperForPerson(db: DatabaseState, personId: string): MinGr
         lederNavn: visningsnavn(leder),
         nestlederNavn: visningsnavn(nestleder),
         kontakter: byggGruppeKontakter(personId, tilknytning, leder, nestleder),
+        medlemmer: byggGruppeMedlemmer(db, gruppe, personId),
       };
     })
     .sort((a, b) => a.gruppenavn.localeCompare(b.gruppenavn, "nb"));

@@ -155,15 +155,24 @@ const RolleRad: React.FC<RolleRadProps> = ({
   const erBekreftet = rad.status === "min-bekreftet";
   const kanHukePa = rad.harHuketRolle && (rad.status === "ledig" || rad.status === "full");
 
-  const renderPersonNavn = (p: PåmeldingsPerson) => (
-    <span
-      key={p.personId}
-      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)}`}
-    >
-      {p.navn}
-      {p.status === "Venter" ? " ·" : ""}
-    </span>
-  );
+  const renderPersonNavn = (p: PåmeldingsPerson) => {
+    const forfallTittel =
+      p.status === "Avvist" && p.forfallMelding
+        ? `${p.erSystemmelding ? "Systemmelding" : "Melding fra medlem"}${p.forfallDato ? ` · ${p.forfallDato}` : ""}: ${p.forfallMelding}`
+        : undefined;
+    return (
+      <span
+        key={p.personId}
+        title={forfallTittel}
+        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)} ${
+          forfallTittel ? "cursor-help underline decoration-dotted decoration-slate-400" : ""
+        }`}
+      >
+        {p.navn}
+        {p.status === "Venter" ? " ·" : ""}
+      </span>
+    );
+  };
 
   return (
     <li className={`min-w-0 ${harInstruks ? "py-2" : kompakt ? "py-1.5" : "py-2"}`}>

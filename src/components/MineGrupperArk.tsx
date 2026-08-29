@@ -1,6 +1,6 @@
 import React from "react";
 import { HeartHandshake, Mail, Phone, Sparkles, UserCircle, Users, X } from "lucide-react";
-import { DatabaseState, mineGrupperForPerson, type MinGruppeKontakt } from "../services/dataService";
+import { DatabaseState, mineGrupperForPerson, type MinGruppeKontakt, type MinGruppeMedlem } from "../services/dataService";
 
 interface MineGrupperArkProps {
   db: DatabaseState;
@@ -72,7 +72,58 @@ const KontaktLinje: React.FC<{ kontakt: MinGruppeKontakt }> = ({ kontakt }) => {
       </div>
     </div>
   );
-}
+};
+
+const MedlemLinje: React.FC<{ medlem: MinGruppeMedlem }> = ({ medlem }) => (
+  <div className="flex items-start gap-2">
+    <UserCircle className="w-4 h-4 text-[#6b9a7d] mt-0.5 shrink-0" />
+    <div className="min-w-0 flex-1">
+      <p className="text-sm text-slate-800 leading-snug">
+        <span className="font-medium">{medlem.navn}</span>
+        {medlem.erDeg ? (
+          <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-[#2d5a3f] bg-[#eef5f1] border border-[#d2e8d9] px-1.5 py-0.5 rounded-full">
+            Deg
+          </span>
+        ) : null}
+        {medlem.rolle === "Leder" ? (
+          <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-white bg-[#2d5a3f] px-1.5 py-0.5 rounded-full">
+            Leder
+          </span>
+        ) : null}
+        {medlem.rolle === "Nestleder" ? (
+          <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-amber-900 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded-full">
+            Nestleder
+          </span>
+        ) : null}
+      </p>
+      {medlem.oppgaver.length > 0 ? (
+        <p className="text-xs text-slate-500 mt-0.5">{medlem.oppgaver.join(", ")}</p>
+      ) : null}
+      {(medlem.telefon || medlem.epost) && !medlem.erDeg ? (
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+          {medlem.telefon ? (
+            <a
+              href={`tel:${medlem.telefon.replace(/\s+/g, "")}`}
+              className="inline-flex items-center gap-1 text-xs text-[#2d5a3f] hover:underline"
+            >
+              <Phone className="w-3 h-3 shrink-0" />
+              {medlem.telefon}
+            </a>
+          ) : null}
+          {medlem.epost ? (
+            <a
+              href={`mailto:${medlem.epost}`}
+              className="inline-flex items-center gap-1 text-xs text-[#2d5a3f] hover:underline truncate max-w-full"
+            >
+              <Mail className="w-3 h-3 shrink-0" />
+              {medlem.epost}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  </div>
+);
 
 export const MineGrupperArk: React.FC<MineGrupperArkProps> = ({ db, personId, onLukk }) => {
   const grupper = mineGrupperForPerson(db, personId);
@@ -99,7 +150,7 @@ export const MineGrupperArk: React.FC<MineGrupperArkProps> = ({ db, personId, on
               </div>
               <p className="text-sm text-[#3d5c4a] leading-relaxed pr-2">
                 {grupper.length === 1
-                  ? "Du tjener sammen med andre i denne gruppen. Her ser du hvem som leder, og hvilke oppgaver du har valgt."
+                  ? "Du tjener sammen med andre i denne gruppen. Her ser du medlemmene, hvem som leder, og hvilke oppgaver du har valgt."
                   : "Du er med i flere grupper. Her ser du hvem du tjener sammen med, og hvem som leder."}
               </p>
             </div>
@@ -152,6 +203,22 @@ export const MineGrupperArk: React.FC<MineGrupperArkProps> = ({ db, personId, on
                     {kort.kontakter.map((kontakt, index) => (
                       <KontaktLinje key={`${kort.gruppeId}-${kontakt.etikett}-${index}`} kontakt={kontakt} />
                     ))}
+                  </div>
+
+                  <div>
+                    <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[#5a7d68] mb-2">
+                      <Users className="w-3.5 h-3.5" />
+                      Med i gruppen
+                    </p>
+                    {kort.medlemmer.length > 0 ? (
+                      <div className="space-y-2.5">
+                        {kort.medlemmer.map((medlem) => (
+                          <MedlemLinje key={`${kort.gruppeId}-${medlem.personId}`} medlem={medlem} />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-slate-500">Ingen andre medlemmer registrert ennå.</p>
+                    )}
                   </div>
 
                   <div>

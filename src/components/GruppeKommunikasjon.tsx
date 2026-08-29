@@ -1,19 +1,23 @@
 import React, { useState } from "react";
-import { Copy, Mail, Check, MessageSquare } from "lucide-react";
+import { Copy, Mail, Check, MessageSquare, ChevronDown, Bot } from "lucide-react";
 import type { DatabaseState } from "../types/database";
 import {
   byggVarselForMelding,
   epostListe,
+  erForfallSystemmeldingAktivert,
+  hentForfallSystemmal,
   hentInnstillinger,
   loggManuelleVarsler,
   mailtoGruppe,
   medlemmerForGruppe,
   navnelisteTekst,
   opprettGruppeMelding,
+  settGruppeForfallAutoAktivert,
   sisteMeldingerForGruppe,
   type VarselKanal,
 } from "../services/dataService";
 import { VarselKnapper } from "./VarselKnapper";
+import { GruppeMeldingRad } from "./GruppeMeldingRad";
 
 interface GruppeKommunikasjonProps {
   db: DatabaseState;
@@ -32,6 +36,7 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
 }) => {
   const [kopiert, setKopiert] = useState(false);
   const [nyMelding, setNyMelding] = useState("");
+  const [visAutoMeldinger, setVisAutoMeldinger] = useState(false);
   const [sisteVarselUtkast, setSisteVarselUtkast] = useState<ReturnType<typeof byggVarselForMelding>>([]);
 
   const medlemmer = medlemmerForGruppe(db, gruppeId);
@@ -39,6 +44,8 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
   const innstillinger = hentInnstillinger(db);
   const mailto = mailtoGruppe(medlemmer, gruppenavn ? `Melding til ${gruppenavn}` : "Melding til gruppen");
   const sisteMeldinger = sisteMeldingerForGruppe(db, gruppeId, 3);
+  const autoAktivert = erForfallSystemmeldingAktivert(db, gruppeId);
+  const adminMal = hentForfallSystemmal(db);
 
   const kopierNavneliste = () => {
     navigator.clipboard.writeText(navnelisteTekst(medlemmer)).then(() => {
@@ -54,6 +61,8 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
       gruppeId,
       tekst,
       opprettetAvPersonId,
+      kilde: "gruppeleder",
+      hendelseType: "manuell",
     });
     const melding = (neste.gruppeMeldinger || []).at(-1);
     if (!melding) return;
@@ -65,6 +74,10 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
   const etterVarsel = (kanal: VarselKanal) => {
     if (sisteVarselUtkast.length === 0) return;
     onUpdateDb(loggManuelleVarsler(db, sisteVarselUtkast, kanal));
+  };
+
+  const settAutoForfall = (aktivert: boolean) => {
+    onUpdateDb(settGruppeForfallAutoAktivert(db, gruppeId, aktivert));
   };
 
   return (
@@ -99,12 +112,54 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
         </div>
       </div>
 
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setVisAutoMeldinger((v) => !v)}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2.5 text-left text-xs font-semibold text-slate-700 bg-slate-50 hover:bg-slate-100 cursor-pointer"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <Bot className="w-3.5 h-3.5 text-slate-500" />
+            Automatiske meldinger
+          </span>
+          <ChevronDown
+            className={`w-4 h-4 text-slate-400 transition-transform ${visAutoMeldinger ? "rotate-180" : ""}`}
+          />
+        </button>
+        {visAutoMeldinger ? (
+          <div className="px-3 py-3 space-y-3 border-t border-slate-200 text-sm">
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5"
+                checked={autoAktivert}
+                onChange={(e) => settAutoForfall(e.target.checked)}
+              />
+              <span className="text-xs text-slate-700">
+                Send automatisk melding til gruppen når noen melder forfall uten egen tekst
+              </span>
+            </label>
+            <div className="text-xs text-slate-600 space-y-1">
+              <p className="font-semibold text-slate-500">Gjeldende mal (admin)</p>
+              <p className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-2 whitespace-pre-wrap">
+                {adminMal}
+              </p>
+              {innstillinger.systemmeldingForfallAktivert === false ? (
+                <p className="text-amber-700">Automatiske forfall-meldinger er skrudd av globalt av admin.</p>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
       {sisteMeldinger.length > 0 ? (
         <ul className="space-y-2">
           {sisteMeldinger.map((m) => (
-            <li key={m.GruppeMeldingID} className="text-sm text-slate-800 bg-slate-50 rounded-xl px-3 py-2">
-              <span className="text-[10px] text-slate-400 block">{m.OpprettetDato}</span>
-              {m.Tekst}
+            <li key={m.GruppeMeldingID}>
+              <GruppeMeldingRad
+                db={db}
+                melding={{ ...m, gruppenavn: gruppenavn || "Gruppe" }}
+              />
             </li>
           ))}
         </ul>

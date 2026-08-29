@@ -16,6 +16,8 @@ export * from "./samlingsplanlegging";
 export * from "./gruppeArrangementer";
 export * from "./gruppeOppfolging";
 export * from "./kommunikasjon";
+export * from "./gruppeMeldingLest";
+export * from "./systemmeldinger";
 export * from "./paamelding";
 export * from "./eksternKalender";
 export * from "./kalender";

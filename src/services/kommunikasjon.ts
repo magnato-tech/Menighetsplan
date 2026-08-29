@@ -2,6 +2,8 @@ import type {
   Arrangement,
   DatabaseState,
   GruppeMelding,
+  GruppeMeldingHendelseType,
+  GruppeMeldingKilde,
   Person,
   VarselLogg,
 } from "../types/database";
@@ -109,11 +111,22 @@ export function opprettGruppeMelding(
     tekst: string;
     opprettetAvPersonId: string;
     arrangementId?: string;
+    kilde?: GruppeMeldingKilde;
+    hendelseType?: GruppeMeldingHendelseType;
+    gudstjenesteId?: string;
+    rolleId?: string;
+    tildelingId?: string;
+    utlostAvPersonId?: string;
   }
 ): DatabaseState {
   const tekst = String(input.tekst || "").trim();
   if (!tekst) return db;
   const iDag = iDagIso();
+  const hendelseType =
+    input.hendelseType || (input.arrangementId ? "samling" : "manuell");
+  const kilde =
+    input.kilde ||
+    (hendelseType === "forfall" ? "medlem" : input.arrangementId ? "gruppeleder" : "gruppeleder");
   const ny: GruppeMelding = {
     GruppeMeldingID: nesteNummerertId(db.gruppeMeldinger || [], "GruppeMeldingID", "GM"),
     GruppeID: input.gruppeId,
@@ -122,6 +135,12 @@ export function opprettGruppeMelding(
     OpprettetAvPersonID: input.opprettetAvPersonId,
     OpprettetDato: iDag,
     SistEndret: iDag,
+    Kilde: kilde,
+    HendelseType: hendelseType,
+    GudstjenesteID: input.gudstjenesteId,
+    RolleID: input.rolleId,
+    TildelingID: input.tildelingId,
+    UtlostAvPersonID: input.utlostAvPersonId,
   };
   return {
     ...db,

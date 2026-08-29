@@ -13,6 +13,7 @@ import {
   type VarselKanal,
 } from "../services/dataService";
 import { VarselKnapper } from "./VarselKnapper";
+import { GruppeMeldingRad } from "./GruppeMeldingRad";
 
 interface SamlingMeldingPanelProps {
   db: DatabaseState;
@@ -58,6 +59,8 @@ export const SamlingMeldingPanel: React.FC<SamlingMeldingPanelProps> = ({
       tekst,
       opprettetAvPersonId,
       arrangementId: arrangement.ArrangementID,
+      kilde: "gruppeleder",
+      hendelseType: "samling",
     });
     const melding = (neste.gruppeMeldinger || []).at(-1);
     if (!melding) return;
@@ -106,9 +109,11 @@ export const SamlingMeldingPanel: React.FC<SamlingMeldingPanelProps> = ({
           <p className="text-xs font-semibold text-slate-600">Siste meldinger</p>
           <ul className="space-y-2">
             {meldinger.map((m) => (
-              <li key={m.GruppeMeldingID} className="text-sm text-slate-800 bg-slate-50 rounded-xl px-3 py-2">
-                <span className="text-[10px] text-slate-400 block mb-0.5">{m.OpprettetDato}</span>
-                {m.Tekst}
+              <li key={m.GruppeMeldingID}>
+                <GruppeMeldingRad
+                  db={db}
+                  melding={{ ...m, gruppenavn }}
+                />
               </li>
             ))}
           </ul>

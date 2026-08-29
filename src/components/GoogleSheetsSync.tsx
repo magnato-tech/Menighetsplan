@@ -22,8 +22,12 @@ import {
   hentSisteRemoteOppdatert,
   erDemoVersjon,
   SKARP_APP_URL,
+  hentForfallSystemmal,
+  erstattMalPlaceholdere,
+  STANDARD_FORFALL_SYSTEMMAL,
 } from "../services/dataService";
 import { PersonlenkeInnstillinger } from "./PersonlenkeInnstillinger";
+import { DemoTestlenkerPanel } from "./DemoTestlenkerPanel";
 import {
   RefreshCw,
   UploadCloud,
@@ -332,6 +336,7 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
           </a>
         </p>
       )}
+      {erDemoVersjon() && <DemoTestlenkerPanel starterLukket />}
       {selectedPersonId && (
         <PersonlenkeInnstillinger
           db={db}
@@ -368,6 +373,87 @@ export const GoogleSheetsSync: React.FC<GoogleSheetsSyncProps> = ({
             </label>
           );
         })}
+      </div>
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
+        <h2 className="text-lg font-bold text-slate-900">Gruppemeldinger</h2>
+        <p className="text-xs text-slate-600">
+          Automatiske systemmeldinger når noen melder forfall uten egen tekst og det fortsatt er
+          ledig plass. Gruppeledere kan skru av for sin gruppe, men ikke endre teksten.
+        </p>
+        <label className="flex items-start gap-3 text-sm text-slate-800 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-1"
+            checked={hentInnstillinger(db).visMeldingerMinSide}
+            onChange={(e) => {
+              const neste = oppdaterInnstillinger(db, {
+                visMeldingerMinSide: e.target.checked,
+              });
+              saveDatabase(neste);
+              onUpdateDb(neste);
+            }}
+          />
+          <span>
+            Vis meldingsfane på Min side — gruppemedlemmer ser meldinger fra egen gruppe her.
+            Gruppeledere kan fortsatt sende meldinger når dette er av.
+          </span>
+        </label>
+        {(() => {
+          const i = hentInnstillinger(db);
+          const malInput = String(i.systemmeldingForfallMal ?? "");
+          const malTekst = hentForfallSystemmal(db);
+          const forhåndsvisning = erstattMalPlaceholdere(malTekst, {
+            fornavn: "Ola",
+            rolle: "Lovsang",
+            dato: "søn. 7. sep.",
+            gruppe: "Lovsang",
+            tema: "Tema",
+          });
+          return (
+            <>
+              <label className="flex items-start gap-3 text-sm text-slate-800 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={i.systemmeldingForfallAktivert !== false}
+                  onChange={(e) => {
+                    const neste = oppdaterInnstillinger(db, {
+                      systemmeldingForfallAktivert: e.target.checked,
+                    });
+                    saveDatabase(neste);
+                    onUpdateDb(neste);
+                  }}
+                />
+                <span>Send automatisk melding ved forfall (globalt)</span>
+              </label>
+              <div className="space-y-2">
+                <label className="text-xs font-semibold text-slate-600 block">
+                  Mal for forfall-melding
+                </label>
+                <textarea
+                  value={malInput}
+                  placeholder={STANDARD_FORFALL_SYSTEMMAL}
+                  onChange={(e) => {
+                    const neste = oppdaterInnstillinger(db, {
+                      systemmeldingForfallMal: e.target.value,
+                    });
+                    saveDatabase(neste);
+                    onUpdateDb(neste);
+                  }}
+                  rows={3}
+                  className="w-full text-sm border border-slate-200 rounded-xl px-3 py-2 focus:ring-2 focus:ring-[#2d5a3f] focus:outline-hidden"
+                />
+                <p className="text-[11px] text-slate-500">
+                  Plassholdere: {"{fornavn}"}, {"{rolle}"}, {"{dato}"}, {"{gruppe}"}, {"{tema}"}
+                </p>
+                <div className="text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-700">
+                  <span className="font-semibold text-slate-500 block mb-1">Forhåndsvisning</span>
+                  {forhåndsvisning}
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
       <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
         <h2 className="text-lg font-bold text-slate-900">Kalender for andre</h2>

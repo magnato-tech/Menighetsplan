@@ -9,6 +9,7 @@ import {
   velgDatoForPerson,
 } from "./bemanning";
 import { opprettGruppeMelding } from "./kommunikasjon";
+import { opprettForfallSystemmelding } from "./systemmeldinger";
 import { erTjenestegruppe } from "./grupper";
 import {
   erMedITjenestegruppe,
@@ -23,6 +24,9 @@ export type PåmeldingsPerson = {
   personId: string;
   navn: string;
   status: "Bekreftet" | "Venter" | "Avvist";
+  forfallMelding?: string;
+  forfallDato?: string;
+  erSystemmelding?: boolean;
 };
 
 export type PåmeldingsRad = {
@@ -103,11 +107,59 @@ function mapTildelingTilPerson(
       : rawStatus === "Avvist"
         ? "Avvist"
         : "Venter";
+  const forfallMelding = (db.gruppeMeldinger || []).find(
+    (m) => m.TildelingID === t.TildelingID && m.HendelseType === "forfall"
+  );
   return {
     personId: t.PersonID,
     navn: visningsnavnForPerson(db, t.PersonID, t.EksternNavn),
     status,
+    forfallMelding: forfallMelding?.Tekst,
+    forfallDato: forfallMelding?.OpprettetDato,
+    erSystemmelding: forfallMelding?.Kilde === "system",
   };
+}
+
+function etterForfallGruppeMelding(
+  db: DatabaseState,
+  input: {
+    tildelingId: string;
+    personId: string;
+    gudstjenesteId: string;
+    rolleId: string;
+    meldingTilGruppe?: string;
+  }
+): DatabaseState {
+  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === input.gudstjenesteId);
+  const rolle = db.roller.find((r) => r.RolleID === input.rolleId);
+  const gruppeId = rolle?.GruppeID;
+  if (!gruppeId || !rolle || !gud) return db;
+
+  const tekst = String(input.meldingTilGruppe || "").trim();
+  if (tekst) {
+    const dato = formatDatoPrefiks(gud.Dato);
+    const prefiks = `${rolle.Rollenavn || "Oppgave"}${dato ? ` ${dato}` : ""}: `;
+    return opprettGruppeMelding(db, {
+      gruppeId,
+      tekst: `${prefiks}${tekst}`,
+      opprettetAvPersonId: input.personId,
+      kilde: "medlem",
+      hendelseType: "forfall",
+      gudstjenesteId: input.gudstjenesteId,
+      rolleId: input.rolleId,
+      tildelingId: input.tildelingId,
+    });
+  }
+
+  return opprettForfallSystemmelding(db, {
+    gruppeId,
+    personId: input.personId,
+    tildelingId: input.tildelingId,
+    gudstjenesteId: input.gudstjenesteId,
+    rolle,
+    gudstjenesteDato: gud.Dato,
+    gudstjenesteTema: gud.Tema,
+  });
 }
 
 function tjenesteGruppeIdsForPerson(db: DatabaseState, personId: string): Set<string> {
@@ -257,7 +309,16 @@ export function svarPaForesporsel(
     svar === "Bekreftet"
       ? kommentar || "Bekreftet via Min side"
       : kommentar || "Avslått via Min side";
-  return svarPaaTildeling(db, tildeling.TildelingID, personId, svar, melding);
+  let neste = svarPaaTildeling(db, tildeling.TildelingID, personId, svar, melding);
+  if (svar === "Avvist") {
+    neste = etterForfallGruppeMelding(neste, {
+      tildelingId: tildeling.TildelingID,
+      personId,
+      gudstjenesteId,
+      rolleId,
+    });
+  }
+  return neste;
 }
 
 export function meldForfall(
@@ -286,14 +347,13 @@ export function meldForfall(
   );
 
   const gruppeId = rolle?.GruppeID;
-  const tekst = String(meldingTilGruppe || "").trim();
-  if (gruppeId && tekst) {
-    const dato = gud ? formatDatoPrefiks(gud.Dato) : "";
-    const prefiks = `${rolle?.Rollenavn || "Oppgave"}${dato ? ` ${dato}` : ""}: `;
-    neste = opprettGruppeMelding(neste, {
-      gruppeId,
-      tekst: `${prefiks}${tekst}`,
-      opprettetAvPersonId: personId,
+  if (gruppeId && rolle && gud) {
+    neste = etterForfallGruppeMelding(neste, {
+      tildelingId: tildeling.TildelingID,
+      personId,
+      gudstjenesteId,
+      rolleId,
+      meldingTilGruppe,
     });
   }
   return neste;

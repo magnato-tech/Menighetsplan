@@ -21,6 +21,11 @@ import {
   initialMalposter,
   initialMalTilleggsvakter,
 } from "../data/initialData";
+import {
+  demoPersoner,
+  demoGruppemedlemmer,
+  demoGruppeMeldinger,
+} from "../data/demoUtvidelse";
 import { hentApiIdentitet, lagreAdminSesjonPersonId } from "./innlogging";
 import { sikreSikkerhetsTokens, rensLastetPersondata, fyllManglendeTilgangsnivaa, synkTilgangsnivaaEtterGruppeledere } from "./tilgang";
 import { synkGruppeledergruppe } from "./grupper";
@@ -632,9 +637,9 @@ export function loadLocalDatabase(): DatabaseState {
 export function byggStandardMockState(): DatabaseState {
   return applyLoadedState({
     gruppetyper: initialGruppetyper,
-    personer: initialPersoner,
+    personer: [...initialPersoner, ...demoPersoner],
     grupper: initialGrupper,
-    gruppemedlemmer: initialGruppemedlemmer,
+    gruppemedlemmer: [...initialGruppemedlemmer, ...demoGruppemedlemmer],
     roller: initialRoller,
     personroller: initialPersonroller,
     rollebeskrivelser: initialRollebeskrivelser,
@@ -651,7 +656,7 @@ export function byggStandardMockState(): DatabaseState {
     arrangementer: [],
     kalenderoppgaver: [],
     samlingoppmote: [],
-    gruppeMeldinger: [],
+    gruppeMeldinger: demoGruppeMeldinger,
     varselLogg: [],
     innstillinger: standardInnstillinger(),
     personerImport: initialPersonerImport,

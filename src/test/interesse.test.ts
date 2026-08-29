@@ -192,6 +192,38 @@ test("mineGrupperForPerson inkluderer lederkontakt for medlemmer", () => {
   assert.equal(leder?.telefon, "900 11 222");
 });
 
+test("mineGrupperForPerson viser alle medlemmer med kontakt for bytte", () => {
+  let db = tomDb();
+  db.gruppemedlemmer = [
+    {
+      GruppeMedlemID: "GM1",
+      GruppeID: "G003",
+      PersonID: "P001",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+    {
+      GruppeMedlemID: "GM2",
+      GruppeID: "G003",
+      PersonID: "P002",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db = settPersonroller(db, "P001", ["R006"]);
+  const kort = mineGrupperForPerson(db, "P001")[0];
+  assert.equal(kort.medlemmer.length, 3);
+  const meg = kort.medlemmer.find((m) => m.personId === "P001");
+  const kollega = kort.medlemmer.find((m) => m.personId === "P002");
+  const leder = kort.medlemmer.find((m) => m.personId === "P010");
+  assert.ok(meg?.erDeg);
+  assert.equal(meg?.oppgaver.join(), "Lyd");
+  assert.equal(kollega?.navn, "Jonas Berg");
+  assert.equal(leder?.rolle, "Leder");
+});
+
 test("påmelding viser bare hukede oppgaver, ikke resten av gruppen", () => {
   const etter = settPersonroller(tomDb(), "P001", ["R006"]);
   const ids = hentPåmeldingsRoller(etter, "P001").map((r) => r.RolleID);

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { IkonHandling } from "./IkonHandling";
 import { TemaBryter } from "./TemaBryter";
+import { PersonLederBadges } from "./PersonLederBadges";
 
 interface HeaderProps {
   db: DatabaseState;
@@ -129,17 +130,15 @@ export const Header: React.FC<HeaderProps> = ({
                               <div className="font-medium text-slate-900">
                                 {person.Navn}
                               </div>
-                              <div className="text-xs text-slate-500 flex items-center gap-1.5">
-                                {personTilgang.isAdmin && (
-                                  <span className="bg-slate-100 text-slate-800 text-[10px] px-1.5 py-0.5 rounded font-medium border border-slate-200">
-                                    Admin
-                                  </span>
-                                )}
-                                {personTilgang.isLeader && (
-                                  <span className="bg-[#eef5f1] text-[#2d5a3f] text-[10px] px-1.5 py-0.5 rounded font-medium border border-[#d2e8d9]">
-                                    Gruppeleder
-                                  </span>
-                                )}
+                              <div className="text-xs text-slate-500">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {personTilgang.isAdmin && (
+                                    <span className="bg-slate-100 text-slate-800 text-[10px] px-1.5 py-0.5 rounded font-medium border border-slate-200">
+                                      Admin
+                                    </span>
+                                  )}
+                                </div>
+                                <PersonLederBadges db={db} personId={person.PersonID} />
                               </div>
                             </div>
                             {selectedPersonId === person.PersonID && (

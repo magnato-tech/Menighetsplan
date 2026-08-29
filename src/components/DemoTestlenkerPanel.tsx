@@ -1,8 +1,11 @@
 import React, { useState } from "react";
-import { Link2, Copy, Check } from "lucide-react";
+import { Link2, Copy, Check, ChevronDown } from "lucide-react";
 import { DEMO_TESTLENKER, genererDemoTestlenke } from "../services/demo";
 
-export const DemoTestlenkerPanel: React.FC = () => {
+export const DemoTestlenkerPanel: React.FC<{ starterLukket?: boolean }> = ({
+  starterLukket = false,
+}) => {
+  const [apen, setApen] = useState(!starterLukket);
   const [kopiert, setKopiert] = useState<string | null>(null);
 
   const kopier = (nokkel: string, personId: string, view?: "personal" | "leader" | "admin") => {
@@ -14,18 +17,32 @@ export const DemoTestlenkerPanel: React.FC = () => {
   };
 
   return (
-    <section className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 space-y-3">
-      <div className="flex items-start gap-2">
-        <Link2 className="w-4 h-4 text-amber-800 mt-0.5 shrink-0" />
-        <div>
-          <h3 className="text-sm font-bold text-amber-950">Demo testlenker</h3>
-          <p className="text-xs text-amber-900/80 mt-0.5">
-            Stabile lenker du kan sende til testpersoner. Virker på tvers av enheter uten at mottaker
-            trenger din innlogging.
-          </p>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs space-y-3">
+      <button
+        type="button"
+        onClick={() => setApen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 text-left cursor-pointer"
+        aria-expanded={apen}
+      >
+        <div className="flex items-start gap-2 min-w-0">
+          <Link2 className="w-4 h-4 text-amber-800 mt-0.5 shrink-0" />
+          <div>
+            <h3 className="text-sm font-bold text-slate-900">Demo testlenker</h3>
+            <p className="text-xs text-slate-600 mt-0.5">
+              Stabile lenker til testpersoner — uten innlogging hos mottaker.
+            </p>
+          </div>
         </div>
-      </div>
-      <ul className="space-y-2">
+        <ChevronDown
+          className={`w-5 h-5 text-slate-500 shrink-0 transition ${apen ? "rotate-180" : ""}`}
+        />
+      </button>
+      {apen ? (
+        <>
+          <p className="text-xs text-amber-900/80 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+            Kopier lenken og send til testpersoner. Virker på tvers av enheter.
+          </p>
+          <ul className="space-y-2">
         {DEMO_TESTLENKER.map((preset) => {
           const nokkel = `${preset.personId}-${preset.view || "auto"}`;
           const erKopiert = kopiert === nokkel;
@@ -53,7 +70,9 @@ export const DemoTestlenkerPanel: React.FC = () => {
             </li>
           );
         })}
-      </ul>
+          </ul>
+        </>
+      ) : null}
     </section>
   );
 };
