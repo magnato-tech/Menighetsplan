@@ -361,7 +361,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#2d5a3f] uppercase tracking-wider">
+            <div className="hidden md:flex items-center gap-2 text-xs font-semibold text-[#2d5a3f] uppercase tracking-wider">
               <Users className="w-4 h-4" />
               <span>
                 Gruppeleder
@@ -529,7 +529,9 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
                 </div>
               )}
 
-              <GruppeRessurser ressurser={currentGruppe.Ressurser} />
+              <div className="hidden md:block">
+                <GruppeRessurser ressurser={currentGruppe.Ressurser} />
+              </div>
 
               {visGudstjenesteBemanning && gruppensRoller.length > 0 && (
                 <div className="text-sm">

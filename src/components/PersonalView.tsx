@@ -97,7 +97,11 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
         </div>
 
         {visningsRoller.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
+          <div
+            className={`flex flex-wrap gap-2 ${
+              visningsRoller.length <= 2 ? "hidden md:flex" : ""
+            }`}
+          >
             <button
               type="button"
               onClick={() => setRolleFilterId(null)}
@@ -126,7 +130,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
           <button
             type="button"
             onClick={() => onOppgaverArkChange?.(true)}
@@ -144,7 +148,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
           </button>
         </div>
 
-        <div className="bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
+        <div className="hidden md:block bg-[#f4f8f5] border-l-4 border-[#2d5a3f] rounded-2xl p-4 sm:p-5 text-xs sm:text-sm text-slate-700 leading-relaxed shadow-2xs">
           <p>
             Du har sagt ja til å bidra med{" "}
             <strong className="text-[#1e3e2b] font-bold">{rolleNavnTekst}</strong> i menigheten.

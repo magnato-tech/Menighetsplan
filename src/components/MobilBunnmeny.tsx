@@ -7,7 +7,16 @@ import {
   finnGrupperSomLederEllerNestleder,
   erTjenestegruppe,
 } from "../services/dataService";
-import { Ellipsis, ShieldCheck, UserCheck, Users, CalendarDays, Home, ClipboardList } from "lucide-react";
+import {
+  Ellipsis,
+  ShieldCheck,
+  UserCheck,
+  Users,
+  CalendarDays,
+  Home,
+  ClipboardList,
+  ClipboardCheck,
+} from "lucide-react";
 
 export type LederSeksjon = "hjem" | "medlemmer" | "samlinger" | "bemanning" | "kalender";
 
@@ -37,7 +46,7 @@ function PostIkon({ post, aktiv }: { post: BunnPost; aktiv: boolean }) {
   if (post.kind === "hjem") return <Home className={`w-5 h-5 ${farge}`} />;
   if (post.kind === "medlemmer") return <Users className={`w-5 h-5 ${farge}`} />;
   if (post.kind === "samlinger") return <ClipboardList className={`w-5 h-5 ${farge}`} />;
-  if (post.kind === "bemanning") return <Users className={`w-5 h-5 ${farge}`} />;
+  if (post.kind === "bemanning") return <ClipboardCheck className={`w-5 h-5 ${farge}`} />;
   if (post.kind === "kalender") return <CalendarDays className={`w-5 h-5 ${farge}`} />;
   if (post.view === "admin") return <ShieldCheck className={`w-5 h-5 ${farge}`} />;
   if (post.view === "leader") return <Users className={`w-5 h-5 ${farge}`} />;
@@ -72,12 +81,12 @@ export const MobilBunnmeny: React.FC<MobilBunnmenyProps> = ({
     }
   } else if (activeView === "leader") {
     poster.push({ id: "nav-personal", kind: "nav", view: "personal", etikett: "Min side" });
-    poster.push({ id: "hjem", kind: "hjem", etikett: "Hjem" });
-    poster.push({ id: "medlemmer", kind: "medlemmer", etikett: "Medlemmer" });
-    poster.push({ id: "samlinger", kind: "samlinger", etikett: "Samlinger" });
     if (lederTjenestegruppe) {
       poster.push({ id: "bemanning", kind: "bemanning", etikett: "Bemanning" });
     }
+    poster.push({ id: "medlemmer", kind: "medlemmer", etikett: "Medlemmer" });
+    poster.push({ id: "samlinger", kind: "samlinger", etikett: "Samlinger" });
+    poster.push({ id: "hjem", kind: "hjem", etikett: "Hjem" });
     if (visKalenderForPerson(db, personId, "gruppeleder")) {
       poster.push({ id: "kalender", kind: "kalender", etikett: "Kalender" });
     }
