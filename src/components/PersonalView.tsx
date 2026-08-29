@@ -132,7 +132,7 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
             onClick={() => onOppgaverArkChange?.(true)}
             className="min-h-11 w-full sm:w-auto px-3.5 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#d2e8d9] border border-[#d2e8d9] rounded-xl cursor-pointer"
           >
-            Velg tjeneste
+            Tjeneste
           </button>
           <button
             type="button"

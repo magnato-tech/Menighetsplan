@@ -12,6 +12,7 @@ import {
   oppsummerRolleendring,
   settPersonroller,
   avlysKommendeOppgaverIGruppe,
+  tjenesteGruppenavnForPerson,
   velkomstForGrupper,
 } from "../services/dataService";
 import { Gruppe, Gruppetype, Person, Rolle } from "../types/database";
@@ -291,6 +292,35 @@ test("tildeling eller personrolle uten gruppemedlemskap gir ikke påmelding", ()
     },
   ];
   assert.deepEqual(hentPåmeldingsRoller(db, "P001"), []);
+});
+
+test("tjenesteGruppenavnForPerson viser grupper med huket Tjeneste og medlemskap", () => {
+  const db = tomDb();
+  db.gruppemedlemmer = [
+    {
+      GruppeMedlemID: "GM1",
+      GruppeID: "G003",
+      PersonID: "P001",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.personroller = [
+    {
+      PersonRolleID: "PR001",
+      PersonID: "P001",
+      RolleID: "R006",
+      Aktiv: true,
+      FraDato: "2026-01-01",
+      TilDato: "",
+      Notat: "",
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  assert.deepEqual(tjenesteGruppenavnForPerson(db, "P001"), ["Teknikk"]);
+  assert.deepEqual(tjenesteGruppenavnForPerson(db, "P002"), []);
 });
 
 test("velkomstForGrupper viser gruppeleders navn", () => {

@@ -120,7 +120,7 @@ export const MineGrupperArk: React.FC<MineGrupperArkProps> = ({ db, personId, on
               <Users className="w-8 h-8 text-[#8fb39a] mx-auto mb-3" />
               <p className="text-sm font-semibold text-slate-800">Ingen gruppe ennå</p>
               <p className="text-sm text-slate-600 mt-1 leading-relaxed">
-                Når du velger oppgaver under «Velg tjeneste», dukker gruppen din opp her.
+                Når du velger oppgaver under «Tjeneste», dukker gruppen din opp her.
               </p>
             </div>
           ) : (

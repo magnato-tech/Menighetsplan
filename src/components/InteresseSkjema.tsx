@@ -128,7 +128,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
             </div>
           )}
           {!landing && (
-            <h2 className="text-lg font-bold text-slate-900 mb-1">Velg tjeneste</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-1">Tjeneste</h2>
           )}
           {!landing && (
           <p className="text-xs text-slate-500 mb-4">

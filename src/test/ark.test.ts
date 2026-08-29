@@ -290,6 +290,7 @@ test("typeahead advarer om samme søndag og semesterlast", () => {
   const forslag = foreslaPersonerForCelle(db, "GUD001", "R009", "Camilla");
   const camilla = forslag.find((f) => f.personId === "P001")!;
   assert.equal(camilla.alleredeTildelt, true);
+  assert.equal(camilla.harOppgaveSammeDag, true);
   assert.ok(camilla.sammeDagAndreRoller.includes("Lovsang"));
   assert.equal(camilla.oppgaverSemester, 2);
   assert.equal(camilla.harFlereSammeDag, true);
@@ -408,6 +409,59 @@ test("gruppemedlemmer merkes iGruppen og kommer først i listen", () => {
   assert.equal(forslag[0].personId, "P005");
   assert.equal(forslag[0].iGruppen, true);
   assert.equal(forslag.find((f) => f.personId === "P002")?.iGruppen, false);
+  assert.equal(forslag.find((f) => f.personId === "P002")?.harOppgaveSammeDag, false);
+});
+
+test("foreslaPersonerForCelle inkluderer tjenesteGrupper", () => {
+  const db = tomDb();
+  db.gruppetyper = [
+    {
+      GruppetypeID: "GT001",
+      Navn: "Tjenestegruppe",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.grupper = [
+    {
+      GruppeID: "G005",
+      Gruppenavn: "Rigging",
+      GruppetypeID: "GT001",
+      Beskrivelse: "",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.gruppemedlemmer = [
+    {
+      GruppeMedlemID: "GM1",
+      GruppeID: "G005",
+      PersonID: "P001",
+      Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  db.personroller = [
+    {
+      PersonRolleID: "PR001",
+      PersonID: "P001",
+      RolleID: "R009",
+      Aktiv: true,
+      FraDato: "2026-01-01",
+      TilDato: "",
+      Notat: "",
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
+    },
+  ];
+  const forslag = foreslaPersonerForCelle(db, "GUD001", "R009", "Camilla");
+  const camilla = forslag.find((f) => f.personId === "P001");
+  assert.ok(camilla);
+  assert.deepEqual(camilla!.tjenesteGrupper, ["Rigging"]);
 });
 
 console.log("");

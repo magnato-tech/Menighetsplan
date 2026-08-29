@@ -101,6 +101,19 @@ export function aktiveTjenesteRolleIds(db: DatabaseState, personId: string): str
     .map((pr) => pr.RolleID);
 }
 
+/** Gruppenavn der personen har huket av minst én Tjeneste-rolle og er med i gruppen. */
+export function tjenesteGruppenavnForPerson(db: DatabaseState, personId: string): string[] {
+  const valgte = new Set(aktiveTjenesteRolleIds(db, personId));
+  const navn = new Set<string>();
+  for (const rolle of tjenesteRoller(db)) {
+    if (!valgte.has(rolle.RolleID) || !rolle.GruppeID) continue;
+    if (!erMedlemAvGruppe(db, personId, rolle.GruppeID)) continue;
+    const gruppe = db.grupper.find((g) => g.GruppeID === rolle.GruppeID);
+    if (gruppe?.Aktiv) navn.add(gruppe.Gruppenavn);
+  }
+  return Array.from(navn).sort((a, b) => a.localeCompare(b, "nb"));
+}
+
 function linjeForRolle(db: DatabaseState, rolle: Rolle): RolleEndringLinje {
   const gruppe = rolle.GruppeID
     ? db.grupper.find((g) => g.GruppeID === rolle.GruppeID)

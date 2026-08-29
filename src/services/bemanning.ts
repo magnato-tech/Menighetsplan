@@ -12,7 +12,7 @@ import { nesteNummerertId } from "./ids";
 import { saveDatabase } from "./persistens";
 import { finnTjenestegrupperForPerson, synkGruppeledergruppe } from "./grupper";
 import { erGudstjenesteBemanningRolle } from "./roller";
-import { hentPåmeldingsRoller } from "./interesse";
+import { hentPåmeldingsRoller, tjenesteGruppenavnForPerson } from "./interesse";
 import { hentTilgang } from "./tilgang";
 
 /** Arrangement-rader har ArrangementID og tom GudstjenesteID — aldri omvendt. */
@@ -1148,10 +1148,14 @@ export type CelleForslag = {
   visningsnavn: string;
   fulltNavn: string;
   iGruppen: boolean;
+  /** Annen aktiv rolle samme gudstjeneste (ikke denne cellen). */
+  harOppgaveSammeDag: boolean;
   alleredeTildelt: boolean;
   sammeDagAndreRoller: string[];
   oppgaverSemester: number;
   harFlereSammeDag: boolean;
+  /** Tjenestegrupper personen har valgt under Tjeneste på Min side. */
+  tjenesteGrupper: string[];
 };
 
 /** Typeahead for en ark-celle. Krever ikke personrolle. */
@@ -1215,10 +1219,12 @@ export function foreslaPersonerForCelle(
       visningsnavn: uniktVisningsnavn(db, p),
       fulltNavn: p.Navn,
       iGruppen: gruppeMedlemIds.has(p.PersonID),
+      harOppgaveSammeDag: sammeDagAndreRoller.length > 0,
       alleredeTildelt: opptatt.has(p.PersonID),
       sammeDagAndreRoller,
       oppgaverSemester: rad?.oppgaver ?? 0,
       harFlereSammeDag: Boolean(rad?.harFlereSammeDag) || sammeDagAndreRoller.length > 0,
+      tjenesteGrupper: tjenesteGruppenavnForPerson(db, p.PersonID),
     };
   });
 }

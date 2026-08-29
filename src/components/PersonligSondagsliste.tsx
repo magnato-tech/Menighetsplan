@@ -102,7 +102,6 @@ type RolleRadProps = {
   kompakt: boolean;
   visRollenavn: boolean;
   instruksTekst?: string;
-  /** Kun første søndagskort viser instruks-knapp. */
   visInstruksKnapp?: boolean;
   onToggle: (gudstjenesteId: string, rolleId: string, checked: boolean) => void;
   onVisInstruks: (rolle: Rolle) => void;
@@ -122,9 +121,7 @@ const RolleRad: React.FC<RolleRadProps> = ({
   const [visAndre, setVisAndre] = useState(false);
   const valgt = erPaameldingValgt(rad.status);
   const kanEndre = kanPaameldingEndres(rad.status);
-  const visInstruksOppsummering =
-    Boolean(instruksTekst) && (valgt || rad.status === "venter" || rad.status === "stengt");
-  const instruksKort = visInstruksOppsummering ? forsteInstruksSetning(instruksTekst!) : "";
+  const instruksKort = instruksTekst ? forsteInstruksSetning(instruksTekst) : "";
   const visKnapp = visInstruksKnapp && Boolean(instruksKort);
   const andre = rad.personerPå.filter((p) => p.personId !== personId);
   const telling =
@@ -259,6 +256,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
   const aktivMaanedNokkel = velgMaanedNokkel(maaneder, maanedNokkel);
   const aktivMaaned = maaneder.find((m) => m.nokkel === aktivMaanedNokkel) ?? null;
   const visRollenavn = !rolleFilterId;
+  const forsteKommendeGudstjenesteId = sondager[0]?.gudstjeneste.GudstjenesteID ?? null;
   const fremdrift = useMemo(
     () => semesterFremdrift(maaneder, ferdigeMaaneder),
     [maaneder, ferdigeMaaneder]
@@ -437,7 +435,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
             listeAnim ? "opacity-60" : "opacity-100"
           }`}
         >
-          {(aktivMaaned?.sondager ?? []).map(({ gudstjeneste, roller }, sondagIndex) => (
+          {(aktivMaaned?.sondager ?? []).map(({ gudstjeneste, roller }) => (
             <div
               key={gudstjeneste.GudstjenesteID}
               className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden"
@@ -487,7 +485,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
                     }
                     onToggle={handleToggle}
                     onVisInstruks={setValgtRolle}
-                    visInstruksKnapp={sondagIndex === 0}
+                    visInstruksKnapp={gudstjeneste.GudstjenesteID === forsteKommendeGudstjenesteId}
                   />
                 ))}
               </ul>

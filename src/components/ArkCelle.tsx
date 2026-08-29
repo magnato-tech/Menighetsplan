@@ -242,10 +242,13 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
                 : f.oppgaverSemester > 0
                   ? `${f.oppgaverSemester} oppgaver dette semesteret`
                   : "";
+            const radTittel =
+              f.tjenesteGrupper.length > 0 ? f.tjenesteGrupper.join(", ") : undefined;
             return (
               <li key={f.personId}>
                 <button
                   type="button"
+                  title={radTittel}
                   onMouseDown={(e) => {
                     e.preventDefault();
                     onVelgPerson(f.personId);
@@ -256,15 +259,18 @@ export const ArkCelle: React.FC<ArkCelleProps> = ({
                     f.iGruppen ? "ring-1 ring-inset ring-[#2d5a3f]/35" : ""
                   }`}
                 >
-                  {f.iGruppen ? (
-                    <span
-                      className="inline-block w-1.5 h-1.5 rounded-full bg-[#2d5a3f] mr-1.5 align-middle"
-                      title="I tjenestegruppen"
-                      aria-hidden
-                    />
-                  ) : (
-                    <span className="inline-block w-1.5 h-1.5 mr-1.5 align-middle" aria-hidden />
-                  )}
+                  <span className="inline-flex items-center gap-0.5 w-4 shrink-0 mr-1.5 align-middle" aria-hidden>
+                    {f.iGruppen ? (
+                      <span className="w-1.5 h-1.5 rounded-full bg-[#2d5a3f]" />
+                    ) : (
+                      <span className="w-1.5 h-1.5" />
+                    )}
+                    {f.harOppgaveSammeDag ? (
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    ) : (
+                      <span className="w-1.5 h-1.5" />
+                    )}
+                  </span>
                   <span className="font-medium text-slate-900">{f.visningsnavn}</span>
                   {f.visningsnavn !== f.fulltNavn && (
                     <span className="text-slate-500"> {f.fulltNavn}</span>
