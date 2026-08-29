@@ -22,6 +22,8 @@ interface GruppeMedlemListeProps {
   onViewAsMember?: (personId: string, view?: AppView) => void;
   onLeggTilMedlem: (personId: string) => void;
   onOpprettNyPerson?: (navn: string) => void;
+  /** Ingen ytre kort-ramme (f.eks. i popup på bemanning). */
+  utenRamme?: boolean;
 }
 
 export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
@@ -35,6 +37,7 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
   onViewAsMember,
   onLeggTilMedlem,
   onOpprettNyPerson,
+  utenRamme = false,
 }) => {
   const [medlemSok, setMedlemSok] = useState("");
   const [valgtMenighetsmedlem, setValgtMenighetsmedlem] = useState<Person | null>(null);
@@ -56,7 +59,13 @@ export const GruppeMedlemListe: React.FC<GruppeMedlemListeProps> = ({
   })();
 
   return (
-    <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
+    <div
+      className={
+        utenRamme
+          ? undefined
+          : "bg-white p-5 rounded-2xl border border-slate-200 shadow-xs"
+      }
+    >
       <div
         data-guide="medlemmer"
         className={uthevMedlemmer ? "rounded-xl ring-2 ring-sky-300 p-3 -mx-1" : undefined}

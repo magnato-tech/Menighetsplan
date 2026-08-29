@@ -137,12 +137,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
     }
   }, [selectedPersonId, lededeGrupper.length]);
 
-  const visOversiktFilter: OversiktFilter =
-    lederSeksjon === "medlemmer"
-      ? "medlemmer"
-      : oversiktFilter === "medlemmer"
-        ? null
-        : oversiktFilter;
+  const visOversiktFilter = oversiktFilter;
 
   useEffect(() => {
     if (!fokusMedlemmerNokkel) return;
@@ -631,11 +626,25 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               skjulGruppehode
               listeTittel="Kommende gudstjenester"
               oversiktFilter={visOversiktFilter}
-              onOversiktFilter={(filter) => {
-                setOversiktFilter(filter);
-                if (filter === "medlemmer") onLederSeksjon?.("medlemmer");
-              }}
-              onMedlemmer={() => onLederSeksjon?.("medlemmer")}
+              onOversiktFilter={setOversiktFilter}
+              medlemmerPanel={
+                currentGruppe ? (
+                  <GruppeMedlemListe
+                    db={db}
+                    medlemmer={oversiktPersoner}
+                    venterPersonIds={venterPersonIds}
+                    uthevMedlemmer={false}
+                    copiedPersonId={copiedPersonId}
+                    onCopyLink={handleCopyLink}
+                    onSelectPerson={onSelectPerson}
+                    onViewAsMember={onViewAsMember}
+                    onLeggTilMedlem={handleLeggTilMedlem}
+                    onOpprettNyPerson={handleOpprettNyPerson}
+                    utenRamme
+                  />
+                ) : undefined
+              }
+              onGaTilMedlemmerFane={() => onLederSeksjon?.("medlemmer")}
               onSelectPerson={onSelectPerson}
               selectedPersonId={selectedPersonId}
               onTildel={(foresporsel) => {

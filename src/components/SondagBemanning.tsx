@@ -50,7 +50,7 @@ import {
 
 const UTEN_GRUPPE = "__uten__";
 
-export type OversiktFilter = "bekreftet" | "venter" | "ledige" | "medlemmer" | null;
+export type OversiktFilter = "bekreftet" | "venter" | "ledige" | null;
 
 export type TildelForesporsel = {
   gudstjenesteId: string;
@@ -93,7 +93,7 @@ function bemanningForRolle(
 }
 
 function trefferOversiktFilter(tall: Bemanningstall, filter: OversiktFilter): boolean {
-  if (!filter || filter === "medlemmer") return true;
+  if (!filter) return true;
   if (filter === "ledige") return tall.ledige > 0;
   if (filter === "venter") return tall.venter > 0;
   return tall.bekreftet > 0;
@@ -169,7 +169,9 @@ export interface SondagBemanningProps {
   visKpiAlltid?: boolean;
   oversiktFilter: OversiktFilter;
   onOversiktFilter: (filter: OversiktFilter) => void;
-  onMedlemmer?: () => void;
+  /** Innhold i popup når gruppeleder trykker Medlemmer-KPI (uten å forlate bemanning). */
+  medlemmerPanel?: React.ReactNode;
+  onGaTilMedlemmerFane?: () => void;
   hoppTil?: { gudstjenesteId: string; personId: string } | null;
   vis?: boolean;
   onSelectPerson: (personId: string, view?: AppView) => void;
@@ -205,7 +207,8 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   visKpiAlltid = false,
   oversiktFilter,
   onOversiktFilter,
-  onMedlemmer,
+  medlemmerPanel,
+  onGaTilMedlemmerFane,
   hoppTil = null,
   vis = true,
   onSelectPerson,
@@ -247,6 +250,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     navn: string;
     status: "Bekreftet" | "Venter" | "Avvist";
   } | null>(null);
+  const [visMedlemmerPanel, setVisMedlemmerPanel] = useState(false);
 
   const varselInnstillinger = hentInnstillinger(db);
 
@@ -359,7 +363,21 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const velgOversiktFilter = (neste: Exclude<OversiktFilter, null>) => {
     const aktiv: OversiktFilter = oversiktFilter === neste ? null : neste;
     onOversiktFilter(aktiv);
-    if (aktiv === "medlemmer" && visMedlemmerKpi) onMedlemmer?.();
+    setVisMedlemmerPanel(false);
+  };
+
+  const toggleMedlemmerPanel = () => {
+    if (!medlemmerPanel) return;
+    setVisMedlemmerPanel((v) => !v);
+    if (oversiktFilter) onOversiktFilter(null);
+  };
+
+  const handleKpiKlikk = (id: Exclude<OversiktFilter, null> | "medlemmer") => {
+    if (id === "medlemmer") {
+      toggleMedlemmerPanel();
+      return;
+    }
+    velgOversiktFilter(id);
   };
 
   const vekselDetalj = (id: string) => {
@@ -720,7 +738,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   };
 
   const renderGudstjenesteKort = (gudstjeneste: Gudstjeneste) => {
-    const visAlleTall = !oversiktFilter || oversiktFilter === "medlemmer";
+    const visAlleTall = !oversiktFilter;
     const alleRader = gruppeRaderForGudstjeneste(
       db,
       gudstjeneste.GudstjenesteID,
@@ -978,13 +996,12 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     );
   };
 
-  const visListe = !(skjulListeVedMedlemmer && oversiktFilter === "medlemmer");
+  const visListe = true;
   const visKpi = visKpiAlltid || servicesVisning === "liste";
-  const kpiSkjultPaMobil = skjulListeVedMedlemmer && oversiktFilter === "medlemmer";
   const kompakt = kpiTetthet === "kompakt";
 
   const kompaktKnapper: {
-    id: Exclude<OversiktFilter, null>;
+    id: Exclude<OversiktFilter, null> | "medlemmer";
     tall: number;
     label: string;
     aktiv: boolean;
@@ -1003,7 +1020,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             id: "medlemmer" as const,
             tall: medlemstall,
             label: medlemmerKpiLabel === "Tjenestegrupper" ? "Grupper" : "Folk",
-            aktiv: oversiktFilter === "medlemmer",
+            aktiv: visMedlemmerPanel,
           },
         ]
       : []),
@@ -1052,8 +1069,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       : []),
   ];
 
-  const filterFotnote =
-    oversiktFilter && oversiktFilter !== "medlemmer" ? (
+  const filterFotnote = oversiktFilter ? (
       <p className="text-[11px] text-slate-500">
         Viser{" "}
         {oversiktFilter === "bekreftet"
@@ -1071,7 +1087,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         <button
           key={kort.id}
           type="button"
-          onClick={() => velgOversiktFilter(kort.id)}
+          onClick={() => handleKpiKlikk(kort.id)}
           aria-pressed={kort.aktiv}
           className={`flex-1 min-h-11 rounded-xl border text-center px-1 py-1.5 cursor-pointer ${
             kort.aktiv ? "bg-[#2d5a3f] text-white border-[#2d5a3f]" : "bg-slate-50 border-slate-200 text-slate-800"
@@ -1109,12 +1125,13 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
         }`}
       >
         {storeKort.map((kort) => {
-          const valgt = oversiktFilter === kort.id;
+          const valgt =
+            kort.id === "medlemmer" ? visMedlemmerPanel : oversiktFilter === kort.id;
           return (
             <button
               key={kort.id}
               type="button"
-              onClick={() => velgOversiktFilter(kort.id)}
+              onClick={() => handleKpiKlikk(kort.id)}
               aria-pressed={valgt}
               className={`text-left rounded-2xl border px-4 py-3 transition cursor-pointer ${kort.wrap} ${
                 valgt ? kort.aktiv : "hover:brightness-[0.98]"
@@ -1135,7 +1152,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   );
 
   const kpiBlokk = visKpi ? (
-    <div className={kpiSkjultPaMobil ? "hidden md:block" : undefined}>{kpiKort}</div>
+    <div>{kpiKort}</div>
   ) : null;
 
   const nyGudstjenesteKnapp = kanOpprettGudstjeneste && (
@@ -1231,7 +1248,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                       : "Ingen kommende gudstjenester."}
                   </p>
                 )}
-                {visTidligereFiltrert.length > 0 && oversiktFilter !== "medlemmer" && (
+                {visTidligereFiltrert.length > 0 && (
                   <div>
                     <button
                       type="button"
@@ -1413,6 +1430,51 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
             />
           );
         })()}
+
+      {visMedlemmerPanel && medlemmerPanel ? (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/45 cursor-pointer"
+            aria-label="Lukk"
+            onClick={() => setVisMedlemmerPanel(false)}
+          />
+          <div
+            role="dialog"
+            aria-labelledby="medlemmer-panel-tittel"
+            className="relative bg-white w-full max-w-lg max-h-[min(85vh,720px)] rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 flex flex-col sheet-safe-bottom"
+          >
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
+              <h2 id="medlemmer-panel-tittel" className="text-base font-bold text-slate-900">
+                {medlemmerKpiLabel} ({medlemstall})
+              </h2>
+              <button
+                type="button"
+                onClick={() => setVisMedlemmerPanel(false)}
+                className="p-2 text-slate-500 hover:bg-slate-100 rounded-xl cursor-pointer"
+                aria-label="Lukk"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-4">{medlemmerPanel}</div>
+            {onGaTilMedlemmerFane ? (
+              <div className="px-5 py-3 border-t border-slate-100 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setVisMedlemmerPanel(false);
+                    onGaTilMedlemmerFane();
+                  }}
+                  className="text-sm font-semibold text-[#2d5a3f] hover:underline cursor-pointer"
+                >
+                  Åpne Medlemmer-fanen for meldinger og mer →
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 };
