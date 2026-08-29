@@ -4,22 +4,25 @@ import {
   antallGjenstaendeMaaneder,
   byggPersonligMaanedsliste,
   byggPersonligSondagsliste,
-  erPaameldingValgt,
   forrigeMaanedNokkel,
   forsteUferdigeMaaned,
-  kanPaameldingEndres,
+  hentPåmeldingsRoller,
   maanedErGjennomgaatt,
+  meldForfall,
   nesteMaanedNokkel,
   semesterFremdrift,
+  svarPaForesporsel,
   togglePaamelding,
   velgMaanedNokkel,
   kanRedigereProgram,
   visProgramIkon,
 } from "../services/dataService";
+import { GruppeSondagStatusPanel } from "./GruppeSondagStatusPanel";
+import { MinSideFrafallDialog, MinSideRolleKnapper } from "./MinSideRolleHandling";
 import { RolleIkon } from "./RolleIkon";
 import { IkonHandling } from "./IkonHandling";
 import { ProgramLeserModal } from "./ProgramLeserModal";
-import { RoleDescriptionModal, forsteInstruksSetning } from "./RoleDescriptionModal";
+import { RoleDescriptionModal } from "./RoleDescriptionModal";
 import {
   Check,
   ChevronLeft,
@@ -31,7 +34,7 @@ import {
   X,
 } from "lucide-react";
 import type { Rolle } from "../types/database";
-import type { PåmeldingsRad } from "../services/dataService";
+import type { PåmeldingsPerson, PåmeldingsRad } from "../services/dataService";
 
 const INTRO_STORAGE_PREFIX = "min-side-semester-intro:";
 const BANNER_SESSION_KEY = "min-side-semester-banner-lukket";
@@ -95,6 +98,16 @@ function lagreFerdigMaaned(personId: string, nokkel: string) {
   localStorage.setItem(`${FERDIG_STORAGE_PREFIX}${personId}`, JSON.stringify(Array.from(neste)));
 }
 
+function personBadgeStyle(status: PåmeldingsPerson["status"]): string {
+  if (status === "Bekreftet") {
+    return "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]";
+  }
+  if (status === "Avvist") {
+    return "bg-rose-50 text-rose-800 border border-rose-200 line-through opacity-80";
+  }
+  return "bg-amber-50 text-amber-800 border border-amber-200";
+}
+
 type RolleRadProps = {
   rad: PåmeldingsRad;
   gudstjenesteId: string;
@@ -104,6 +117,17 @@ type RolleRadProps = {
   instruksTekst?: string;
   visInstruksKnapp?: boolean;
   onToggle: (gudstjenesteId: string, rolleId: string, checked: boolean) => void;
+  onSvarForesporsel: (
+    gudstjenesteId: string,
+    rolleId: string,
+    svar: "Bekreftet" | "Avvist",
+    melding?: string
+  ) => void;
+  onMeldForfall: (
+    gudstjenesteId: string,
+    rolleId: string,
+    melding?: string
+  ) => void;
   onVisInstruks: (rolle: Rolle) => void;
 };
 
@@ -116,21 +140,34 @@ const RolleRad: React.FC<RolleRadProps> = ({
   instruksTekst,
   visInstruksKnapp = false,
   onToggle,
+  onSvarForesporsel,
+  onMeldForfall,
   onVisInstruks,
 }) => {
   const [visAndre, setVisAndre] = useState(false);
-  const valgt = erPaameldingValgt(rad.status);
-  const kanEndre = kanPaameldingEndres(rad.status);
-  const instruksKort = instruksTekst ? forsteInstruksSetning(instruksTekst) : "";
-  const visKnapp = visInstruksKnapp && Boolean(instruksKort);
-  const andre = rad.personerPå.filter((p) => p.personId !== personId);
+  const [visFrafall, setVisFrafall] = useState(false);
+  const harInstruks = visInstruksKnapp && Boolean(instruksTekst?.trim());
+  const navnIRad = rad.personerPå;
   const telling =
     rad.maks != null
       ? `${rad.bekreftetAntall}/${rad.maks}`
       : `${rad.bekreftetAntall}/${rad.behov}`;
+  const erForespurt = rad.status === "min-venter";
+  const erBekreftet = rad.status === "min-bekreftet";
+  const kanHukePa = rad.harHuketRolle && (rad.status === "ledig" || rad.status === "full");
+
+  const renderPersonNavn = (p: PåmeldingsPerson) => (
+    <span
+      key={p.personId}
+      className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${personBadgeStyle(p.status)}`}
+    >
+      {p.navn}
+      {p.status === "Venter" ? " ·" : ""}
+    </span>
+  );
 
   return (
-    <li className={`min-w-0 ${visKnapp ? "py-2" : kompakt ? "py-1.5" : "py-2"}`}>
+    <li className={`min-w-0 ${harInstruks ? "py-2" : kompakt ? "py-1.5" : "py-2"}`}>
       <div className="flex items-center gap-2 min-w-0">
         <RolleIkon rollenavn={rad.rolle.Rollenavn} className={kompakt ? "w-7 h-7" : "w-8 h-8"} />
         {visRollenavn ? (
@@ -139,29 +176,27 @@ const RolleRad: React.FC<RolleRadProps> = ({
           </span>
         ) : null}
 
+        {harInstruks ? (
+          <button
+            type="button"
+            onClick={() => onVisInstruks(rad.rolle)}
+            aria-label={`Instruks for ${rad.rolle.Rollenavn}`}
+            className="inline-flex items-center gap-0.5 min-h-8 px-1.5 rounded-lg border border-[#d2e8d9] bg-[#eef5f1] text-[#2d5a3f] hover:bg-[#dceee3] cursor-pointer shrink-0"
+          >
+            <Info className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        ) : null}
+
         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-700 shrink-0 tabular-nums">
           {telling}
         </span>
 
-        <div className="flex-1 min-w-0 flex justify-end">
-          {andre.length === 0 ? (
-            <span className="text-[11px] text-slate-400">—</span>
-          ) : (
+        <div className="ml-auto flex items-center gap-1 shrink-0 justify-end flex-wrap">
+          {navnIRad.length > 0 ? (
             <>
               <div className="hidden sm:flex flex-wrap gap-1 justify-end">
-                {andre.map((p) => (
-                  <span
-                    key={p.personId}
-                    className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                      p.status === "Bekreftet"
-                        ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
-                        : "bg-amber-50 text-amber-800 border border-amber-200"
-                    }`}
-                  >
-                    {p.navn}
-                    {p.status === "Venter" ? " ·" : ""}
-                  </span>
-                ))}
+                {navnIRad.map(renderPersonNavn)}
               </div>
               <div className="sm:hidden">
                 {!visAndre ? (
@@ -170,22 +205,11 @@ const RolleRad: React.FC<RolleRadProps> = ({
                     onClick={() => setVisAndre(true)}
                     className="text-[11px] font-medium text-[#2d5a3f] hover:underline cursor-pointer"
                   >
-                    {andre.length === 1 ? andre[0].navn : `${andre.length} andre`}
+                    {navnIRad.length === 1 ? navnIRad[0].navn : `${navnIRad.length} navn`}
                   </button>
                 ) : (
                   <div className="flex flex-wrap gap-1 justify-end">
-                    {andre.map((p) => (
-                      <span
-                        key={p.personId}
-                        className={`text-[10px] font-medium px-1.5 py-0.5 rounded-md ${
-                          p.status === "Bekreftet"
-                            ? "bg-[#eef5f1] text-[#1e3e2b] border border-[#d2e8d9]"
-                            : "bg-amber-50 text-amber-800 border border-amber-200"
-                        }`}
-                      >
-                        {p.navn}
-                      </span>
-                    ))}
+                    {navnIRad.map(renderPersonNavn)}
                     <button
                       type="button"
                       onClick={() => setVisAndre(false)}
@@ -198,36 +222,38 @@ const RolleRad: React.FC<RolleRadProps> = ({
                 )}
               </div>
             </>
-          )}
-        </div>
-
-        <div className="shrink-0 flex items-center gap-1">
-          {rad.status === "stengt" ? (
-            <span className="text-[10px] font-semibold text-slate-500">Fullt</span>
           ) : null}
-          <input
-            type="checkbox"
-            checked={valgt}
-            disabled={!kanEndre && !valgt}
-            onChange={(e) => onToggle(gudstjenesteId, rad.rolle.RolleID, e.target.checked)}
-            aria-label={`Meld meg på ${rad.rolle.Rollenavn}`}
-            className="w-5 h-5 rounded border-slate-300 text-[#2d5a3f] focus:ring-[#2d5a3f] cursor-pointer disabled:opacity-40 disabled:cursor-default"
-          />
+          {(erForespurt || erBekreftet || kanHukePa || rad.status === "stengt") && (
+            <MinSideRolleKnapper
+              rollenavn={rad.rolle.Rollenavn}
+              erForespurt={erForespurt}
+              erBekreftet={erBekreftet}
+              kanMeldPa={kanHukePa}
+              erStengt={rad.status === "stengt"}
+              onMeldPa={() => onToggle(gudstjenesteId, rad.rolle.RolleID, true)}
+              onMeldForfallClick={() => setVisFrafall(true)}
+              onSvarForesporsel={(svar) =>
+                onSvarForesporsel(gudstjenesteId, rad.rolle.RolleID, svar)
+              }
+            />
+          )}
         </div>
       </div>
 
-      {visKnapp ? (
-        <div className="mt-2 pl-9 sm:pl-10">
-          <button
-            type="button"
-            onClick={() => onVisInstruks(rad.rolle)}
-            className="w-full min-h-11 px-3.5 py-2.5 flex items-center gap-2 text-left text-sm text-[#2d5a3f] bg-[#eef5f1] hover:bg-[#dceee3] border border-[#d2e8d9] rounded-xl cursor-pointer"
-          >
-            <span className="flex-1 min-w-0 truncate leading-snug">{instruksKort}</span>
-            <ChevronRight className="w-5 h-5 shrink-0" aria-hidden />
-          </button>
-        </div>
+      {erForespurt ? (
+        <p className="text-[11px] text-amber-800 font-medium mt-1 pl-9 sm:pl-10">
+          Forespurt — svar ja eller nei
+        </p>
       ) : null}
+
+      <div className="pl-9 sm:pl-10">
+        <MinSideFrafallDialog
+          rollenavn={rad.rolle.Rollenavn}
+          open={visFrafall}
+          onLukk={() => setVisFrafall(false)}
+          onBekreft={(melding) => onMeldForfall(gudstjenesteId, rad.rolle.RolleID, melding)}
+        />
+      </div>
     </li>
   );
 };
@@ -311,6 +337,26 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
     const neste = togglePaamelding(db, personId, gudstjenesteId, rolleId, checked);
     if (neste) onUpdateDb(neste);
   };
+
+  const handleSvarForesporsel = (
+    gudstjenesteId: string,
+    rolleId: string,
+    svar: "Bekreftet" | "Avvist",
+    melding?: string
+  ) => {
+    const neste = svarPaForesporsel(db, personId, gudstjenesteId, rolleId, svar, melding);
+    if (neste) onUpdateDb(neste);
+  };
+
+  const handleMeldForfall = (gudstjenesteId: string, rolleId: string, melding?: string) => {
+    const neste = meldForfall(db, personId, gudstjenesteId, rolleId, melding);
+    if (neste) onUpdateDb(neste);
+  };
+
+  const hukedeRolleIds = useMemo(
+    () => new Set(hentPåmeldingsRoller(db, personId).map((r) => r.RolleID)),
+    [db, personId]
+  );
 
   const byttMaaned = (nokkel: string) => setMaanedNokkel(nokkel);
 
@@ -484,10 +530,20 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
                         ?.Rollebeskrivelse
                     }
                     onToggle={handleToggle}
+                    onSvarForesporsel={handleSvarForesporsel}
+                    onMeldForfall={handleMeldForfall}
                     onVisInstruks={setValgtRolle}
                     visInstruksKnapp={gudstjeneste.GudstjenesteID === forsteKommendeGudstjenesteId}
                   />
                 ))}
+                <GruppeSondagStatusPanel
+                  db={db}
+                  personId={personId}
+                  gudstjenesteId={gudstjeneste.GudstjenesteID}
+                  hukedeRolleIds={hukedeRolleIds}
+                  ekskluderRolleIds={new Set(roller.map((r) => r.rolle.RolleID))}
+                  onMeldPa={(rolleId) => handleToggle(gudstjeneste.GudstjenesteID, rolleId, true)}
+                />
               </ul>
             </div>
           ))}

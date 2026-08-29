@@ -20,6 +20,16 @@ export function epostFraGoogleJwt(credential: string): string | null {
 
 const MAGISK_TOKEN_KEY = "gudstjenesteplanlegger_magisk_token";
 
+function erDemoHost(): boolean {
+  if (String(import.meta.env?.VITE_DEMO || "").toLowerCase() === "true") return true;
+  try {
+    const h = String(globalThis.location?.hostname || "").toLowerCase();
+    return h === "demo.menighetsplan.no" || h.endsWith(".demo.menighetsplan.no");
+  } catch {
+    return false;
+  }
+}
+
 export function erMagiskLenkeToken(verdi: string): boolean {
   return /^mk_[0-9a-z]+$/i.test(String(verdi || "").trim());
 }
@@ -150,6 +160,26 @@ export function tolkInnlimtLenke(raw: string, pathname = "/"): string | null {
   }
   if (erMagiskLenkeToken(verdi)) {
     return `${pathname}?t=${encodeURIComponent(verdi.trim())}`;
+  }
+  if (erDemoHost()) {
+    try {
+      const url = new URL(verdi, "https://utfylling.invalid");
+      const demo = url.searchParams.get("demo")?.trim();
+      if (demo && /^P\d+$/i.test(demo)) {
+        const params = new URLSearchParams();
+        params.set("demo", demo.toUpperCase());
+        const view = url.searchParams.get("view")?.trim().toLowerCase();
+        if (view === "personal" || view === "leader" || view === "admin") {
+          params.set("view", view);
+        }
+        return `${pathname}?${params.toString()}`;
+      }
+    } catch {
+      // ikke URL
+    }
+    if (/^P\d+$/i.test(verdi)) {
+      return `${pathname}?demo=${verdi.trim().toUpperCase()}`;
+    }
   }
   return null;
 }

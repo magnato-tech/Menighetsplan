@@ -24,6 +24,8 @@ import {
   REMOTE_SAVE_FEIL_EVENT,
   harPaagaaendeRemoteSave,
   type DevDataSource,
+  finnPersonFraDemoParam,
+  tolkVisningFraUrl,
 } from "./services/dataService";
 import {
   epostFraGoogleJwt,
@@ -197,13 +199,38 @@ export default function App() {
       const raattToken = (params.get("t") || params.get("token") || "").trim();
       const tokenParam = erMagiskLenkeToken(raattToken) ? raattToken : hentMagiskToken();
 
-      const velgStartvisning = (personId: string) => {
-        const view = startvisningForTilgang(hentTilgang(db, personId));
+      const velgStartvisning = (personId: string, viewOverride?: AppView | null) => {
+        const tilgang = hentTilgang(db, personId);
+        const view =
+          viewOverride && visningErTillatt(tilgang, viewOverride)
+            ? viewOverride
+            : startvisningForTilgang(tilgang);
         setActiveView(view);
         if (view === "leader") {
           setLederSeksjon(standardLederSeksjon(db, personId));
         }
       };
+
+      if (erDemoVersjon()) {
+        const demoPerson = finnPersonFraDemoParam(db, params.get("demo"));
+        if (demoPerson) {
+          const viewOverride = tolkVisningFraUrl(params.get("view"), db, demoPerson.PersonID);
+          setSelectedPersonId(demoPerson.PersonID);
+          setIsMagicLinkUser(true);
+          setInnloggetViaGoogle(false);
+          velgStartvisning(demoPerson.PersonID, viewOverride);
+          setViserStartside(false);
+          harValgtStartvisning.current = true;
+          return;
+        }
+        const demoRaw = params.get("demo")?.trim();
+        if (demoRaw) {
+          setStartFeil(`Ukjent testperson «${demoRaw}» i demo.`);
+          setViserStartside(true);
+          harValgtStartvisning.current = true;
+          return;
+        }
+      }
 
       if (raattToken && !erMagiskLenkeToken(raattToken)) {
         slettMagiskToken();
@@ -214,19 +241,24 @@ export default function App() {
           return;
         }
       } else if (tokenParam) {
-        const found =
-          finnPersonMedMagiskToken(db, tokenParam) ||
-          db.personer.find((p) => p.PersonID === hentSisteLastetPersonId());
+        const found = finnPersonMedMagiskToken(db, tokenParam);
         if (found) {
+          const viewOverride = tolkVisningFraUrl(params.get("view"), db, found.PersonID);
           setSelectedPersonId(found.PersonID);
           setIsMagicLinkUser(true);
           setInnloggetViaGoogle(false);
-          velgStartvisning(found.PersonID);
+          velgStartvisning(found.PersonID, viewOverride);
           setViserStartside(false);
           harValgtStartvisning.current = true;
           return;
         }
         slettMagiskToken();
+        if (erDemoVersjon() && raattToken) {
+          setStartFeil("Testlenken er utløpt eller ugyldig. Be admin om en ny demo-lenke.");
+          setViserStartside(true);
+          harValgtStartvisning.current = true;
+          return;
+        }
         if (!hentAdminGoogleCredential() && ((import.meta.env.PROD && !erDemoVersjon()) || tvingStartside)) {
           setStartFeil("Lenken er ugyldig. Lim inn en ny, eller logg inn som administrator.");
           setViserStartside(true);

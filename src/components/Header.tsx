@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { DatabaseState, genererPersonligLenke, hentTilgang, AppView } from "../services/dataService";
+import { DatabaseState, genererDelbarLenke, hentTilgang, AppView } from "../services/dataService";
 import {
   Users,
   ShieldCheck,
@@ -47,7 +47,7 @@ export const Header: React.FC<HeaderProps> = ({
   const canSwitchPerson = isAdminUser || import.meta.env.DEV;
 
   const handleCopyLink = () => {
-    const link = genererPersonligLenke(selectedPersonId, db);
+    const link = genererDelbarLenke(selectedPersonId, db);
     navigator.clipboard.writeText(link).then(() => {
       setCopyFeil(false);
       setCopied(true);

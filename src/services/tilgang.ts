@@ -40,6 +40,30 @@ export function sikreSikkerhetsTokens(personer: Person[]): Person[] {
   });
 }
 
+/** Sikrer lagret token før lenke deles (prod). Returnerer oppdatert state hvis token ble opprettet. */
+export function sikrePersonligLenkeToken(
+  db: DatabaseState,
+  personId: string
+): { db: DatabaseState; token: string } {
+  const person = db.personer.find((p) => p.PersonID === personId);
+  if (!person) {
+    return { db, token: genererTilfeldigSikkerhetsToken() };
+  }
+  if (harGyldigLagretToken(person.SikkerhetsToken)) {
+    return { db, token: String(person.SikkerhetsToken).trim() };
+  }
+  const token = genererTilfeldigSikkerhetsToken();
+  return {
+    db: {
+      ...db,
+      personer: db.personer.map((p) =>
+        p.PersonID === personId ? { ...p, SikkerhetsToken: token } : p
+      ),
+    },
+    token,
+  };
+}
+
 /** Ny tilfeldig personlenke. Den gamle slutter å virke. */
 export function fornySikkerhetsToken(db: DatabaseState, personId: string): DatabaseState {
   return {

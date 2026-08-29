@@ -9,6 +9,7 @@ import {
 import { InteresseSkjema } from "./InteresseSkjema";
 import { MineGrupperArk } from "./MineGrupperArk";
 import { KalenderView } from "./KalenderView";
+import { ForesporslerPanel } from "./ForesporslerPanel";
 import { PersonligSondagsliste } from "./PersonligSondagsliste";
 import { MineGruppeMeldinger } from "./MineGruppeMeldinger";
 import { Info, Users } from "lucide-react";
@@ -193,6 +194,11 @@ export const PersonalView: React.FC<PersonalViewProps> = ({
         />
       ) : (
         <>
+          <ForesporslerPanel
+            db={db}
+            personId={person.PersonID}
+            onUpdateDb={onUpdateDb}
+          />
           <MineGruppeMeldinger db={db} personId={person.PersonID} />
           <PersonligSondagsliste
             db={db}

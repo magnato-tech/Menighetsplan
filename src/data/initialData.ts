@@ -1055,6 +1055,8 @@ export const initialTildelinger: Tildeling[] = [
   { TildelingID: "T016", GudstjenesteID: "GUD002", RolleID: "R006", PersonID: "P009", OpprettetDato: "2026-01-15", SistEndret: "2026-01-15" }, // Henrik Lyd
   { TildelingID: "T017", GudstjenesteID: "GUD002", RolleID: "R009", PersonID: "P012", OpprettetDato: "2026-01-15", SistEndret: "2026-01-15" }, // Thomas Rigging
   { TildelingID: "T018", GudstjenesteID: "GUD003", RolleID: "R004", PersonID: "P016", OpprettetDato: "2026-01-20", SistEndret: "2026-01-20" }, // Bjørn Barnekirke
+  // Demo: P018 forespurt forbønn uten avhuket rolle (har kun lovsang)
+  { TildelingID: "T019", GudstjenesteID: "GUD002", RolleID: "R003", PersonID: "P018", OpprettetDato: "2026-01-20", SistEndret: "2026-01-20" },
 ];
 
 export const initialSvar: Svar[] = [
@@ -1066,7 +1068,7 @@ export const initialSvar: Svar[] = [
   { SvarID: "S006", TildelingID: "T006", PersonID: "P009", Svar: "Bekreftet", SvartDato: "2026-01-18" },
   { SvarID: "S007", TildelingID: "T007", PersonID: "P004", Svar: "Bekreftet", SvartDato: "2026-01-18" },
   { SvarID: "S008", TildelingID: "T008", PersonID: "P005", Svar: "Venter", SvartDato: "" },
-  { SvarID: "S009", TildelingID: "T009", PersonID: "P006", Svar: "Bekreftet", SvartDato: "2026-01-19" },
+  { SvarID: "S009", TildelingID: "T009", PersonID: "P006", Svar: "Avvist", Kommentar: "Meldt forfall", SvartDato: "2026-01-19" },
   { SvarID: "S010", TildelingID: "T010", PersonID: "P013", Svar: "Bekreftet", SvartDato: "2026-01-19" },
   { SvarID: "S011", TildelingID: "T011", PersonID: "P011", Svar: "Bekreftet", Kommentar: "Tar med eplekake.", SvartDato: "2026-01-20" },
 
@@ -1077,6 +1079,7 @@ export const initialSvar: Svar[] = [
   { SvarID: "S016", TildelingID: "T016", PersonID: "P009", Svar: "Bekreftet", SvartDato: "2026-01-21" },
   { SvarID: "S017", TildelingID: "T017", PersonID: "P012", Svar: "Bekreftet", SvartDato: "2026-01-22" },
   { SvarID: "S018", TildelingID: "T018", PersonID: "P016", Svar: "Bekreftet", SvartDato: "2026-01-22" },
+  { SvarID: "S019", TildelingID: "T019", PersonID: "P018", Svar: "Venter", SvartDato: "" },
 ];
 
 // Historiske import-kildedata som beholdes urørt for migrering/innsyn

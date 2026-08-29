@@ -4,17 +4,25 @@ import {
   getEffektivtBehov,
   getMaksAntall,
   hentSvarStatus,
+  summerBemanning,
   svarPaaTildeling,
   velgDatoForPerson,
 } from "./bemanning";
-import { hentPåmeldingsRoller } from "./interesse";
+import { opprettGruppeMelding } from "./kommunikasjon";
+import { erTjenestegruppe } from "./grupper";
+import {
+  erMedITjenestegruppe,
+  erMedlemAvGruppe,
+  hentPåmeldingsRoller,
+  tjenesteRoller,
+} from "./interesse";
 
 export type PåmeldingsStatus = "ledig" | "min-venter" | "min-bekreftet" | "full" | "stengt";
 
 export type PåmeldingsPerson = {
   personId: string;
   navn: string;
-  status: "Bekreftet" | "Venter";
+  status: "Bekreftet" | "Venter" | "Avvist";
 };
 
 export type PåmeldingsRad = {
@@ -24,10 +32,13 @@ export type PåmeldingsRad = {
   maks: number | null;
   ledige: number;
   bekreftetAntall: number;
+  venterAntall: number;
+  forfallAntall: number;
   aktiveAntall: number;
   hardFull: boolean;
   personerPå: PåmeldingsPerson[];
   status: PåmeldingsStatus;
+  harHuketRolle: boolean;
 };
 
 export type PersonligSondag = {
@@ -35,8 +46,252 @@ export type PersonligSondag = {
   roller: PåmeldingsRad[];
 };
 
+export type GruppeRolleStatus = {
+  rolle: Rolle;
+  gruppeId: string;
+  gruppenavn: string;
+  behov: number;
+  bekreftet: number;
+  venter: number;
+  forfall: number;
+  ledige: number;
+  personerPå: PåmeldingsPerson[];
+};
+
+export type GruppeSondagStatus = {
+  gruppeId: string;
+  gruppenavn: string;
+  roller: GruppeRolleStatus[];
+};
+
+export type ForesporselRad = {
+  gudstjenesteId: string;
+  gudstjenesteDato: string;
+  gudstjenesteTid: string;
+  gudstjenesteTema: string;
+  rolleId: string;
+  rollenavn: string;
+  gruppeId: string;
+  gruppenavn: string;
+  tildelingId: string;
+};
+
 function iDagIso(): string {
   return new Date().toISOString().split("T")[0];
+}
+
+function visningsnavnForPerson(
+  db: DatabaseState,
+  personId: string,
+  eksternNavn?: string
+): string {
+  if (eksternNavn) return eksternNavn;
+  const p = db.personer.find((pers) => pers.PersonID === personId);
+  return p?.Fornavn || p?.Navn || personId;
+}
+
+function mapTildelingTilPerson(
+  db: DatabaseState,
+  t: { PersonID: string; TildelingID: string; EksternNavn?: string }
+): PåmeldingsPerson {
+  const rawStatus = hentSvarStatus(db, t.TildelingID);
+  const status: PåmeldingsPerson["status"] =
+    rawStatus === "Bekreftet"
+      ? "Bekreftet"
+      : rawStatus === "Avvist"
+        ? "Avvist"
+        : "Venter";
+  return {
+    personId: t.PersonID,
+    navn: visningsnavnForPerson(db, t.PersonID, t.EksternNavn),
+    status,
+  };
+}
+
+function tjenesteGruppeIdsForPerson(db: DatabaseState, personId: string): Set<string> {
+  const ids = new Set<string>();
+  for (const g of db.grupper || []) {
+    if (!g.Aktiv || !erTjenestegruppe(db, g)) continue;
+    if (erMedlemAvGruppe(db, personId, g.GruppeID)) ids.add(g.GruppeID);
+  }
+  return ids;
+}
+
+/** Roller personen ser på Min side: hukede + kommende tildelinger. */
+export function hentMineOppgaveRoller(db: DatabaseState, personId: string): Rolle[] {
+  const iDag = iDagIso();
+  const sett = new Map<string, Rolle>();
+  for (const rolle of hentPåmeldingsRoller(db, personId)) {
+    sett.set(rolle.RolleID, rolle);
+  }
+  for (const t of db.tildelinger || []) {
+    if (t.PersonID !== personId) continue;
+    const gud = db.gudstjenester.find((g) => g.GudstjenesteID === t.GudstjenesteID);
+    if (!gud || gud.Dato < iDag) continue;
+    const rolle = db.roller.find((r) => r.RolleID === t.RolleID && r.Aktiv);
+    if (!rolle) continue;
+    sett.set(rolle.RolleID, rolle);
+  }
+  return Array.from(sett.values()).sort((a, b) =>
+    a.Rollenavn.localeCompare(b.Rollenavn, "nb")
+  );
+}
+
+export function hentKommendeForesporsler(
+  db: DatabaseState,
+  personId: string
+): ForesporselRad[] {
+  const iDag = iDagIso();
+  const rader: ForesporselRad[] = [];
+  for (const t of db.tildelinger || []) {
+    if (t.PersonID !== personId) continue;
+    if (hentSvarStatus(db, t.TildelingID) !== "Venter") continue;
+    const gud = db.gudstjenester.find((g) => g.GudstjenesteID === t.GudstjenesteID);
+    if (!gud || gud.Dato < iDag) continue;
+    const rolle = db.roller.find((r) => r.RolleID === t.RolleID);
+    if (!rolle) continue;
+    const gruppe = rolle.GruppeID
+      ? db.grupper.find((g) => g.GruppeID === rolle.GruppeID)
+      : undefined;
+    rader.push({
+      gudstjenesteId: gud.GudstjenesteID,
+      gudstjenesteDato: gud.Dato,
+      gudstjenesteTid: gud.Tid,
+      gudstjenesteTema: gud.Tema || "",
+      rolleId: rolle.RolleID,
+      rollenavn: rolle.Rollenavn,
+      gruppeId: gruppe?.GruppeID || "",
+      gruppenavn: gruppe?.Gruppenavn || "",
+      tildelingId: t.TildelingID,
+    });
+  }
+  return rader.sort((a, b) =>
+    `${a.gudstjenesteDato} ${a.gudstjenesteTid}`.localeCompare(
+      `${b.gudstjenesteDato} ${b.gudstjenesteTid}`
+    )
+  );
+}
+
+export function byggGruppeSondagStatus(
+  db: DatabaseState,
+  personId: string,
+  gudstjenesteId: string
+): GruppeSondagStatus[] {
+  if (!erMedITjenestegruppe(db, personId)) return [];
+  const gruppeIds = tjenesteGruppeIdsForPerson(db, personId);
+  if (gruppeIds.size === 0) return [];
+
+  const resultat: GruppeSondagStatus[] = [];
+  for (const gruppeId of gruppeIds) {
+    const gruppe = db.grupper.find((g) => g.GruppeID === gruppeId);
+    if (!gruppe) continue;
+    const gruppeRoller = tjenesteRoller(db).filter((r) => r.GruppeID === gruppeId);
+    if (gruppeRoller.length === 0) continue;
+
+    const roller: GruppeRolleStatus[] = [];
+    for (const rolle of gruppeRoller) {
+      const tildelinger = db.tildelinger.filter(
+        (t) => t.GudstjenesteID === gudstjenesteId && t.RolleID === rolle.RolleID
+      );
+      const personerPå = tildelinger.map((t) => mapTildelingTilPerson(db, t));
+      const tall = summerBemanning(db, gudstjenesteId, [rolle]);
+      const harNoe =
+        tall.behov > 0 ||
+        tall.bekreftet > 0 ||
+        tall.venter > 0 ||
+        tall.forfall > 0;
+      if (!harNoe) continue;
+      roller.push({
+        rolle,
+        gruppeId,
+        gruppenavn: gruppe.Gruppenavn,
+        behov: tall.behov,
+        bekreftet: tall.bekreftet,
+        venter: tall.venter,
+        forfall: tall.forfall,
+        ledige: tall.ledige,
+        personerPå,
+      });
+    }
+    if (roller.length === 0) continue;
+    resultat.push({
+      gruppeId,
+      gruppenavn: gruppe.Gruppenavn,
+      roller,
+    });
+  }
+  return resultat.sort((a, b) => a.gruppenavn.localeCompare(b.gruppenavn, "nb"));
+}
+
+function formatDatoPrefiks(dato: string): string {
+  const parsed = new Date(`${dato}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return dato;
+  return parsed.toLocaleDateString("nb-NO", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}
+
+export function svarPaForesporsel(
+  db: DatabaseState,
+  personId: string,
+  gudstjenesteId: string,
+  rolleId: string,
+  svar: "Bekreftet" | "Avvist",
+  kommentar?: string
+): DatabaseState | undefined {
+  const tildeling = db.tildelinger.find(
+    (t) =>
+      t.GudstjenesteID === gudstjenesteId &&
+      t.RolleID === rolleId &&
+      t.PersonID === personId
+  );
+  if (!tildeling) return undefined;
+  const melding =
+    svar === "Bekreftet"
+      ? kommentar || "Bekreftet via Min side"
+      : kommentar || "Avslått via Min side";
+  return svarPaaTildeling(db, tildeling.TildelingID, personId, svar, melding);
+}
+
+export function meldForfall(
+  db: DatabaseState,
+  personId: string,
+  gudstjenesteId: string,
+  rolleId: string,
+  meldingTilGruppe?: string
+): DatabaseState | undefined {
+  const tildeling = db.tildelinger.find(
+    (t) =>
+      t.GudstjenesteID === gudstjenesteId &&
+      t.RolleID === rolleId &&
+      t.PersonID === personId
+  );
+  if (!tildeling) return undefined;
+
+  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === gudstjenesteId);
+  const rolle = db.roller.find((r) => r.RolleID === rolleId);
+  let neste = svarPaaTildeling(
+    db,
+    tildeling.TildelingID,
+    personId,
+    "Avvist",
+    "Meldt forfall"
+  );
+
+  const gruppeId = rolle?.GruppeID;
+  const tekst = String(meldingTilGruppe || "").trim();
+  if (gruppeId && tekst) {
+    const dato = gud ? formatDatoPrefiks(gud.Dato) : "";
+    const prefiks = `${rolle?.Rollenavn || "Oppgave"}${dato ? ` ${dato}` : ""}: `;
+    neste = opprettGruppeMelding(neste, {
+      gruppeId,
+      tekst: `${prefiks}${tekst}`,
+      opprettetAvPersonId: personId,
+    });
+  }
+  return neste;
 }
 
 export function byggPåmeldingsrader(
@@ -44,6 +299,9 @@ export function byggPåmeldingsrader(
   personId: string,
   rolle: Rolle
 ): Omit<PåmeldingsRad, "rolle">[] {
+  const hukedeIds = new Set(hentPåmeldingsRoller(db, personId).map((r) => r.RolleID));
+  const harHuketRolle = hukedeIds.has(rolle.RolleID);
+
   return db.gudstjenester
     .filter((g) => g.Dato >= iDagIso())
     .slice()
@@ -52,37 +310,30 @@ export function byggPåmeldingsrader(
       const tildelinger = db.tildelinger.filter(
         (t) => t.GudstjenesteID === g.GudstjenesteID && t.RolleID === rolle.RolleID
       );
-      const personerPå = tildelinger
-        .map((t) => {
-          const rawStatus = hentSvarStatus(db, t.TildelingID);
-          if (rawStatus === "Avvist") return null;
-          const status = rawStatus === "Bekreftet" ? ("Bekreftet" as const) : ("Venter" as const);
-          const p = db.personer.find((pers) => pers.PersonID === t.PersonID);
-          return {
-            personId: t.PersonID,
-            navn: p?.Fornavn || p?.Navn || t.PersonID,
-            status,
-          };
-        })
-        .filter(
-          (x): x is PåmeldingsPerson => x !== null
-        );
+      const personerPå = tildelinger.map((t) => mapTildelingTilPerson(db, t));
 
       const behov = getEffektivtBehov(db, g.GudstjenesteID, rolle);
       const maks = getMaksAntall(rolle);
       const bekreftetAntall = personerPå.filter((p) => p.status === "Bekreftet").length;
+      const venterAntall = personerPå.filter((p) => p.status === "Venter").length;
+      const forfallAntall = personerPå.filter((p) => p.status === "Avvist").length;
       const ledige = Math.max(0, behov - bekreftetAntall);
       const hardFull = erRolleHardFull(db, g.GudstjenesteID, rolle);
-      const min = personerPå.find((p) => p.personId === personId);
-      const minAvvist = tildelinger.some((t) => {
-        if (t.PersonID !== personId) return false;
-        return hentSvarStatus(db, t.TildelingID) === "Avvist";
-      });
+
+      const minTildeling = tildelinger.find((t) => t.PersonID === personId);
+      const minStatus = minTildeling
+        ? hentSvarStatus(db, minTildeling.TildelingID)
+        : null;
+      const minPerson = minTildeling
+        ? personerPå.find((p) => p.personId === personId)
+        : undefined;
+
+      const minAvvist = minStatus === "Avvist";
 
       let status: PåmeldingsStatus =
-        hardFull && !min ? "stengt" : ledige > 0 || minAvvist ? "ledig" : "full";
-      if (min?.status === "Bekreftet") status = "min-bekreftet";
-      else if (min) status = "min-venter";
+        hardFull && !minPerson ? "stengt" : ledige > 0 || minAvvist ? "ledig" : "full";
+      if (minPerson?.status === "Bekreftet") status = "min-bekreftet";
+      else if (minPerson?.status === "Venter") status = "min-venter";
 
       return {
         gudstjeneste: g,
@@ -90,10 +341,13 @@ export function byggPåmeldingsrader(
         maks,
         ledige,
         bekreftetAntall,
-        aktiveAntall: personerPå.length,
+        venterAntall,
+        forfallAntall,
+        aktiveAntall: personerPå.filter((p) => p.status !== "Avvist").length,
         hardFull,
         personerPå,
         status,
+        harHuketRolle,
       };
     });
 }
@@ -103,7 +357,7 @@ export function byggPersonligSondagsliste(
   personId: string,
   rolleFilterId: string | null = null
 ): PersonligSondag[] {
-  const roller = hentPåmeldingsRoller(db, personId).filter(
+  const roller = hentMineOppgaveRoller(db, personId).filter(
     (r) => !rolleFilterId || r.RolleID === rolleFilterId
   );
 
@@ -111,6 +365,20 @@ export function byggPersonligSondagsliste(
 
   for (const rolle of roller) {
     for (const rad of byggPåmeldingsrader(db, personId, rolle)) {
+      const minTildeling = db.tildelinger.some(
+        (t) =>
+          t.GudstjenesteID === rad.gudstjeneste.GudstjenesteID &&
+          t.RolleID === rolle.RolleID &&
+          t.PersonID === personId
+      );
+      const minInvolvert =
+        minTildeling ||
+        rad.status === "min-bekreftet" ||
+        rad.status === "min-venter" ||
+        rad.status === "ledig" ||
+        rad.status === "full";
+      if (!minInvolvert && !rad.harHuketRolle) continue;
+
       const id = rad.gudstjeneste.GudstjenesteID;
       const eksisterende = perGud.get(id);
       const fullRad: PåmeldingsRad = { ...rad, rolle };
@@ -240,7 +508,7 @@ export function byggPersonligMaanedsliste(
 
 export function sondagErBesvart(sondag: PersonligSondag): boolean {
   if (sondag.roller.length === 0) return false;
-  return sondag.roller.every((r) => r.status !== "ledig");
+  return sondag.roller.every((r) => r.status !== "ledig" && r.status !== "min-venter");
 }
 
 export function maanedErGjennomgaatt(
@@ -322,7 +590,7 @@ export function velgMaanedNokkel(
 }
 
 export function erPaameldingValgt(status: PåmeldingsStatus): boolean {
-  return status === "min-bekreftet" || status === "min-venter";
+  return status === "min-bekreftet";
 }
 
 export function kanPaameldingEndres(status: PåmeldingsStatus): boolean {
@@ -334,7 +602,8 @@ export function togglePaamelding(
   personId: string,
   gudstjenesteId: string,
   rolleId: string,
-  skalPa: boolean
+  skalPa: boolean,
+  meldingTilGruppe?: string
 ): DatabaseState | undefined {
   const tildeling = db.tildelinger.find(
     (t) =>
@@ -349,5 +618,5 @@ export function togglePaamelding(
   }
 
   if (!tildeling) return undefined;
-  return svarPaaTildeling(db, tildeling.TildelingID, personId, "Avvist", "Meldt forfall");
+  return meldForfall(db, personId, gudstjenesteId, rolleId, meldingTilGruppe);
 }

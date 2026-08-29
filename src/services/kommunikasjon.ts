@@ -8,7 +8,7 @@ import type {
 import { nesteNummerertId } from "./ids";
 import { finnMedlemmerIGruppe } from "./grupper";
 import { formatertArrangementDato } from "./gruppeArrangementer";
-import { genererPersonligLenke } from "./tilgang";
+import { genererDelbarLenke } from "./demo";
 
 export type VarselKanal = "sms" | "epost" | "kopier";
 export type VarselType = "ny_melding" | "foresporsel" | "samling";
@@ -217,7 +217,7 @@ export function byggVarselForMelding(
   const gruppe = db.grupper.find((g) => g.GruppeID === melding.GruppeID);
   const gruppenavn = gruppe?.Gruppenavn || "gruppen";
   return mottakere.map((person) => {
-    const lenke = genererPersonligLenke(person.PersonID, db);
+    const lenke = genererDelbarLenke(person.PersonID, db);
     return {
       gruppeMeldingId: melding.GruppeMeldingID,
       type: "ny_melding" as const,
@@ -240,7 +240,7 @@ export function byggVarselForesporsel(
 ): VarselUtkast | null {
   const person = db.personer.find((p) => p.PersonID === input.personId);
   if (!person) return null;
-  const lenke = genererPersonligLenke(person.PersonID, db);
+  const lenke = genererDelbarLenke(person.PersonID, db);
   const dato = new Date(`${input.gudstjenesteDato}T12:00:00`).toLocaleDateString("nb-NO", {
     weekday: "short",
     day: "numeric",
@@ -271,7 +271,7 @@ export function byggVarselForSamling(
   const gruppenavn = gruppe?.Gruppenavn || "gruppen";
   const dato = formatertArrangementDato(arrangement.Dato, arrangement.Tid);
   return mottakere.map((person) => {
-    const lenke = genererPersonligLenke(person.PersonID, db);
+    const lenke = genererDelbarLenke(person.PersonID, db);
     return {
       type: "samling" as const,
       personId: person.PersonID,

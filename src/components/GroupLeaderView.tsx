@@ -3,7 +3,7 @@ import {
   DatabaseState,
   finnGrupperSomLederEllerNestleder,
   finnMedlemmerIGruppe,
-  genererPersonligLenke,
+  genererDelbarLenke,
   gruppetypeForGruppe,
   erTjenestegruppe,
   erGruppeledergruppe,
@@ -167,7 +167,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
   const visGruppeIds = visGrupper.map((g) => g.GruppeID);
 
   const handleCopyLink = (targetPersonId: string) => {
-    const link = genererPersonligLenke(targetPersonId, db);
+    const link = genererDelbarLenke(targetPersonId, db);
     navigator.clipboard.writeText(link).then(() => {
       setCopiedPersonId(targetPersonId);
       setTimeout(() => setCopiedPersonId(null), 2500);

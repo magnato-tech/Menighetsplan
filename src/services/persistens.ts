@@ -29,7 +29,7 @@ import { sikreStandardMaler } from "./mal";
 import { parseInnstillinger, standardInnstillinger, innstillingerTilRader, hentInnstillinger, flettManglendeInnstillinger } from "./kalender";
 import { tilIsoDato, tilIsoTid } from "./dato";
 import { byggImportBackup } from "./importBackup";
-import { erDemoVersjon } from "./demo";
+import { applyDemoBemanningScenarios, applyDemoTestTokens, erDemoVersjon } from "./demo";
 import { excelImportSammendrag, parseMenighetsplanExcelFil } from "./excelImport";
 
 const MOCK_STORAGE_KEY = "gudstjenesteplanlegger_db_v3_mock";
@@ -761,6 +761,17 @@ export function applyLoadedState(state: DatabaseState): DatabaseState {
   const medMaler = sikreStandardMaler(fixed);
   if (medMaler !== fixed) {
     fixed = medMaler;
+    endret = true;
+  }
+
+  let medDemo = applyDemoTestTokens(fixed);
+  if (medDemo !== fixed) {
+    fixed = medDemo;
+    endret = true;
+  }
+  medDemo = applyDemoBemanningScenarios(fixed);
+  if (medDemo !== fixed) {
+    fixed = medDemo;
     endret = true;
   }
 

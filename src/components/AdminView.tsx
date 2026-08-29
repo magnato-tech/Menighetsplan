@@ -1,5 +1,16 @@
 import React, { useState } from "react";
-import { DatabaseState, AppView, genererPersonligLenke, slettGruppe, opprettGruppetype, saveDatabase, synkTilgangsnivaaEtterGruppeledere } from "../services/dataService";
+import {
+  DatabaseState,
+  AppView,
+  genererDelbarLenke,
+  sikrePersonligLenkeToken,
+  slettGruppe,
+  opprettGruppetype,
+  saveDatabase,
+  synkTilgangsnivaaEtterGruppeledere,
+  erDemoVersjon,
+} from "../services/dataService";
+import { DemoTestlenkerPanel } from "./DemoTestlenkerPanel";
 import { ImportMigrationModal } from "./ImportMigrationModal";
 import { GroupAdminModal } from "./GroupAdminModal";
 import { GoogleSheetsSync } from "./GoogleSheetsSync";
@@ -80,7 +91,16 @@ export const AdminView: React.FC<AdminViewProps> = ({
   const avanserte = faner.slice(4);
 
   const handleCopyLink = (personId: string) => {
-    const link = genererPersonligLenke(personId, db);
+    let nesteDb = db;
+    if (!erDemoVersjon()) {
+      const sikret = sikrePersonligLenkeToken(db, personId);
+      nesteDb = sikret.db;
+      if (nesteDb !== db) {
+        saveDatabase(nesteDb);
+        onUpdateDb(nesteDb);
+      }
+    }
+    const link = genererDelbarLenke(personId, nesteDb);
     navigator.clipboard.writeText(link).then(() => {
       setCopiedPersonId(personId);
       setTimeout(() => setCopiedPersonId(null), 2500);
@@ -89,6 +109,7 @@ export const AdminView: React.FC<AdminViewProps> = ({
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      {erDemoVersjon() && <DemoTestlenkerPanel />}
       <div className="relative">
         <div className="flex border-b border-slate-200 gap-1 overflow-x-auto">
           {primaere.map((fane) => {

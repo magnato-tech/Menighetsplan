@@ -273,7 +273,7 @@ function tomDb(overrides: Partial<DatabaseState> = {}): DatabaseState {
 
 {
   assert.equal(erPaameldingValgt("min-bekreftet"), true);
-  assert.equal(erPaameldingValgt("min-venter"), true);
+  assert.equal(erPaameldingValgt("min-venter"), false);
   assert.equal(erPaameldingValgt("ledig"), false);
   assert.equal(kanPaameldingEndres("stengt"), false);
   assert.equal(kanPaameldingEndres("ledig"), true);

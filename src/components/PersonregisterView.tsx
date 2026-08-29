@@ -3,7 +3,9 @@ import {
   DatabaseState,
   finnUkjenteImportnavn,
   finnTjenestegrupperForPerson,
-  genererPersonligLenke,
+  genererDelbarLenke,
+  sikrePersonligLenkeToken,
+  erDemoVersjon,
   opprettPersonIRegister,
   oppdaterPersonIRegister,
   slettPersonIRegister,
@@ -79,7 +81,16 @@ export const PersonregisterView: React.FC<PersonregisterViewProps> = ({
   }, [opprettSignal]);
 
   const handleCopyLink = (personId: string) => {
-    const link = genererPersonligLenke(personId, db);
+    let nesteDb = db;
+    if (!erDemoVersjon()) {
+      const sikret = sikrePersonligLenkeToken(db, personId);
+      nesteDb = sikret.db;
+      if (nesteDb !== db) {
+        saveDatabase(nesteDb);
+        onUpdateDb(nesteDb);
+      }
+    }
+    const link = genererDelbarLenke(personId, nesteDb);
     navigator.clipboard.writeText(link).then(() => {
       setCopiedPersonId(personId);
       setTimeout(() => setCopiedPersonId(null), 2500);

@@ -40,6 +40,7 @@ import {
   X,
   UserPlus,
   AlertCircle,
+  UserX,
   CircleHelp,
   CheckCircle2,
   MoreHorizontal,
@@ -50,7 +51,7 @@ import {
 
 const UTEN_GRUPPE = "__uten__";
 
-export type OversiktFilter = "bekreftet" | "venter" | "ledige" | null;
+export type OversiktFilter = "bekreftet" | "venter" | "ledige" | "forfall" | null;
 
 export type TildelForesporsel = {
   gudstjenesteId: string;
@@ -95,6 +96,7 @@ function bemanningForRolle(
 function trefferOversiktFilter(tall: Bemanningstall, filter: OversiktFilter): boolean {
   if (!filter) return true;
   if (filter === "ledige") return tall.ledige > 0;
+  if (filter === "forfall") return tall.forfall > 0;
   if (filter === "venter") return tall.venter > 0;
   return tall.bekreftet > 0;
 }
@@ -289,7 +291,6 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     (acc, gud) => plusBemanningstall(acc, summerBemanning(db, gud.GudstjenesteID, omfangRoller)),
     tomtBemanningstall()
   );
-  const ledigeOgForfall = semesterOversikt.ledige;
   const bekreftetProsent =
     semesterOversikt.behov > 0
       ? Math.round((semesterOversikt.bekreftet / semesterOversikt.behov) * 100)
@@ -752,7 +753,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       ? alleRader
       : alleRader.filter((rad) => trefferOversiktFilter(rad.tall, oversiktFilter));
     const visDetaljer = Boolean(visDetalj[gudstjeneste.GudstjenesteID]);
-    const kant = `border-l-[3px] border-l-[#2d5a3f]${visAlleTall && totalt.ledige === 0 && totalt.venter === 0 ? " opacity-80" : ""}`;
+    const kant = `border-l-[3px] border-l-[#2d5a3f]${visAlleTall && totalt.ledige === 0 && totalt.venter === 0 && totalt.forfall === 0 ? " opacity-80" : ""}`;
     const visKjoreplanFane = visKjoreplanFor(gudstjeneste.GudstjenesteID);
     const aktivFane =
       visKjoreplanFane &&
@@ -819,11 +820,16 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                 <span className={totalt.ledige ? "text-rose-800" : "text-slate-400"}>
                   {totalt.ledige} ledige
                 </span>
+                <span className={totalt.forfall ? "text-rose-950" : "text-slate-400"}>
+                  {totalt.forfall} forfall
+                </span>
               </>
             ) : oversiktFilter === "bekreftet" ? (
               <span className="text-emerald-700">{totalt.bekreftet} bekr.</span>
             ) : oversiktFilter === "venter" ? (
               <span className="text-amber-800">{totalt.venter} venter</span>
+            ) : oversiktFilter === "forfall" ? (
+              <span className="text-rose-950">{totalt.forfall} forfall</span>
             ) : (
               <span className="text-rose-800">{totalt.ledige} ledige</span>
             )}
@@ -969,6 +975,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                               <span className={rad.tall.ledige ? "text-rose-800" : "text-slate-400"}>
                                 {rad.tall.ledige} ledige
                               </span>
+                              <span className={rad.tall.forfall ? "text-rose-950" : "text-slate-400"}>
+                                {rad.tall.forfall} forfall
+                              </span>
                             </span>
                           </div>
                         )}
@@ -1006,7 +1015,18 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
     label: string;
     aktiv: boolean;
   }[] = [
-    { id: "ledige", tall: ledigeOgForfall, label: "Ledige", aktiv: oversiktFilter === "ledige" },
+    {
+      id: "ledige",
+      tall: semesterOversikt.ledige,
+      label: "Ledige",
+      aktiv: oversiktFilter === "ledige",
+    },
+    {
+      id: "forfall",
+      tall: semesterOversikt.forfall,
+      label: "Forfall",
+      aktiv: oversiktFilter === "forfall",
+    },
     { id: "venter", tall: semesterOversikt.venter, label: "Venter", aktiv: oversiktFilter === "venter" },
     {
       id: "bekreftet",
@@ -1029,12 +1049,21 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
   const storeKort = [
     {
       id: "ledige" as const,
-      tall: ledigeOgForfall,
-      label: "Ledige slotter / Forfall",
+      tall: semesterOversikt.ledige,
+      label: "Ledige slotter",
       Icon: AlertCircle,
       wrap: "bg-rose-50 border-rose-100 text-rose-950",
       icon: "text-rose-500",
       aktiv: "ring-2 ring-rose-400",
+    },
+    {
+      id: "forfall" as const,
+      tall: semesterOversikt.forfall,
+      label: "Forfall",
+      Icon: UserX,
+      wrap: "bg-red-50 border-red-200 text-red-950",
+      icon: "text-red-600",
+      aktiv: "ring-2 ring-red-400",
     },
     {
       id: "venter" as const,
@@ -1076,7 +1105,9 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
           ? "søndager med bekreftede oppgaver"
           : oversiktFilter === "venter"
             ? "søndager der noen venter på å svare"
-            : "søndager med ledige plasser"}
+            : oversiktFilter === "forfall"
+              ? "søndager med forfall"
+              : "søndager med ledige plasser"}
         . Trykk tallet igjen for å vise alle.
       </p>
     ) : null;
@@ -1121,7 +1152,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
       <div className="md:hidden">{kompaktStatusRad}</div>
       <div
         className={`hidden md:grid gap-3 ${
-          visMedlemmerKpi ? "grid-cols-2 lg:grid-cols-4" : "grid-cols-3"
+          visMedlemmerKpi ? "grid-cols-2 lg:grid-cols-5" : "grid-cols-2 lg:grid-cols-4"
         }`}
       >
         {storeKort.map((kort) => {
