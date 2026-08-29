@@ -123,7 +123,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
                 <span className="text-2xl">👋</span>
               </h2>
               <p className="text-sm text-slate-600 mt-2 leading-relaxed">
-                Huk av det du vil bidra med. Deretter velger du hvilke søndager du kan.
+                Huk av tjenestene du vil melde deg til. Deretter velger du hvilke søndager du kan.
               </p>
             </div>
           )}
@@ -132,7 +132,7 @@ export const InteresseSkjema: React.FC<InteresseSkjemaProps> = ({
           )}
           {!landing && (
           <p className="text-xs text-slate-500 mb-4">
-            Huk av tjenestene du vil bidra med. Du blir med i gruppen, men vises bare på de
+            Huk av tjenestene du vil melde deg til. Du blir med i gruppen, men vises bare på de
             tjenestene du har valgt. Du kan legge til flere senere.
           </p>
           )}

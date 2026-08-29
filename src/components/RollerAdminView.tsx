@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { DatabaseState, nesteRolleId, saveDatabase } from "../services/dataService";
-import { Rolle } from "../types/database";
+import { BidraPreposisjon, Rolle } from "../types/database";
+import { BIDRA_PREPOSISJON_VALG, gjetBidraPreposisjon } from "../services/rollerTekst";
 import { RoleDescriptionModal, oppsummerInstruks } from "./RoleDescriptionModal";
 import { RolleIkon } from "./RolleIkon";
 import { Layers, Plus, X } from "lucide-react";
@@ -17,6 +18,7 @@ type RollePatch = {
   Behov?: number;
   MaksAntall?: number | null;
   Aktiv?: boolean;
+  BidraPreposisjon?: BidraPreposisjon;
 };
 
 export const RollerAdminView: React.FC<RollerAdminViewProps> = ({ db, onUpdateDb }) => {
@@ -52,6 +54,9 @@ export const RollerAdminView: React.FC<RollerAdminViewProps> = ({ db, onUpdateDb
               ...("Behov" in patch && patch.Behov !== undefined ? { Behov: patch.Behov } : {}),
               ...("MaksAntall" in patch ? { MaksAntall: patch.MaksAntall } : {}),
               ...("Aktiv" in patch && patch.Aktiv !== undefined ? { Aktiv: patch.Aktiv } : {}),
+              ...("BidraPreposisjon" in patch && patch.BidraPreposisjon !== undefined
+                ? { BidraPreposisjon: patch.BidraPreposisjon }
+                : {}),
               SistEndret: now,
             }
           : r
@@ -86,12 +91,14 @@ export const RollerAdminView: React.FC<RollerAdminViewProps> = ({ db, onUpdateDb
     Beskrivelse: string;
     GruppeID: string;
     Behov: number;
+    BidraPreposisjon: BidraPreposisjon;
   }) => {
     const now = new Date().toISOString().split("T")[0];
     const ny: Rolle = {
       RolleID: nesteRolleId(db.roller),
       Rollenavn: felt.Rollenavn,
       Beskrivelse: felt.Beskrivelse,
+      BidraPreposisjon: felt.BidraPreposisjon,
       Aktiv: true,
       Behov: felt.Behov,
       GruppeID: felt.GruppeID || undefined,
@@ -234,12 +241,14 @@ function NyRolleModal({
     Beskrivelse: string;
     GruppeID: string;
     Behov: number;
+    BidraPreposisjon: BidraPreposisjon;
   }) => void;
 }) {
   const [navn, setNavn] = useState("");
   const [beskrivelse, setBeskrivelse] = useState("");
   const [gruppeId, setGruppeId] = useState("");
   const [behov, setBehov] = useState(1);
+  const [bidraPreposisjon, setBidraPreposisjon] = useState<BidraPreposisjon>("med");
 
   const lagre = () => {
     const Rollenavn = navn.trim();
@@ -249,6 +258,7 @@ function NyRolleModal({
       Beskrivelse: beskrivelse.trim(),
       GruppeID: gruppeId,
       Behov: behov,
+      BidraPreposisjon: bidraPreposisjon,
     });
   };
 
@@ -282,7 +292,13 @@ function NyRolleModal({
             <input
               type="text"
               value={navn}
-              onChange={(e) => setNavn(e.target.value)}
+              onChange={(e) => {
+                const Rollenavn = e.target.value;
+                setNavn(Rollenavn);
+                if (Rollenavn.trim()) {
+                  setBidraPreposisjon(gjetBidraPreposisjon({ Rollenavn }));
+                }
+              }}
               className="mt-1 w-full text-sm border border-slate-300 rounded-xl p-2.5 bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
               placeholder="F.eks. Smågruppeleder"
               autoFocus
@@ -324,6 +340,20 @@ function NyRolleModal({
             <p className="text-[11px] text-slate-400 mt-1">
               Sett 0 for roller som ikke inngår i søndagsbemanning, f.eks. smågruppeleder.
             </p>
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-slate-600">Bidra-tekst på Min side</span>
+            <select
+              value={bidraPreposisjon}
+              onChange={(e) => setBidraPreposisjon(e.target.value as BidraPreposisjon)}
+              className="mt-1 w-full text-sm border border-slate-300 rounded-xl p-2.5 bg-slate-50 focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
+            >
+              {BIDRA_PREPOSISJON_VALG.map(({ id, eksempel }) => (
+                <option key={id} value={id}>
+                  {eksempel}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="block">
             <span className="text-xs font-semibold text-slate-600">Kort beskrivelse</span>

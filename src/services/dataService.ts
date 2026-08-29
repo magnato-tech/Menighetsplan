@@ -6,6 +6,7 @@ export * from "./ids";
 export * from "./tilgang";
 export * from "./grupper";
 export * from "./roller";
+export * from "./rollerTekst";
 export * from "./interesse";
 export * from "./bemanning";
 export * from "./program";

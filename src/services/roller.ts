@@ -41,6 +41,7 @@ export function sikreSmagruppelederRolle(db: DatabaseState): DatabaseState {
     RolleID: rolleId,
     Rollenavn: "Smågruppeleder",
     Beskrivelse: "Leder en smågruppe i menigheten med samling, bønn og oppfølging av medlemmene.",
+    BidraPreposisjon: "som",
     Aktiv: true,
     Behov: 0,
     MaksAntall: 0,

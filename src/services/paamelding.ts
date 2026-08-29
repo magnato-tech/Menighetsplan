@@ -316,6 +316,7 @@ export function svarPaForesporsel(
       personId,
       gudstjenesteId,
       rolleId,
+      meldingTilGruppe: kommentar?.trim() || undefined,
     });
   }
   return neste;

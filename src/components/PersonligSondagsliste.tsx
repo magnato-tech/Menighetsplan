@@ -395,33 +395,51 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
     if (forsteUferdige) byttMaaned(forsteUferdige.nokkel);
   };
 
+  const statusLinje = (() => {
+    const deler: string[] = [fremdrift.tekst];
+    if (aktivMaaned) {
+      deler.push(
+        `${aktivMaaned.sondager.length} ${
+          aktivMaaned.sondager.length === 1 ? "gudstjeneste" : "gudstjenester"
+        } i ${new Date(aktivMaaned.aar, aktivMaaned.maaned - 1, 1).toLocaleDateString("nb-NO", {
+          month: "long",
+          year: "numeric",
+        })}`
+      );
+    }
+    if (nesteMaaned && aktivMaanedNokkel !== nesteNokkel) {
+      deler.push(`${nesteMaaned.etikett} neste`);
+    }
+    return deler.join(" · ");
+  })();
+
   return (
     <>
       <div className="space-y-3">
         {visPaminnelseBanner ? (
           <div
             role="status"
-            className="flex items-start gap-2 rounded-xl border border-[#d2e8d9] bg-[#eef5f1] px-3 py-2.5"
+            className="flex items-center gap-2 rounded-xl border border-[#d2e8d9] bg-[#eef5f1] px-2.5 py-2"
           >
-            <Info className="w-4 h-4 text-[#2d5a3f] shrink-0 mt-0.5" aria-hidden />
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#1e3e2b]">
+            <Info className="w-3.5 h-3.5 text-[#2d5a3f] shrink-0" aria-hidden />
+            <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <p className="text-xs sm:text-sm font-medium text-[#1e3e2b]">
                 {gjenstaendeMaaneder === 1
                   ? "1 måned gjenstår i semesterplanen"
                   : `${gjenstaendeMaaneder} måneder gjenstår i semesterplanen`}
-              </p>
-              <p className="text-xs text-[#2d5a3f]/80 mt-0.5">
-                Gå måned for måned og huk av der du kan være med.
               </p>
               {forsteUferdige ? (
                 <button
                   type="button"
                   onClick={gaTilNesteUferdige}
-                  className="mt-1.5 text-xs font-semibold text-[#2d5a3f] hover:underline cursor-pointer"
+                  className="text-xs font-semibold text-[#2d5a3f] hover:underline cursor-pointer shrink-0"
                 >
                   Gå til {forsteUferdige.etikett.toLowerCase()}
                 </button>
               ) : null}
+              <p className="hidden sm:block w-full text-xs text-[#2d5a3f]/80">
+                Gå måned for måned og huk av der du kan være med.
+              </p>
             </div>
             <button
               type="button"
@@ -429,7 +447,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
               className="p-1 text-[#2d5a3f]/70 hover:text-[#2d5a3f] hover:bg-[#d2e8d9]/50 rounded-lg cursor-pointer shrink-0"
               aria-label="Skjul påminnelse"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         ) : null}
@@ -446,7 +464,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
                 key={m.nokkel}
                 type="button"
                 onClick={() => byttMaaned(m.nokkel)}
-                className={`relative shrink-0 min-h-10 px-3.5 text-sm font-semibold rounded-xl cursor-pointer transition-colors ${
+                className={`relative shrink-0 min-h-8 px-2.5 text-xs sm:text-sm font-semibold rounded-xl cursor-pointer transition-colors ${
                   aktiv
                     ? "bg-[#2d5a3f] text-white"
                     : gjennomgaatt
@@ -472,23 +490,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
           })}
         </div>
 
-        <p className="text-xs text-slate-500 px-0.5">
-          {fremdrift.tekst}
-          {nesteMaaned && aktivMaanedNokkel !== nesteNokkel
-            ? ` · ${nesteMaaned.etikett} neste`
-            : ""}
-        </p>
-
-        {aktivMaaned ? (
-          <p className="text-xs text-slate-500 px-0.5">
-            {aktivMaaned.sondager.length}{" "}
-            {aktivMaaned.sondager.length === 1 ? "gudstjeneste" : "gudstjenester"} i{" "}
-            {new Date(aktivMaaned.aar, aktivMaaned.maaned - 1, 1).toLocaleDateString("nb-NO", {
-              month: "long",
-              year: "numeric",
-            })}
-          </p>
-        ) : null}
+        <p className="text-xs text-slate-500 px-0.5">{statusLinje}</p>
 
         <div
           className={`space-y-1.5 transition-opacity duration-200 ${
@@ -500,7 +502,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
               key={gudstjeneste.GudstjenesteID}
               className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden"
             >
-              <div className="px-3 sm:px-4 py-2 flex items-center justify-between gap-2 border-b border-slate-100 bg-[#fafbfa]">
+              <div className="px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 border-b border-slate-100 bg-[#fafbfa]">
                 <div className="min-w-0">
                   <p className="text-xs sm:text-sm font-semibold text-[#2d5a3f] truncate">
                     {formatDatoKort(gudstjeneste.Dato)}
@@ -569,13 +571,13 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
           </div>
         ) : null}
 
-        <div className="sticky bottom-0 z-10 -mx-1 px-1 pt-2 pb-1 bg-linear-to-t from-[#f4f8f5] via-[#f4f8f5] to-transparent">
-          <div className="flex flex-wrap items-center gap-2">
+        <div className="sticky bottom-0 z-10 -mx-1 px-1 pt-1.5 pb-1 bg-linear-to-t from-[#f4f8f5] via-[#f4f8f5] to-transparent">
+          <div className="flex flex-wrap items-center gap-1.5">
             {forrigeNokkel ? (
               <button
                 type="button"
                 onClick={() => byttMaaned(forrigeNokkel)}
-                className="min-h-10 px-3 text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl cursor-pointer inline-flex items-center gap-1"
+                className="min-h-9 px-2.5 text-xs sm:text-sm font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl cursor-pointer inline-flex items-center gap-1"
               >
                 <ChevronLeft className="w-4 h-4" />
                 Forrige
@@ -585,7 +587,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
               <button
                 type="button"
                 onClick={markerFerdig}
-                className="min-h-10 px-3 text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] border border-[#d2e8d9] rounded-xl cursor-pointer"
+                className="min-h-9 px-2.5 text-xs sm:text-sm font-semibold text-[#2d5a3f] bg-[#eef5f1] border border-[#d2e8d9] rounded-xl cursor-pointer"
               >
                 Ferdig med {aktivMaaned.etikett.toLowerCase()}
               </button>
@@ -594,7 +596,7 @@ export const PersonligSondagsliste: React.FC<PersonligSondagslisteProps> = ({
               <button
                 type="button"
                 onClick={() => byttMaaned(nesteNokkel)}
-                className="min-h-10 px-3 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer inline-flex items-center gap-1 ml-auto"
+                className="min-h-9 px-2.5 text-xs sm:text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer inline-flex items-center gap-1 ml-auto"
               >
                 Neste: {nesteMaaned.etikett.toLowerCase()}
                 <ChevronRight className="w-4 h-4" />

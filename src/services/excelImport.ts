@@ -60,7 +60,7 @@ const MASTER_ARK: ArkSpec[] = [
     key: "roller",
     name: "Roller",
     columns: [
-      "RolleID", "Rollenavn", "Beskrivelse", "Aktiv", "Behov", "MaksAntall", "GruppeID",
+      "RolleID", "Rollenavn", "Beskrivelse", "BidraPreposisjon", "Aktiv", "Behov", "MaksAntall", "GruppeID",
       "OpprettetDato", "SistEndret",
     ],
     booleans: ["Aktiv"],

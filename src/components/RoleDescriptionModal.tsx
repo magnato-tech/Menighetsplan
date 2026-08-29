@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-import { Rolle, Rollebeskrivelse, Gruppe } from "../types/database";
+import { Rolle, Rollebeskrivelse, Gruppe, BidraPreposisjon } from "../types/database";
 import { RolleIkon } from "./RolleIkon";
 import { AlertTriangle, Clock, Pencil, Users, X } from "lucide-react";
 import { IkonHandling } from "./IkonHandling";
 import { getMaksAntall } from "../services/dataService";
+import { BIDRA_PREPOSISJON_VALG, formatBidraRolle, hentBidraPreposisjon } from "../services/rollerTekst";
 
 interface RoleDescriptionModalProps {
   rolle: Rolle | null;
@@ -20,6 +21,7 @@ interface RoleDescriptionModalProps {
     Behov?: number;
     MaksAntall?: number | null;
     Aktiv?: boolean;
+    BidraPreposisjon?: BidraPreposisjon;
   }) => void;
   onSaveInstruks?: (tekst: string) => void;
 }
@@ -181,7 +183,7 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
             <div className="text-xs text-slate-500 flex items-center gap-1.5 mb-1">
               <Users className="w-3.5 h-3.5 text-emerald-600" />
@@ -291,6 +293,34 @@ export const RoleDescriptionModal: React.FC<RoleDescriptionModalProps> = ({
                       getMaksAntall(rolle) === 1 ? "person" : "personer"
                     }`}
               </div>
+            )}
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <div className="text-xs text-slate-500 flex items-center gap-1.5 mb-1">
+              <Pencil className="w-3.5 h-3.5 text-[#2d5a3f]" />
+              <span>Bidra-tekst</span>
+            </div>
+            {editable && onUpdateRolle ? (
+              <div className="space-y-1">
+                <select
+                  value={hentBidraPreposisjon(rolle)}
+                  onChange={(e) =>
+                    onUpdateRolle({ BidraPreposisjon: e.target.value as BidraPreposisjon })
+                  }
+                  className="w-full text-sm font-semibold text-slate-900 border border-slate-200 rounded-lg p-1.5 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#2d5a3f]"
+                >
+                  {BIDRA_PREPOSISJON_VALG.map(({ id, eksempel }) => (
+                    <option key={id} value={id}>
+                      {eksempel}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[11px] text-slate-400">
+                  Vises som «{formatBidraRolle(rolle)}» på Min side.
+                </p>
+              </div>
+            ) : (
+              <div className="font-semibold text-slate-900 text-sm">{formatBidraRolle(rolle)}</div>
             )}
           </div>
         </div>

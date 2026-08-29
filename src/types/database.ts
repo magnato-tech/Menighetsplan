@@ -140,10 +140,15 @@ export interface Gruppemedlem {
   SistEndret: string;
 }
 
+/** Preposisjon i «bidra …»-tekster, f.eks. «bidra som møteleder». */
+export type BidraPreposisjon = "som" | "med" | "i" | "på";
+
 export interface Rolle {
   RolleID: string; // e.g. "R001"
   Rollenavn: string; // e.g. "Møteleder", "Taler", "Forbønn", "Barnekirke", "Lovsang", "Lyd", "Bilde", "Møtevert", "Rigging", "Kjøkken"
   Beskrivelse: string;
+  /** Brukes i «Du bidrar …» / «bidra …» sammen med Rollenavn. */
+  BidraPreposisjon?: BidraPreposisjon;
   Aktiv: boolean;
   Behov: number; // Standardbehov for rollen per gudstjeneste (veiledende)
   /** Hard øvre grense. null/udefinert = standard for rollenavn; 0 = ubegrenset overbooking; ≥1 = maks. */
