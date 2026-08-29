@@ -49,6 +49,21 @@ function somState(payload: unknown): DatabaseState {
   return (payload && typeof payload === "object" ? payload : {}) as DatabaseState;
 }
 
+/** Les full app-state fra Supabase (uten auth). Brukes bl.a. av min-ical. */
+export async function hentSupabaseState(
+  env: Pick<DbEnv, "supabaseUrl" | "supabaseKey">
+): Promise<DatabaseState | null> {
+  if (!env.supabaseUrl || !env.supabaseKey) return null;
+  try {
+    const { payload } = await supabaseHent(env as DbEnv);
+    const state = somState(payload);
+    if (tomPayload(state)) return null;
+    return state;
+  } catch {
+    return null;
+  }
+}
+
 async function supabaseHent(env: DbEnv): Promise<{ payload: unknown; updated_at?: string }> {
   const url = `${env.supabaseUrl.replace(/\/$/, "")}/rest/v1/app_state?id=eq.1&select=payload,updated_at`;
   const res = await fetch(url, {
