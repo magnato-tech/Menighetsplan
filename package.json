@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build && npm run build:api",
-    "build:api": "esbuild server/db.ts --bundle --platform=node --format=cjs --outfile=api/db.js --footer:js=\"module.exports = handler; module.exports.config = config;\"",
+    "build:api": "esbuild server/db.ts --bundle --platform=node --format=cjs --outfile=api/db.js --footer:js=\"module.exports = handler; module.exports.config = config;\" && esbuild server/minIcal.ts --bundle --platform=node --format=cjs --outfile=api/min-ical.js --footer:js=\"module.exports = handler; module.exports.config = config;\"",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",

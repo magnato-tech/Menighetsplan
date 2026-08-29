@@ -19,6 +19,23 @@ export const KalenderAbonner: React.FC<KalenderAbonnerProps> = ({ db, personId }
 
   if (!googleUrl) return null;
 
+  const logAbonner = () => {
+    // #region agent log
+    fetch("http://127.0.0.1:7773/ingest/22f8ce1a-6ae6-4b39-94db-6128c87cda21", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "c1c83b" },
+      body: JSON.stringify({
+        sessionId: "c1c83b",
+        hypothesisId: "E",
+        location: "KalenderAbonner.tsx",
+        message: "Abonner clicked",
+        data: { icsUrl, googleUrlLen: googleUrl.length },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+  };
+
   const kopier = async () => {
     try {
       await navigator.clipboard.writeText(icsUrl);
@@ -35,6 +52,7 @@ export const KalenderAbonner: React.FC<KalenderAbonnerProps> = ({ db, personId }
         href={googleUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={logAbonner}
         title="Abonner i Google Kalender"
         className="min-h-11 px-3 py-2 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl inline-flex items-center gap-1.5"
       >
