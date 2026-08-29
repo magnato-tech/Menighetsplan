@@ -1071,6 +1071,8 @@ export const initialTildelinger: Tildeling[] = [
   { TildelingID: "T018", GudstjenesteID: "GUD003", RolleID: "R004", PersonID: "P016", OpprettetDato: "2026-01-20", SistEndret: "2026-01-20" }, // Bjørn Barnekirke
   // Demo: P018 forespurt forbønn uten avhuket rolle (har kun lovsang)
   { TildelingID: "T019", GudstjenesteID: "GUD002", RolleID: "R003", PersonID: "P018", OpprettetDato: "2026-01-20", SistEndret: "2026-01-20" },
+  // Demo: P008 forespurt lovsang 6. sep (Ja/Nei på Min side)
+  { TildelingID: "T020", GudstjenesteID: "GUD003", RolleID: "R005", PersonID: "P008", OpprettetDato: "2026-01-20", SistEndret: "2026-01-20" },
 ];
 
 export const initialSvar: Svar[] = [
@@ -1094,6 +1096,7 @@ export const initialSvar: Svar[] = [
   { SvarID: "S017", TildelingID: "T017", PersonID: "P012", Svar: "Bekreftet", SvartDato: "2026-01-22" },
   { SvarID: "S018", TildelingID: "T018", PersonID: "P016", Svar: "Bekreftet", SvartDato: "2026-01-22" },
   { SvarID: "S019", TildelingID: "T019", PersonID: "P018", Svar: "Venter", SvartDato: "" },
+  { SvarID: "S020", TildelingID: "T020", PersonID: "P008", Svar: "Venter", SvartDato: "" },
 ];
 
 // Historiske import-kildedata som beholdes urørt for migrering/innsyn

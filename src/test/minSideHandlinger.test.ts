@@ -336,4 +336,30 @@ function finnTildeling(db: DatabaseState, rolleId: string) {
   assert.equal(meldForfall(db, PERSON, GUD_ID, "R005"), undefined);
 }
 
+// —— Duplikat svar-rader: avslag skal likevel fjerne forespørselen ——
+{
+  let db = settDeltakelseForPerson(tomDb(), PERSON, GUD_ID, "R005", "Avventer");
+  const t = finnTildeling(db, "R005")!;
+  db = {
+    ...db,
+    svar: [
+      ...db.svar,
+      {
+        SvarID: "S_DUP",
+        TildelingID: t.TildelingID,
+        PersonID: "FEIL",
+        Svar: "Venter",
+        SvartDato: "",
+      },
+    ],
+  };
+  assert.equal(hentKommendeForesporsler(db, PERSON).length, 1);
+  db = assertOppdatert(
+    svarPaForesporsel(db, PERSON, GUD_ID, "R005", "Avvist", "Nei takk", t.TildelingID),
+    "Send avslag med duplikat svar-rad"
+  );
+  assert.equal(hentKommendeForesporsler(db, PERSON).length, 0);
+  assert.equal(hentSvarStatus(db, t.TildelingID), "Avvist");
+}
+
 console.log("minSideHandlinger.test.ts: ok");

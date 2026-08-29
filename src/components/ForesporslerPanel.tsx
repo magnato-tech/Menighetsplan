@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import type { DatabaseState } from "../types/database";
 import {
   hentKommendeForesporsler,
+  saveDatabase,
   svarPaForesporsel,
   type ForesporselRad,
 } from "../services/dataService";
@@ -25,10 +26,21 @@ function formatDato(dato: string): string {
 
 const ForesporselKort: React.FC<{
   rad: ForesporselRad;
-  onSvar: (svar: "Bekreftet" | "Avvist", melding?: string) => void;
+  onSvar: (svar: "Bekreftet" | "Avvist", melding?: string) => boolean;
 }> = ({ rad, onSvar }) => {
   const [visNei, setVisNei] = useState(false);
   const [melding, setMelding] = useState("");
+
+  const lukkAvslag = () => {
+    setVisNei(false);
+    setMelding("");
+  };
+
+  const sendSvar = (svar: "Bekreftet" | "Avvist", tekst?: string) => {
+    if (onSvar(svar, tekst)) {
+      lukkAvslag();
+    }
+  };
 
   return (
     <li className="rounded-xl border border-amber-200 bg-amber-50/60 px-3 py-3 space-y-2">
@@ -48,7 +60,7 @@ const ForesporselKort: React.FC<{
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => onSvar("Bekreftet")}
+            onClick={() => sendSvar("Bekreftet")}
             className="inline-flex items-center gap-1.5 min-h-10 px-3 text-sm font-semibold text-white bg-[#2d5a3f] hover:bg-[#234731] rounded-xl cursor-pointer"
           >
             <Check className="w-4 h-4" />
@@ -75,17 +87,14 @@ const ForesporselKort: React.FC<{
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => onSvar("Avvist", melding.trim() || undefined)}
+              onClick={() => sendSvar("Avvist", melding.trim() || undefined)}
               className="min-h-10 px-3 text-sm font-semibold text-white bg-rose-700 hover:bg-rose-800 rounded-xl cursor-pointer"
             >
               Send avslag
             </button>
             <button
               type="button"
-              onClick={() => {
-                setVisNei(false);
-                setMelding("");
-              }}
+              onClick={lukkAvslag}
               className="min-h-10 px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer"
             >
               Avbryt
@@ -102,6 +111,7 @@ export const ForesporslerPanel: React.FC<ForesporslerPanelProps> = ({
   personId,
   onUpdateDb,
 }) => {
+  const [feil, setFeil] = useState<string | null>(null);
   const foresporsler = hentKommendeForesporsler(db, personId);
   if (foresporsler.length === 0) return null;
 
@@ -109,7 +119,8 @@ export const ForesporslerPanel: React.FC<ForesporslerPanelProps> = ({
     rad: ForesporselRad,
     svar: "Bekreftet" | "Avvist",
     melding?: string
-  ) => {
+  ): boolean => {
+    setFeil(null);
     const neste = svarPaForesporsel(
       db,
       personId,
@@ -119,7 +130,13 @@ export const ForesporslerPanel: React.FC<ForesporslerPanelProps> = ({
       melding,
       rad.tildelingId
     );
-    if (neste) onUpdateDb(neste);
+    if (!neste) {
+      setFeil("Kunne ikke lagre svaret. Prøv igjen, eller kontakt gruppeleder.");
+      return false;
+    }
+    saveDatabase(neste);
+    onUpdateDb(neste);
+    return true;
   };
 
   return (
@@ -128,6 +145,11 @@ export const ForesporslerPanel: React.FC<ForesporslerPanelProps> = ({
         <Bell className="w-4 h-4" />
         Forespørsler ({foresporsler.length})
       </h3>
+      {feil ? (
+        <p className="mb-3 text-xs font-medium text-rose-800 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+          {feil}
+        </p>
+      ) : null}
       <ul className="space-y-2">
         {foresporsler.map((rad) => (
           <ForesporselKort

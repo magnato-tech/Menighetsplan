@@ -133,7 +133,22 @@ function avvisHvisPassertDato(
 }
 
 export function hentSvarStatus(db: DatabaseState, tildelingId: string): SvarStatus {
-  return db.svar.find((s) => s.TildelingID === tildelingId)?.Svar || "Venter";
+  const kandidater = db.svar.filter((s) => s.TildelingID === tildelingId);
+  if (kandidater.length === 0) return "Venter";
+
+  const tildeling = db.tildelinger.find((t) => t.TildelingID === tildelingId);
+  const relevante = tildeling?.PersonID
+    ? kandidater.filter((s) => s.PersonID === tildeling.PersonID)
+    : kandidater;
+  const liste = relevante.length > 0 ? relevante : kandidater;
+
+  const avgjort = liste.find((s) => s.Svar === "Bekreftet" || s.Svar === "Avvist");
+  if (avgjort) return avgjort.Svar;
+
+  const sortert = [...liste].sort((a, b) =>
+    String(b.SvartDato || "").localeCompare(String(a.SvartDato || ""))
+  );
+  return sortert[0]?.Svar || "Venter";
 }
 
 export function erEksternPersonId(personId: string): boolean {
@@ -686,41 +701,33 @@ export function svarPaaTildeling(
   kommentar?: string
 ): DatabaseState {
   const now = new Date().toISOString().split("T")[0];
-  const eksisterendeSvarIndex = db.svar.findIndex(
-    (s) => s.TildelingID === tildelingID && s.PersonID === personID
-  );
+  const tildeling = db.tildelinger.find((t) => t.TildelingID === tildelingID);
+  const faktiskPersonId = tildeling?.PersonID || personID;
+  const eksisterende = db.svar.filter((s) => s.TildelingID === tildelingID);
+  const behold =
+    eksisterende.find((s) => s.PersonID === faktiskPersonId) || eksisterende[0];
 
-  let updatedSvarListe: Svar[];
-
-  if (eksisterendeSvarIndex >= 0) {
-    updatedSvarListe = [...db.svar];
-    updatedSvarListe[eksisterendeSvarIndex] = {
-      ...updatedSvarListe[eksisterendeSvarIndex],
-      Svar: nyttSvarStatus,
-      Kommentar: kommentar !== undefined ? kommentar : updatedSvarListe[eksisterendeSvarIndex].Kommentar,
-      SvartDato: now,
-    };
-  } else {
-    const maxSvarNr = db.svar.reduce((max, s) => {
-      const num = parseInt(s.SvarID.replace(/\D/g, ""), 10);
-      return !isNaN(num) && num > max ? num : max;
-    }, 0);
-    const newSvarID = `S${String(maxSvarNr + 1).padStart(3, "0")}`;
-
-    const nyttSvar: Svar = {
-      SvarID: newSvarID,
-      TildelingID: tildelingID,
-      PersonID: personID,
-      Svar: nyttSvarStatus,
-      Kommentar: kommentar || "",
-      SvartDato: now,
-    };
-    updatedSvarListe = [...db.svar, nyttSvar];
-  }
+  const oppdatert: Svar = behold
+    ? {
+        ...behold,
+        PersonID: faktiskPersonId,
+        Svar: nyttSvarStatus,
+        Kommentar:
+          kommentar !== undefined ? kommentar : behold.Kommentar,
+        SvartDato: now,
+      }
+    : {
+        SvarID: nesteNummerertId(db.svar, "SvarID", "S"),
+        TildelingID: tildelingID,
+        PersonID: faktiskPersonId,
+        Svar: nyttSvarStatus,
+        Kommentar: kommentar || "",
+        SvartDato: now,
+      };
 
   const updatedDb: DatabaseState = {
     ...db,
-    svar: updatedSvarListe,
+    svar: [...db.svar.filter((s) => s.TildelingID !== tildelingID), oppdatert],
   };
 
   saveDatabase(updatedDb);
