@@ -14,6 +14,11 @@ import { finnTjenestegrupperForPerson, synkGruppeledergruppe } from "./grupper";
 import { erGudstjenesteBemanningRolle } from "./roller";
 import { hentPåmeldingsRoller, tjenesteGruppenavnForPerson } from "./interesse";
 import { hentTilgang } from "./tilgang";
+import { handterForfallGruppeMelding } from "./systemmeldinger";
+
+export type SvarPaaTildelingOptions = {
+  meldingTilGruppe?: string;
+};
 
 /** Arrangement-rader har ArrangementID og tom GudstjenesteID — aldri omvendt. */
 export function erHendelseRad(
@@ -698,11 +703,13 @@ export function svarPaaTildeling(
   tildelingID: string,
   personID: string,
   nyttSvarStatus: SvarStatus,
-  kommentar?: string
+  kommentar?: string,
+  options?: SvarPaaTildelingOptions
 ): DatabaseState {
   const now = new Date().toISOString().split("T")[0];
   const tildeling = db.tildelinger.find((t) => t.TildelingID === tildelingID);
   const faktiskPersonId = tildeling?.PersonID || personID;
+  const tidligereStatus = hentSvarStatus(db, tildelingID);
   const eksisterende = db.svar.filter((s) => s.TildelingID === tildelingID);
   const behold =
     eksisterende.find((s) => s.PersonID === faktiskPersonId) || eksisterende[0];
@@ -725,10 +732,25 @@ export function svarPaaTildeling(
         SvartDato: now,
       };
 
-  const updatedDb: DatabaseState = {
+  let updatedDb: DatabaseState = {
     ...db,
     svar: [...db.svar.filter((s) => s.TildelingID !== tildelingID), oppdatert],
   };
+
+  if (
+    nyttSvarStatus === "Avvist" &&
+    tidligereStatus !== "Avvist" &&
+    tildeling?.GudstjenesteID &&
+    tildeling.RolleID
+  ) {
+    updatedDb = handterForfallGruppeMelding(updatedDb, {
+      tildelingId: tildelingID,
+      personId: faktiskPersonId,
+      gudstjenesteId: tildeling.GudstjenesteID,
+      rolleId: tildeling.RolleID,
+      meldingTilGruppe: options?.meldingTilGruppe,
+    });
+  }
 
   saveDatabase(updatedDb);
   return updatedDb;
@@ -807,34 +829,7 @@ export function settDeltakelseForPerson(
     status === "Deltar" ? "Bekreftet" : status === "Avvist" ? "Avvist" : "Venter";
 
   const utenSave: DatabaseState = { ...db, tildelinger };
-  const eksisterendeSvarIndex = utenSave.svar.findIndex(
-    (s) => s.TildelingID === tildelingId && s.PersonID === personId
-  );
-  let svar = [...utenSave.svar];
-  if (eksisterendeSvarIndex >= 0) {
-    svar[eksisterendeSvarIndex] = {
-      ...svar[eksisterendeSvarIndex],
-      Svar: svarStatus,
-      Kommentar: kommentar !== undefined ? kommentar : svar[eksisterendeSvarIndex].Kommentar,
-      SvartDato: now,
-    };
-  } else {
-    svar = [
-      ...svar,
-      {
-        SvarID: nesteNummerertId(svar, "SvarID", "S"),
-        TildelingID: tildelingId,
-        PersonID: personId,
-        Svar: svarStatus,
-        Kommentar: kommentar || "",
-        SvartDato: now,
-      },
-    ];
-  }
-
-  const updatedDb: DatabaseState = { ...utenSave, svar };
-  saveDatabase(updatedDb);
-  return updatedDb;
+  return svarPaaTildeling(utenSave, tildelingId, personId, svarStatus, kommentar);
 }
 
 function nesteEksternPersonId(tildelinger: Tildeling[]): string {

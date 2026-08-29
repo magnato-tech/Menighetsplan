@@ -1,6 +1,6 @@
 import "./polyfill";
 import assert from "node:assert/strict";
-import { hentSvarStatus, settDeltakelseForPerson, velgDatoForPerson } from "../services/bemanning";
+import { hentSvarStatus, settDeltakelseForPerson, svarPaaTildeling, velgDatoForPerson } from "../services/bemanning";
 import {
   byggGruppeSondagStatus,
   byggPersonligSondagsliste,
@@ -244,6 +244,24 @@ function reload(db: DatabaseState): DatabaseState {
     (x) => x.GudstjenesteID === GUD_ID && x.RolleID === "R005" && x.PersonID === "P010"
   );
   assert.equal(hentSvarStatus(db, t!.TildelingID), "Avvist");
+}
+
+{
+  let db = settDeltakelseForPerson(tomDb(), "P010", GUD_ID, "R005", "Deltar");
+  const t = db.tildelinger.find(
+    (x) => x.GudstjenesteID === GUD_ID && x.RolleID === "R005" && x.PersonID === "P010"
+  )!;
+  db = svarPaaTildeling(db, t.TildelingID, "P010", "Avvist", "Avvist av gruppeleder");
+  assert.equal(db.gruppeMeldinger?.length, 1);
+  assert.equal(db.gruppeMeldinger![0].Kilde, "system");
+  assert.equal(db.gruppeMeldinger![0].HendelseType, "forfall");
+}
+
+{
+  let db = settDeltakelseForPerson(tomDb(), "P010", GUD_ID, "R005", "Deltar");
+  db = settDeltakelseForPerson(db, "P010", GUD_ID, "R005", "Avvist", "Avvist av gruppeleder");
+  assert.equal(db.gruppeMeldinger?.length, 1);
+  assert.equal(db.gruppeMeldinger![0].Kilde, "system");
 }
 
 {

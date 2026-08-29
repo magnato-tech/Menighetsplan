@@ -8,8 +8,6 @@ import {
   svarPaaTildeling,
   velgDatoForPerson,
 } from "./bemanning";
-import { opprettGruppeMelding } from "./kommunikasjon";
-import { opprettForfallSystemmelding } from "./systemmeldinger";
 import { erTjenestegruppe } from "./grupper";
 import {
   erMedITjenestegruppe,
@@ -118,48 +116,6 @@ function mapTildelingTilPerson(
     forfallDato: forfallMelding?.OpprettetDato,
     erSystemmelding: forfallMelding?.Kilde === "system",
   };
-}
-
-function etterForfallGruppeMelding(
-  db: DatabaseState,
-  input: {
-    tildelingId: string;
-    personId: string;
-    gudstjenesteId: string;
-    rolleId: string;
-    meldingTilGruppe?: string;
-  }
-): DatabaseState {
-  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === input.gudstjenesteId);
-  const rolle = db.roller.find((r) => r.RolleID === input.rolleId);
-  const gruppeId = rolle?.GruppeID;
-  if (!gruppeId || !rolle || !gud) return db;
-
-  const tekst = String(input.meldingTilGruppe || "").trim();
-  if (tekst) {
-    const dato = formatDatoPrefiks(gud.Dato);
-    const prefiks = `${rolle.Rollenavn || "Oppgave"}${dato ? ` ${dato}` : ""}: `;
-    return opprettGruppeMelding(db, {
-      gruppeId,
-      tekst: `${prefiks}${tekst}`,
-      opprettetAvPersonId: input.personId,
-      kilde: "medlem",
-      hendelseType: "forfall",
-      gudstjenesteId: input.gudstjenesteId,
-      rolleId: input.rolleId,
-      tildelingId: input.tildelingId,
-    });
-  }
-
-  return opprettForfallSystemmelding(db, {
-    gruppeId,
-    personId: input.personId,
-    tildelingId: input.tildelingId,
-    gudstjenesteId: input.gudstjenesteId,
-    rolle,
-    gudstjenesteDato: gud.Dato,
-    gudstjenesteTema: gud.Tema,
-  });
 }
 
 function tjenesteGruppeIdsForPerson(db: DatabaseState, personId: string): Set<string> {
@@ -277,16 +233,6 @@ export function byggGruppeSondagStatus(
   return resultat.sort((a, b) => a.gruppenavn.localeCompare(b.gruppenavn, "nb"));
 }
 
-function formatDatoPrefiks(dato: string): string {
-  const parsed = new Date(`${dato}T12:00:00`);
-  if (Number.isNaN(parsed.getTime())) return dato;
-  return parsed.toLocaleDateString("nb-NO", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
 export function svarPaForesporsel(
   db: DatabaseState,
   personId: string,
@@ -309,17 +255,9 @@ export function svarPaForesporsel(
     svar === "Bekreftet"
       ? kommentar || "Bekreftet via Min side"
       : kommentar || "Avslått via Min side";
-  let neste = svarPaaTildeling(db, tildeling.TildelingID, personId, svar, melding);
-  if (svar === "Avvist") {
-    neste = etterForfallGruppeMelding(neste, {
-      tildelingId: tildeling.TildelingID,
-      personId,
-      gudstjenesteId,
-      rolleId,
-      meldingTilGruppe: kommentar?.trim() || undefined,
-    });
-  }
-  return neste;
+  return svarPaaTildeling(db, tildeling.TildelingID, personId, svar, melding, {
+    meldingTilGruppe: svar === "Avvist" ? kommentar?.trim() || undefined : undefined,
+  });
 }
 
 export function meldForfall(
@@ -337,27 +275,9 @@ export function meldForfall(
   );
   if (!tildeling) return undefined;
 
-  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === gudstjenesteId);
-  const rolle = db.roller.find((r) => r.RolleID === rolleId);
-  let neste = svarPaaTildeling(
-    db,
-    tildeling.TildelingID,
-    personId,
-    "Avvist",
-    "Meldt forfall"
-  );
-
-  const gruppeId = rolle?.GruppeID;
-  if (gruppeId && rolle && gud) {
-    neste = etterForfallGruppeMelding(neste, {
-      tildelingId: tildeling.TildelingID,
-      personId,
-      gudstjenesteId,
-      rolleId,
-      meldingTilGruppe,
-    });
-  }
-  return neste;
+  return svarPaaTildeling(db, tildeling.TildelingID, personId, "Avvist", "Meldt forfall", {
+    meldingTilGruppe,
+  });
 }
 
 export function byggPåmeldingsrader(

@@ -84,7 +84,7 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
     <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-4">
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
-          Kommunikasjon
+          Meldinger til gruppen
         </h3>
         <div className="flex flex-wrap gap-2">
           {innstillinger.visVarselEpost ? (

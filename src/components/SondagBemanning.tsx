@@ -1503,7 +1503,7 @@ export const SondagBemanning: React.FC<SondagBemanningProps> = ({
                   }}
                   className="text-sm font-semibold text-[#2d5a3f] hover:underline cursor-pointer"
                 >
-                  Åpne Medlemmer-fanen for meldinger og mer →
+                  Åpne Medlemmer-fanen for full medlemsliste →
                 </button>
               </div>
             ) : null}

@@ -73,6 +73,50 @@ function formatDatoKort(dato: string): string {
   });
 }
 
+/** Etter forfall: medlemsmelding med egen tekst, ellers automatisk systemmelding. */
+export function handterForfallGruppeMelding(
+  db: DatabaseState,
+  input: {
+    tildelingId: string;
+    personId: string;
+    gudstjenesteId: string;
+    rolleId: string;
+    meldingTilGruppe?: string;
+  }
+): DatabaseState {
+  if (!input.gudstjenesteId) return db;
+  const gud = db.gudstjenester.find((g) => g.GudstjenesteID === input.gudstjenesteId);
+  const rolle = db.roller.find((r) => r.RolleID === input.rolleId);
+  const gruppeId = rolle?.GruppeID;
+  if (!gruppeId || !rolle || !gud) return db;
+
+  const tekst = String(input.meldingTilGruppe || "").trim();
+  if (tekst) {
+    const dato = formatDatoKort(gud.Dato);
+    const prefiks = `${rolle.Rollenavn || "Oppgave"}${dato ? ` ${dato}` : ""}: `;
+    return opprettGruppeMelding(db, {
+      gruppeId,
+      tekst: `${prefiks}${tekst}`,
+      opprettetAvPersonId: input.personId,
+      kilde: "medlem",
+      hendelseType: "forfall",
+      gudstjenesteId: input.gudstjenesteId,
+      rolleId: input.rolleId,
+      tildelingId: input.tildelingId,
+    });
+  }
+
+  return opprettForfallSystemmelding(db, {
+    gruppeId,
+    personId: input.personId,
+    tildelingId: input.tildelingId,
+    gudstjenesteId: input.gudstjenesteId,
+    rolle: rolle,
+    gudstjenesteDato: gud.Dato,
+    gudstjenesteTema: gud.Tema,
+  });
+}
+
 function fornavnFraPerson(navn: string, fornavn?: string): string {
   const f = String(fornavn || navn || "").trim();
   if (f) return f.split(/\s+/)[0] || f;

@@ -613,13 +613,15 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
           {/* MEDLEMMER */}
           {visSeksjon === "medlemmer" && (
             <div className="space-y-4">
-              <GruppeKommunikasjon
-                db={db}
-                gruppeId={currentGruppe.GruppeID}
-                gruppenavn={currentGruppe.Gruppenavn}
-                opprettetAvPersonId={selectedPersonId}
-                onUpdateDb={onUpdateDb}
-              />
+              {!erTjenesteMedBemanning ? (
+                <GruppeKommunikasjon
+                  db={db}
+                  gruppeId={currentGruppe.GruppeID}
+                  gruppenavn={currentGruppe.Gruppenavn}
+                  opprettetAvPersonId={selectedPersonId}
+                  onUpdateDb={onUpdateDb}
+                />
+              ) : null}
               <GruppeMedlemListe
                 db={db}
                 medlemmer={oversiktPersoner}
@@ -678,7 +680,15 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
 
           {/* BEMANNING */}
           {visSeksjon === "bemanning" && visGudstjenesteBemanning && gruppensRoller.length > 0 && (
-            <SondagBemanning
+            <div className="space-y-4">
+              <GruppeKommunikasjon
+                db={db}
+                gruppeId={currentGruppe.GruppeID}
+                gruppenavn={currentGruppe.Gruppenavn}
+                opprettetAvPersonId={selectedPersonId}
+                onUpdateDb={onUpdateDb}
+              />
+              <SondagBemanning
               db={db}
               onUpdateDb={onUpdateDb}
               rolleIds={gruppensRoller.map((r) => r.RolleID)}
@@ -722,6 +732,7 @@ export const GroupLeaderView: React.FC<GroupLeaderViewProps> = ({
               guideApneForsteKort={guideOpen && guideApneForsteKort}
               apneForsteKort
             />
+            </div>
           )}
 
           {/* KALENDER */}
