@@ -297,6 +297,14 @@ function finnTildeling(db: DatabaseState, rolleId: string) {
   assert.equal(db.gruppeMeldinger![0].Kilde, "system");
 }
 
+// —— Ingen duplikat systemmelding ved gjentatt forfall ——
+{
+  let db = settDeltakelseForPerson(tomDb(), PERSON, GUD_ID, "R005", "Deltar");
+  db = assertOppdatert(meldForfall(db, PERSON, GUD_ID, "R005"), "første forfall");
+  db = assertOppdatert(meldForfall(db, PERSON, GUD_ID, "R005"), "andre forfall-kall");
+  assert.equal(db.gruppeMeldinger?.length, 1);
+}
+
 // —— Gruppeleder: bekreft direkte (Deltar) ——
 {
   const db = settDeltakelseForPerson(tomDb(), PERSON, GUD_ID, "R005", "Deltar");

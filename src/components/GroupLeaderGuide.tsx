@@ -9,6 +9,7 @@ import {
   UserPlus,
   Users,
   CalendarDays,
+  MessageSquare,
   X,
 } from "lucide-react";
 import type { ArkVisning } from "./Planleggingsark";
@@ -69,6 +70,13 @@ const BEMANNING_STEG: Steg[] = [
     tekst: "Kopier lenken til et medlem og send den på SMS, e-post eller melding. De kommer rett til sin side og ser gudstjenester fremover.",
     Icon: Share2,
   },
+  {
+    target: "meldinger",
+    visning: "liste",
+    tittel: "Meldinger til gruppen",
+    tekst: "Øverst på Bemanning-fanen kan du sende meldinger, se forfall-varsler og styre automatiske systemmeldinger når noen melder forfall uten egen tekst.",
+    Icon: MessageSquare,
+  },
 ];
 
 const HUSGRUPPE_STEG: Steg[] = [
@@ -83,7 +91,7 @@ const HUSGRUPPE_STEG: Steg[] = [
     target: "medlemmer",
     visning: "liste",
     tittel: "Hold oversikt over menneskene",
-    tekst: "Medlemslisten er hjertet i gruppen. Legg til fra menighetsregisteret, eller opprett en ny person som admin bekrefter senere.",
+    tekst: "Medlemslisten er hjertet i gruppen. Legg til fra menighetsregisteret, eller opprett en ny person som admin bekrefter senere. Her finner du også meldinger til gruppen.",
     Icon: Users,
   },
   {

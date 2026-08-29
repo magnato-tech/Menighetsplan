@@ -151,9 +151,14 @@ function tomDb(): DatabaseState {
   db.personer = [
     {
       PersonID: "P001",
+      Navn: "Test Bruker",
       Fornavn: "Test",
       Etternavn: "Bruker",
+      Epost: "",
+      Telefon: "",
       Aktiv: true,
+      OpprettetDato: "2026-01-01",
+      SistEndret: "2026-01-01",
       SikkerhetsToken: "mk_abc123def",
     },
   ];

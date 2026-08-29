@@ -11,7 +11,7 @@ Første versjon er inne: admin-fanen **Programmal**, per-gudstjeneste **Programa
 
 **Samlingsplanlegging (v1 grunnversjon):** Accordion på gruppekort (admin + gruppeleder). Én samling eller gjentakelse (uke / annenhver uke / måned). Oppretter arrangementer i app-kalenderen med tagger for **Gruppe** og **Type gruppe**. Tjenestevalg på gruppekort er fjernet — source of truth er **Velg tjeneste** på Min side. UI heter **Ny samling** hos gruppeleder.
 
-**Gruppeleder-arbeidsflate (v1):** Egen IA (ikke admin-filter): Hjem med neste samling + neste gruppeledersamling, Medlemmer med kontakt og ny person (`PersonStatus: ny`), Samlinger med Ny samling og oppmøte, Bemanning for tjenestegrupper. Mobil-nav for alle gruppeledere. Type-tilpasset guide. Enkel gruppekommunikasjon (mailto / kopier navneliste). Admin eier fortsatt gruppenavn, kategori og beskrivelse.
+**Gruppeleder-arbeidsflate (v1):** Egen IA (ikke admin-filter): Hjem med neste samling + neste gruppeledersamling, Medlemmer med kontakt og ny person (`PersonStatus: ny`), Samlinger med Ny samling og oppmøte, Bemanning for tjenestegrupper. Mobil-nav for alle gruppeledere. Type-tilpasset guide. Gruppekommunikasjon: meldingspanel på Bemanning (tjenestegrupper) eller Medlemmer (øvrige), manuell melding med varsel, systemmelding ved forfall uten egen tekst når det fortsatt er ledige plasser, valgfri meldingsfane på Min side (admin). Admin eier fortsatt gruppenavn, kategori og beskrivelse.
 
 Ikke i v1:
 

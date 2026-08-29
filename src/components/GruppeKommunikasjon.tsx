@@ -81,7 +81,7 @@ export const GruppeKommunikasjon: React.FC<GruppeKommunikasjonProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-4">
+    <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-4" data-guide="meldinger">
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
           Meldinger til gruppen
